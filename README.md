@@ -5,6 +5,8 @@ A minimal grid launcher for Hyundai's gen5W head unit (Android 4.4), installed t
 [Launchpad](https://github.com/paytondevs/gen5w-preconditioning)'s preconditioning backend and hold-to-open service.
 It's developed and tested on an IONIQ 5 (NEEV23 US).
 
+![Tilepad on an IONIQ 5 head unit: Wi-Fi, ADB, Tweaks and Precondition status tiles, Nemesis Manager and Reboot Head Unit, then shortcuts](docs/images/launcher.png)
+
 Hold the steering wheel's **★** (custom) button for about a second to open it. Hold again to close it.
 A short ★ press still runs whatever Hyundai's Button settings assign to it.
 
