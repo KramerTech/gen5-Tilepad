@@ -98,10 +98,13 @@ service, boot receiver, alarm receiver, or store/broker dependency.
   Driver Only reads them with in-process Binder getters once a second (the belt only
   while the car is on and not yet buckled). One `dumpsys com.hkmc.micom.datc` read
   seeds the climate state at connect.
-- Auto-Open Phone Projection reuses the runtime receiver for native connection events,
-  debounces them, and reads the underlying AA/CarPlay Binder state. No periodic
-  connection poll runs. Seen connections are persisted per boot to avoid reopening
-  after a service restart; camera screens defer opening.
+- Auto-Open Phone Projection uses the native AA connection Binder callback. OEM
+  ordered broadcasts skip receivers hosted by standalone root processes on this
+  firmware, even when registration succeeds. While enabled, an in-process status
+  check every two seconds also detects CarPlay, missed callbacks and late native
+  state changes. No shell polling, new service or wake lock is involved. Seen
+  connections are persisted per boot to avoid reopening after a service restart;
+  camera screens defer opening. Disabling unregisters the callback and stops checks.
 - Charge-Away uses the GPS fix already maintained by the head unit, checked every
   ten seconds only while enabled with Home set. A lazily created worker thread in
   the same process isolates fresh charging-feedback waits from climate/DST and

@@ -77,10 +77,11 @@ class TileView extends FrameLayout {
         column.setGravity(Gravity.CENTER);
         column.setPadding(ui.dp(12), ui.dp(12), ui.dp(12), ui.dp(12));
         column.addView(icon, new LinearLayout.LayoutParams(ui.dp(iconDp), ui.dp(iconDp)));
-        TextView name = ui.text(label, 19, Ui.TEXT, true);
+        TextView name = ui.text(LabelWrap.wrap(label), 19, Ui.TEXT, true);
         name.setTag("label");
-        name.setGravity(Gravity.CENTER);
-        name.setMaxLines(2);
+        // Always two lines tall, so icons line up whether a name wraps or not.
+        name.setGravity(Gravity.CENTER_HORIZONTAL | Gravity.TOP);
+        name.setLines(2);
         name.setEllipsize(TextUtils.TruncateAt.END);
         LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(-2, -2);
         p.topMargin = ui.dp(16);
@@ -109,7 +110,7 @@ class TileView extends FrameLayout {
 
     void setLabel(String label) {
         TextView name = (TextView) findViewWithTag("label");
-        if (name != null) name.setText(label);
+        if (name != null) name.setText(LabelWrap.wrap(label));
         setContentDescription(label);
     }
 }

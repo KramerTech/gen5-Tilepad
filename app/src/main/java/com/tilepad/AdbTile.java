@@ -19,7 +19,7 @@ final class AdbTile extends StatusTile {
                 setPill("On", Ui.GREEN);
                 show(headline, "Port " + s.port);
                 headline.setTextColor(Ui.ACCENT);
-                show(detail, "Open to this network");
+                show(detail, "Open to network");
                 show(meta, "Tap to turn off");
                 setContentDescription("ADB on, any computer on the network can connect on port " + s.port);
                 break;

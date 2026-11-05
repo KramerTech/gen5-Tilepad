@@ -6,22 +6,27 @@ import android.os.Handler;
 import java.io.*;
 import java.util.*;
 
-/** Event-driven connection edge detection, independent of the stock OSD renderer. */
+/** Native edge detection and a cheap in-process fallback, independent of OEM broadcast delivery. */
 final class ProjectionController {
-    static final String[] EVENTS = {"com.telechips.android.gpm.set", "com.telechips.android.gpm.finish",
-        "com.daudio.app.dipo.start", "com.daudio.app.dipo.close",
-        "com.daudio.app.phoneprojection.UPDATE_CARPLAY", "com.daudio.app.phoneprojection.UPDATE_ANDROIDAUTO",
-        "android.hardware.usb.action.CARPLAY_DEVICE_ATTACHED", "android.hardware.usb.action.CARPLAY_DEVICE_DETACHED"};
     private static boolean checked;
     private final Context context;
     private final Handler handler;
+    private final GpmConnectionEvents nativeEvents;
     private final File state = new File(Platform.STATE, "projection.properties");
     private ProjectionPolicy policy = new ProjectionPolicy(0);
-    private boolean enabled;
-    private int failures;
-    private String lastStatus;
+    private boolean enabled, watching;
+    private int failures, launchAttempts, observedMask = -1;
+    private String lastStatus, lastObservation, listenerProblem;
     private final Runnable check = new Runnable() { @Override public void run() { reconcile(); } };
-    ProjectionController(Context context, Handler handler) { this.context = context; this.handler = handler; }
+    private final Runnable watch = new Runnable() { @Override public void run() {
+        if (!enabled || !watching) return;
+        reconcile();
+        if (enabled && watching) handler.postDelayed(this, 2000);
+    } };
+    ProjectionController(Context context, Handler handler) {
+        this.context = context; this.handler = handler;
+        nativeEvents = new GpmConnectionEvents(handler, new Runnable() { @Override public void run() { event(); } });
+    }
     static void requireSupported() throws Exception {
         if (checked) return;
         Platform.requireVehicle();
@@ -32,8 +37,10 @@ final class ProjectionController {
     }
     void configure(boolean next) {
         if (next == enabled) return;
-        enabled = next; handler.removeCallbacks(check); failures = 0;
+        enabled = next; handler.removeCallbacks(check); handler.removeCallbacks(watch); watching = false;
+        failures = 0; launchAttempts = 0; observedMask = -1; lastObservation = null;
         if (!next) {
+            nativeEvents.stop();
             policy = new ProjectionPolicy(0);
             try { persist(); } catch (Exception e) { status(e.getMessage()); }
             status("Automatic opening is off. Phone Projection is left as it is."); return;
@@ -47,17 +54,35 @@ final class ProjectionController {
     void event() { if (enabled) { failures = 0; handler.removeCallbacks(check); handler.postDelayed(check, 250); } }
     private void reconcile() {
         if (!enabled) return;
+        handler.removeCallbacks(check);
         try {
             requireSupported();
+            // No shell process, GPS work, or new service. Also detects CarPlay and recovers
+            // missed callbacks/service restarts. Native AA callbacks normally react first.
+            if (!watching) { watching = true; handler.postDelayed(watch, 2000); }
+            try { nativeEvents.ensureRegistered(); listenerProblem = null; }
+            catch (Exception e) {
+                String problem = e.toString();
+                if (!problem.equals(listenerProblem)) System.out.println("projection native listener unavailable; using status checks: " + problem);
+                listenerProblem = problem;
+            }
             // Retain an unknown side instead of inventing a disconnect and opening again later.
-            int mask = policy.seen(); boolean known = false;
-            try { int status = Platform.integer("gpm", "com.hkmc.gpm.IGpmInterfaces", 1);
-                mask = status >= 4 ? mask | 2 : mask & ~2; known = true; } catch (Exception ignored) { }
-            try { int status = Platform.integer("dipo", "android.dipo.IDiPOManager", 2);
-                mask = status == 4 ? mask | 1 : mask & ~1; known = true; } catch (Exception ignored) { }
+            int mask = observedMask >= 0 ? observedMask : policy.seen();
+            boolean known = false; Integer aa = null, cp = null;
+            try { aa = Platform.integer("gpm", "com.hkmc.gpm.IGpmInterfaces", 1);
+                mask = aa >= 4 ? mask | 2 : mask & ~2; known = true; } catch (Exception ignored) { }
+            try { cp = Platform.integer("dipo", "android.dipo.IDiPOManager", 2);
+                mask = cp == 4 ? mask | 1 : mask & ~1; known = true; } catch (Exception ignored) { }
+            String observation = "aa=" + aa + " cp=" + cp + " seen=" + policy.seen();
+            if (!observation.equals(lastObservation)) { System.out.println("projection status " + observation); lastObservation = observation; }
             if (!known) throw new IOException("Waiting for the Android Auto or CarPlay service.");
+            if (mask != observedMask) { observedMask = mask; launchAttempts = 0; }
             int before = policy.seen(), target = policy.observe(mask);
             try {
+                if (target != 0 && launchAttempts >= 6) {
+                    policy = new ProjectionPolicy(before);
+                    status("Opening failed repeatedly. Waiting for a new connection or for this tweak to be turned off and on."); return;
+                }
                 String foreground = target == 0 ? null : foregroundPackage();
                 if (target != 0 && ProjectionPolicy.cameraForeground(foreground)) {
                     policy = new ProjectionPolicy(before);
@@ -70,10 +95,13 @@ final class ProjectionController {
                     String packageName = target == 1 ? "com.daudio.app.dipo" : "com.google.android.projection.sink";
                     if (!packageName.equals(foreground)) {
                         // The stock pop-over sends these same actions, including its OEM routing.
-                        Platform.exec("am", "broadcast", "-a", target == 1
-                            ? "com.hkmc.intent.action.DIPO_CUSTOM_SHORTCUT" : "com.hkmc.intent.action.GPM_CUSTOM_SHORTCUT");
+                        String action = target == 1 ? "com.hkmc.intent.action.DIPO_CUSTOM_SHORTCUT" : "com.hkmc.intent.action.GPM_CUSTOM_SHORTCUT";
+                        launchAttempts++;
+                        System.out.println("projection launch request action=" + action + " foreground=" + foreground);
+                        String result = Platform.exec("am", "broadcast", "-a", action);
+                        System.out.println("projection launch response " + result);
                     }
-                    status((target == 1 ? "CarPlay" : "Android Auto") + " is available; Phone Projection was opened or was already on screen.");
+                    status((target == 1 ? "CarPlay" : "Android Auto") + " is available; opening was requested or projection was already on screen.");
                 } else if (mask == 0) status("Waiting for Android Auto or CarPlay to become available.");
                 failures = 0;
             } catch (Exception e) {

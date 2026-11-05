@@ -31,16 +31,20 @@ six-decimal latitude/longitude, and saves both coordinates atomically. No map,
 network geocoding, or search dependency is introduced. Home is kept in the existing
 protected root configuration, not written to a shared external-storage file.
 
-Auto-Open Phone Projection listens through the existing runtime receiver for OEM
-AA/CarPlay state notifications and checks the underlying native services. It uses
+Auto-Open Phone Projection uses the native AA connection Binder callback and
+checks the underlying native AA/CarPlay services every two seconds while enabled.
+OEM ordered connection broadcasts cannot reach the standalone root runtime on
+this firmware, so projection does not depend on its dynamically registered receivers. It uses
 the stock pop-over's `GPM_CUSTOM_SHORTCUT` / `DIPO_CUSTOM_SHORTCUT` actions; the
 PhoneProjection APK's launcher is connection settings, not the projected screen.
 Opening is once per availability transition, including an already available
 session when enabled. Duplicate notifications, leaving projection manually, and
 restarting longstar do not repeatedly steal focus. Seen state is persisted per
 kernel boot. Camera screens defer opening; already foreground projection is left
-alone. Transient startup failures have six bounded retries, with later connection
-events allowing recovery. Disabling leaves the current screen alone.
+alone. Native service availability is rechecked without inventing disconnects.
+Launch failures have a six-request bound per availability edge; a new connection
+or toggling the feature permits recovery. Disabling stops checks, removes the
+native callback and leaves the current screen alone.
 
 Charge-Away polls every ten seconds while enabled with Home saved. It reads the
 existing GPS fix from `dumpsys location`; this root UID cannot pass the stock
@@ -140,3 +144,41 @@ A head-unit reboot was issued to load the replacement system APKs and Dalvik cod
 Post-reboot connection/service/UI verification is pending reconnection. Both new
 features retain their default off state; no Home was saved or charging setting
 changed during installation.
+
+## November 5: confirmed auto-open failure and correction
+
+The wired Pixel test reached native AA status 5, then 6, played music and showed
+the stock connection header while Tilepad stayed foreground. The persisted seen
+mask remained zero. Android's log showed both `gpm.set` and
+`UPDATE_ANDROIDAUTO` being skipped to production and diagnostic root receivers:
+`BroadcastQueue: ... process crashing`. These processes were healthy; their
+ReceiverList has no attached Android app (`app=null`), so the OEM ordered delivery
+path refuses them. Passing a null caller thread during registration does not
+solve ordered delivery. The OEM `GPM_CUSTOM_SHORTCUT` action was sent manually
+and immediately brought `com.google.android.projection.sink.ui.MainActivity`
+forward, verifying the launch path independently.
+
+The existing runtime now registers a native `com.hkmc.gpm.IGpmListener` with
+`IGpmInterfaces` transaction 9 (remove: 10). Callback 1 is
+`onConnectStatus(int)` and 2 is `onServiceKill(boolean)`. These mappings were
+extracted from the captured framework2 ODEX with explicit API 19 decoding, then
+registration from root was confirmed on-device by an immediate status-6 callback.
+Callbacks post back to the runtime handler before querying any native service,
+avoiding re-entry while an OEM callback thread may hold its service lock.
+
+A two-second in-process status check while enabled covers CarPlay, late state,
+service restarts and callback loss, without forked shell polling. Unknown reads
+retain the previous side's state. Native listener registration is retried without
+blocking a working status check. Compatibility gates still run before attaching,
+and unknown firmware is refused. The obsolete root projection receiver was
+removed; no new APK receiver, Android/NEMESIS service or resident daemon was added.
+Only changed connection states, callback registration/events, launch requests and
+launch-command responses are logged; there is no per-poll log spam. Status says
+that opening was requested, rather than treating a successful broadcast command
+as proof that the projected activity became visible.
+
+Controller/Parcel fixtures additionally cover native AA without any broadcast,
+AA state 5-to-6 deduplication, CarPlay without broadcasts, late-state recovery
+when callback registration fails, removal/no polling when off, and bounded
+launch retries despite periodic checking. Physical reconnect verification follows
+installation of this correction.

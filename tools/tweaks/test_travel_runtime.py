@@ -15,15 +15,15 @@ stubs={
  public boolean postDelayed(Runnable r,long d){q.add(new Object[]{r,SystemClock.now+d});return true;}
  public void removeCallbacks(Runnable r){q.removeIf(x->x[0]==r);}
  public void drain(){for(boolean again=true;again;){again=false;for(Object[] x:new ArrayList<>(q))if((Long)x[1]<=SystemClock.now&&q.remove(x)){((Runnable)x[0]).run();again=true;}}}
- public void advance(long ms){SystemClock.now+=ms;drain();}}''',
+ public void reset(){q.clear();}public void advance(long ms){SystemClock.now+=ms;drain();}}''',
 'android/os/Looper': 'public class Looper {}',
 'android/os/HandlerThread': 'public class HandlerThread extends Thread {public HandlerThread(String n){super(n);}public Looper getLooper(){return new Looper();}public void run(){}}',
 'android/os/RemoteException': 'public class RemoteException extends Exception {public RemoteException(String s){super(s);}}',
 'android/os/Binder': '''public class Binder implements IBinder {public boolean transact(int c,Parcel d,Parcel r,int f)throws Exception{return onTransact(c,d,r,f);} protected boolean onTransact(int c,Parcel d,Parcel r,int f)throws RemoteException{return false;}}''',
 'android/os/IBinder':'''public interface IBinder {int INTERFACE_TRANSACTION=1598968902,FLAG_ONEWAY=1;boolean transact(int code,Parcel data,Parcel reply,int flags)throws Exception;}''',
-'android/os/Parcel':'''public class Parcel {public String token;public int[] array;public boolean ok;public int extra;public IBinder binder;
+'android/os/Parcel':'''public class Parcel {public String token;public int[] array;public boolean ok;public int extra;public int number;public IBinder binder;
  public static Parcel obtain(){return new Parcel();}public void recycle(){}public void writeInterfaceToken(String s){token=s;}
- public void writeIntArray(int[] a){array=a.clone();}public int[] createIntArray(){return array==null?null:array.clone();}
+ public void writeInt(int n){number=n;}public int readInt(){return number;}public void writeIntArray(int[] a){array=a.clone();}public int[] createIntArray(){return array==null?null:array.clone();}
  public void enforceInterface(String s){if(!s.equals(token))throw new SecurityException();}public void writeString(String s){}public void writeNoException(){ok=true;}public void writeStrongBinder(IBinder b){binder=b;}public int dataAvail(){return extra;}public void readException(){if(!ok)throw new IllegalStateException("Binder refused");}}''',
 'android/content/ComponentName':'''public class ComponentName {private final String p;public ComponentName(String p){this.p=p;}public String getPackageName(){return p;}}''',
 'android/app/ActivityManager':'''import java.util.*;import android.content.ComponentName;
@@ -48,19 +48,23 @@ public class Xml {public static XmlPullParser newPullParser(){return new XmlPull
 'com/tilepad/tweakcore/Platform':'''import java.io.*;import java.util.*;import android.os.*;
 public class Platform {
  public static final File STATE=new File(System.getProperty("fixture.state"));
- public static int writes,reads,gpsReads,prefReads,launches,aa,cp;public static boolean ack=true,failWrite,failBroadcast,failProjection,extra;
+ public static int writes,reads,gpsReads,prefReads,launches,aa,cp;public static boolean ack=true,failWrite,failBroadcast,failProjection,failAaRead,extra;
  public static IBinder listener;public static int registers,removes,freshRequests;public static boolean missingFeedback;public static Runnable feedbackHook;public static int hookAfter;
+ public static IBinder gpmListener;public static int gpmAdds,gpmRemoves;public static boolean gpmRegistrationFails;public static int projectionReads;
+ public static void gpmEvent(int code,int value)throws Exception{if(gpmListener==null)throw new AssertionError("no native listener");Parcel d=Parcel.obtain(),r=Parcel.obtain();d.token="com.hkmc.gpm.IGpmListener";d.number=value;gpmListener.transact(code,d,r,0);if(!r.ok)throw new AssertionError("callback not acknowledged");}
+ private static final IBinder GPM=(code,data,reply,flags)->{if(!"com.hkmc.gpm.IGpmInterfaces".equals(data.token)||flags!=0)throw new AssertionError();if(gpmRegistrationFails)throw new IOException("listener unavailable");if(code==9){gpmListener=data.binder;gpmAdds++;gpmEvent(1,aa);}else if(code==10){if(gpmListener==data.binder)gpmListener=null;gpmRemoves++;}else throw new AssertionError("unknown native registration");reply.ok=true;return true;};
  public static int[] schedule={11,0,4,3,0,0,0,0,0,0,0,0};
  public static double lat,lon,accuracy=3;public static long age;public static String preference="<map><int name=\\"economic_only_economic_mode\\" value=\\"1\\"/></map>";
  public static final List<int[]> requests=new ArrayList<>();public static final List<String> messages=new ArrayList<>();
  public static void requireVehicle(){}public static String boot(){return "fixture-boot";}
  public static void status(String id,String s){messages.add(id+": "+s);}
  public static int integer(String name,String descriptor,int code)throws Exception{
-  if(failProjection)throw new IOException("services starting");
-  if(name.equals("gpm")&&descriptor.equals("com.hkmc.gpm.IGpmInterfaces")&&code==1)return aa;
+  projectionReads++;if(failProjection)throw new IOException("services starting");
+  if(name.equals("gpm")&&descriptor.equals("com.hkmc.gpm.IGpmInterfaces")&&code==1){if(failAaRead)throw new IOException("AA temporarily unreadable");return aa;}
   if(name.equals("dipo")&&descriptor.equals("android.dipo.IDiPOManager")&&code==2)return cp;
   throw new AssertionError("Unmapped read "+name+code);}
  public static IBinder service(String name,String descriptor){
+  if(name.equals("gpm")&&descriptor.equals("com.hkmc.gpm.IGpmInterfaces"))return GPM;
   if(!name.equals("com.hkmc.micom.hev")||!descriptor.equals("com.hkmc.hev.IHEVService"))throw new AssertionError();
   return (code,data,reply,flags)->{if(!descriptor.equals(data.token)||flags!=0)throw new AssertionError();
    if(code==1){registers++;listener=data.binder;}
@@ -139,7 +143,7 @@ public class TravelRuntimeTest {
   check(Platform.registers==Platform.removes,"all temporary charging listeners removed");
   ProjectionController projection=new ProjectionController(context,h);c=config(false,true);projection.configure(true);Platform.aa=4;projection.event();h.advance(250);
   check(Platform.launches==1,"Android Auto launch on availability");projection.event();projection.event();h.advance(250);check(Platform.launches==1,"duplicate notices deduplicated");passed++;
-  ProjectionController reconnect=new ProjectionController(context,h);reconnect.configure(true);h.advance(250);check(Platform.launches==1,"service restart doesn't reopen");passed++;
+  h.reset();ProjectionController reconnect=new ProjectionController(context,h);reconnect.configure(true);h.advance(250);check(Platform.launches==1,"service restart doesn't reopen");passed++;
   Platform.aa=0;reconnect.event();h.advance(250);Platform.cp=4;reconnect.event();h.advance(250);check(Platform.launches==2,"new CarPlay connection opens");
   ActivityManager.top="com.google.android.projection.sink";Platform.cp=0;reconnect.event();h.advance(250);Platform.aa=4;reconnect.event();h.advance(250);check(Platform.launches==2,"already foreground left alone");passed++;
   ActivityManager.top="com.tilepad";Platform.failProjection=true;reconnect.event();h.advance(250);Platform.failProjection=false;h.advance(5000);check(Platform.launches==2,"unknown service doesn't manufacture reconnection");passed++;
@@ -148,11 +152,29 @@ public class TravelRuntimeTest {
   check(Platform.launches==opens,"camera is not interrupted");ActivityManager.top="com.tilepad";h.advance(1000);check(Platform.launches==opens+1,"projection opens after camera closes");passed++;
   camera.configure(false);Platform.failBroadcast=true;ProjectionController retry=new ProjectionController(context,h);retry.configure(true);h.advance(250);opens=Platform.launches;
   Platform.failBroadcast=false;h.advance(5000);check(Platform.launches==opens+1,"failed dispatch retries instead of consuming the connection");retry.event();h.advance(250);check(Platform.launches==opens+1,"successful retry is deduplicated");passed++;
+  retry.configure(false);h.drain();
+  check(Platform.gpmListener==null,"disable unregisters native AA callback");passed++;
+  Platform.aa=0;Platform.cp=0;c=config(false,true);ProjectionController nativeOnly=new ProjectionController(context,h);nativeOnly.configure(true);h.advance(250);h.advance(250);
+  opens=Platform.launches;Platform.aa=5;Platform.gpmEvent(1,5);h.drain();h.advance(250);
+  check(Platform.launches==opens+1,"native AA callback launches without broadcast");Platform.aa=6;Platform.gpmEvent(1,6);h.drain();h.advance(250);
+  check(Platform.launches==opens+1,"native 5-to-6 callback doesn't duplicate launch");passed++;
+  Platform.aa=0;h.advance(2000);opens=Platform.launches;Platform.cp=4;h.advance(2000);
+  check(Platform.launches==opens+1,"CarPlay detected without any delivered broadcast");passed++;
+  int reads=Platform.projectionReads;nativeOnly.configure(false);h.drain();h.advance(10000);
+  check(Platform.projectionReads==reads&&Platform.gpmListener==null,"disabled tweak does no status polling or registration");passed++;
+  Platform.aa=0;Platform.cp=0;Platform.gpmRegistrationFails=true;ProjectionController fallback=new ProjectionController(context,h);fallback.configure(true);h.advance(250);opens=Platform.launches;
+  Platform.aa=6;h.advance(2000);check(Platform.launches==opens+1,"fallback recovers late AA state with no callback or broadcast");passed++;
+  fallback.configure(false);Platform.gpmRegistrationFails=false;h.drain();
+  Platform.aa=0;Platform.cp=0;ProjectionController bounded=new ProjectionController(context,h);bounded.configure(true);h.advance(250);h.advance(250);
+  Platform.failBroadcast=true;opens=Platform.launches;Platform.aa=6;
+  for(int i=0;i<12;i++)h.advance(2000);
+  check(Platform.launches==opens+6,"periodic status fallback preserves bounded dispatch attempts");Platform.failAaRead=true;h.advance(2000);Platform.failAaRead=false;h.advance(2000);check(Platform.launches==opens+6,"partial unknown read does not reset request budget");passed++;Platform.failBroadcast=false;h.advance(2000);check(Platform.launches==opens+6,"exhausted requests stay paused");
+  Platform.aa=0;h.advance(2000);Platform.aa=6;h.advance(2000);check(Platform.launches==opens+7,"new availability edge resets dispatch budget");bounded.configure(false);passed++;
   System.out.println(passed+" travel controller/Parcel scenarios passed (mapped fixtures; no real vehicle writes)");
  }
 }''')
 production=ROOT/'tweaks-core/src/main/java/com/tilepad/tweakcore'
-names=['Config','Files','VehicleLocation','VehicleLocationSource','ChargeAwayPolicy','ChargeAwayController','ScheduledCharging','ProjectionPolicy','ProjectionController']
+names=['Config','Files','VehicleLocation','VehicleLocationSource','ChargeAwayPolicy','ChargeAwayController','ScheduledCharging','ProjectionPolicy','ProjectionController','GpmConnectionEvents']
 classes=work/'classes';classes.mkdir()
 subprocess.run(['javac','--release','8','-d',str(classes),*[str(p) for p in (work/'src').rglob('*.java')],*[str(production/(n+'.java')) for n in names]],check=True)
 r=subprocess.run(['java','-Dfixture.state='+str(work/'state'),'-cp',str(classes),'com.tilepad.tweakcore.TravelRuntimeTest'],check=True,capture_output=True,text=True,timeout=30)
