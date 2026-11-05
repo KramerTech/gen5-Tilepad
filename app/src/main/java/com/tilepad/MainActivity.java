@@ -22,6 +22,7 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.SystemClock;
+import android.util.Log;
 import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.View;
@@ -40,6 +41,7 @@ import java.util.Set;
 /** Minimal grid launcher: square tiles, long-press to rearrange, steering-wheel star hold to open or close. */
 public final class MainActivity extends Activity implements TileGrid.Listener, TileView.EditListener, Sheet.Listener {
     static final String EXTRA_FROM_KNOB = "from_knob";
+    private static final String TAG = "Tilepad";
     private static final String NEMESIS_COMPONENT = "com.nemesis.manager/.MainActivity";
     /** Root-side half of "turn on the Wi-Fi client", shipped in the NEMESIS package. */
     private static final String WIFI_CLIENT_SCRIPT = "/data/nemesis/apps/tilepad/bin/wifi-client.sh";
@@ -76,6 +78,8 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
     private boolean adbPendingOn;
     /** While a toggle is in flight, holds the Starting/Stopping display until the daemon catches up. */
     private long adbPendingSince;
+    /** Why the last toggle's root command failed; shown only if adbd doesn't settle anyway. */
+    private String adbPendingError;
     /** The ADB popup, while it is the sheet on screen. */
     private StatusCard adbCard;
 
@@ -928,8 +932,11 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
             } else if (SystemClock.uptimeMillis() - adbPendingSince < 12000) {
                 value = AdbSnapshot.of(adbPendingOn ? AdbSnapshot.State.STARTING : AdbSnapshot.State.STOPPING, value.port);
             } else {
-                adbPendingSince = 0; // give up waiting; show what adbd reports
+                // Give up waiting: show the command's error if it had one, else what adbd reports.
+                adbPendingSince = 0;
+                if (adbPendingError != null) value = AdbSnapshot.error(adbPendingError);
             }
+            if (adbPendingSince == 0) adbPendingError = null;
         }
         adb = value;
         if (adbTile != null) adbTile.bind(value);
@@ -1011,6 +1018,7 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
     private void toggleAdb(final boolean on) {
         adbPendingSince = SystemClock.uptimeMillis();
         adbPendingOn = on;
+        adbPendingError = null;
         adb = AdbSnapshot.of(on ? AdbSnapshot.State.STARTING : AdbSnapshot.State.STOPPING, adb.port);
         if (adbTile != null) adbTile.bind(adb);
         if (adbCard != null) renderAdbCard();
@@ -1018,15 +1026,18 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
         new Thread(new Runnable() {
             @Override public void run() {
                 RootShell.Result r = RootShell.run("sh " + ADB_TILE_SCRIPT + " " + (on ? "on" : "off"));
-                String problem = r.code != 0 ? (r.output.isEmpty() ? "nemesis exited with code " + r.code : r.output)
-                    : on ? WifiRadio.ensureClientOn() : null;
-                final String error = problem;
+                // The root command can report a failure even though the change went through, so
+                // its error only shows if adbd doesn't reach the new state (see onAdb).
+                final String failed = r.code == 0 ? null : r.output.isEmpty() ? "nemesis exited with code " + r.code : r.output;
+                if (failed != null) Log.w(TAG, "adb-tile " + (on ? "on" : "off") + " exited " + r.code + ": " + r.output);
+                final String wifi = failed == null && on ? WifiRadio.ensureClientOn() : null;
                 main.post(new Runnable() { @Override public void run() {
                     if (isFinishing() || !resumed || epoch != adbEpoch) return;
-                    if (error != null) {
+                    if (wifi != null) {
                         adbPendingSince = 0;
-                        onAdb(AdbSnapshot.error(error));
+                        onAdb(AdbSnapshot.error(wifi));
                     } else {
+                        adbPendingError = failed;
                         refreshAdb();
                     }
                 } });
