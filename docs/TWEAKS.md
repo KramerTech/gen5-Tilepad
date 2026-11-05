@@ -2,9 +2,10 @@
 
 `Tweaks.apk` (`com.tilepad.tweaks`) is a separate settings app installed with
 Tilepad. The permanent **Tweaks** tile occupies the lower-left corner of the fixed
-status square, with Precondition to its right. Wi-Fi and ADB occupy the upper row. A thin vertical divider separates these four from
-the other tiles; scrolling/reordering on the right leaves the status square in
-place. Existing user-tile order and shortcuts are retained.
+core block on page one, with Precondition and Reboot Head Unit to its right; Wi-Fi,
+ADB and Nemesis Manager occupy the upper row. A thin vertical divider separates the
+block from the user's tiles, which continue on further swipeable pages when they
+don't fit. Existing user-tile order and shortcuts are retained.
 
 The Tweaks tile uses the same status-card format as the other three: glyph,
 status pill, caption, headline, detail and hint. Any enabled tweak gives an **On**

@@ -141,7 +141,7 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
         root.setBackgroundColor(Ui.BG);
         grid = new TileGrid(this, ui);
         grid.setListener(this);
-        TileGrid.Scroll scroll = new TileGrid.Scroll(this, grid);
+        TileGrid.Scroll scroll = new TileGrid.Scroll(this, grid, ui);
         // The right inset keeps tiles clear of Hyundai's split-screen handle.
         scroll.setPadding(ui.dp(24), ui.dp(16), ui.dp(64), ui.dp(16));
         scroll.setClipToPadding(false);
@@ -271,13 +271,10 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
                 tweaksTile.bind(tweaks);
                 break;
             case NEMESIS:
-                tile = TileView.simple(ui, spec, this, TileView.chip(ui, Glyph.Kind.TERMINAL, Ui.PURPLE), 80, "NEMESIS");
-                break;
-            case CAR_HOME:
-                tile = TileView.simple(ui, spec, this, TileView.chip(ui, Glyph.Kind.CAR, Ui.ACCENT), 80, "Car Home");
+                tile = TileView.simple(ui, spec, this, TileView.chip(ui, Glyph.Kind.TERMINAL, Ui.PURPLE), 80, "Nemesis Manager");
                 break;
             case REBOOT:
-                tile = TileView.simple(ui, spec, this, TileView.chip(ui, Glyph.Kind.REBOOT, Ui.RED), 80, "Reboot");
+                tile = TileView.simple(ui, spec, this, TileView.chip(ui, Glyph.Kind.REBOOT, Ui.RED), 80, "Reboot Head Unit");
                 break;
             case ADD: {
                 tile = TileView.simple(ui, spec, this, ui.glyph(Glyph.Kind.PLUS, Ui.MUTED, 56), 56, "Add shortcut");
@@ -337,7 +334,6 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
             case TWEAKS: return new Intent(Intent.ACTION_MAIN).setComponent(new ComponentName("com.tilepad.tweaks", "com.tilepad.tweaks.TweaksActivity"));
             case WIFI: return new Intent("android.settings.WIFI_SETTINGS");
             case NEMESIS: return new Intent(Intent.ACTION_MAIN).setComponent(ComponentName.unflattenFromString(NEMESIS_COMPONENT));
-            case CAR_HOME: return new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME);
             case SHORTCUT: {
                 ComponentName component = ComponentName.unflattenFromString(spec.component);
                 if (component == null) return null;
@@ -353,8 +349,7 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
         switch (tile.spec.kind) {
             case TWEAKS: return "Tweaks";
             case WIFI: return "Wi-Fi settings";
-            case NEMESIS: return "NEMESIS Manager";
-            case CAR_HOME: return "Car Home";
+            case NEMESIS: return "Nemesis Manager";
             default: return shortcutLabel(tile.spec);
         }
     }

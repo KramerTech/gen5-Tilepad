@@ -19,9 +19,8 @@ A short ★ press still runs whatever Hyundai's Button settings assign to it.
   Automatic Driver Only (Driver Only at start, Sync once the passenger buckles up).
   A permanent Tweaks tile follows Precondition. All tweaks start off.
 - **ADB toggle**: turn ADB over Wi-Fi on and off. While it's on, any computer on the network can connect without approving a key. Turning it on also turns on Wi-Fi (so wireless CarPlay/Android Auto are off).
-- **NEMESIS Manager** shortcut.
-- **Car Home**: back to Hyundai's home screen.
-- **Reboot** the head unit, with confirmation.
+- **Nemesis Manager** shortcut.
+- **Reboot Head Unit**, with confirmation.
 - **Shortcuts** to any screen, including Hyundai and system screens that have no icon.
 - **Rearrange, rename and remove** tiles with a long press.
 
@@ -40,9 +39,8 @@ nothing, because of Launchpad's firmware gate.
 | **Precondition** *(EVs only)* | Off / Waiting / Active / Unavailable…, spinner while waiting, elapsed time, a *Conditioning* pill while the car's own indicator is on | see below |
 | **Tweaks** | On when any tweak is enabled, Off when none are; enabled count | opens the bundled `Tweaks.apk`; each feature has a checkbox and detailed explanation |
 | **ADB** | On / Off and the port | asks to confirm, then turns ADB over Wi-Fi on or off (see below) |
-| **NEMESIS** | | NEMESIS Manager (dimmed if it's not installed) |
-| **Car Home** | | closes to Hyundai's home screen |
-| **Reboot** | | asks to confirm, then hard-reboots the head unit (`nemesis root -c reboot`) |
+| **Nemesis Manager** | | NEMESIS Manager (dimmed if it's not installed) |
+| **Reboot Head Unit** | | asks to confirm, then hard-reboots the head unit (`nemesis root -c reboot`) |
 | **Add shortcut** | | searchable list of every screen (apps, plus Hyundai/system screens with no icon) |
 
 **Preconditioning, one button:**
@@ -101,9 +99,10 @@ to confirm, because of what "on" means:
   the tile turned it on.
 
 **Arranging:**
-- Wi-Fi and ADB sit above Tweaks and Precondition in a fixed 2×2 status group on the left. A thin vertical divider separates it from the other tiles. The status group stays visible while the right side scrolls; unsupported vehicle features are still omitted.
+- Page one starts with a fixed block of six core tiles: Wi-Fi, ADB and Nemesis Manager on top, Tweaks, Precondition and Reboot Head Unit below. A thin vertical divider separates it from your tiles; unsupported vehicle features are still omitted.
+- Your tiles fill the rest of page one (six on the car). More continue on further pages, with dots at the bottom: swipe left and right. Later pages have no fixed block or divider.
 - Long-press any tile, then drag it. Tiles wiggle while you're in edit mode.
-- In edit mode, shortcuts get ✎ (rename) on the top-left and − (remove) on the top-right. The four status tiles stay fixed; the other core tiles can be moved within the right side but not removed or renamed.
+- In edit mode, shortcuts get ✎ (rename) on the top-left and − (remove) on the top-right. The six fixed tiles don't move; Add shortcut can be moved but not removed or renamed. Drag a tile to a screen edge to carry it to the next page.
 - Leave edit mode with **Done**, by tapping empty space, or with Back.
 - New shortcuts are added just before the Add tile. Renaming to an empty name restores the original name.
 
@@ -157,9 +156,9 @@ Things that can't be verified on an emulator, in rough priority order:
 - [ ] Wi-Fi tile: name, IP and signal look right. Tapping opens the network picker.
 - [ ] On a hotspot-only unit: the Wi-Fi tile reads *Hotspot only*. *Turn on* → *Reboot* → the tile shows the network state and opens the picker.
 - [ ] Precondition: shows *Off · Tap to start* when READY with conditioning enabled in Hyundai's settings. Start → Waiting → Active (60–120 s), then tap → Off.
-- [ ] NEMESIS tile opens Manager. Car Home returns to Hyundai's home.
+- [ ] Nemesis Manager tile opens Manager.
 - [ ] Add shortcut: the list loads, the keyboard filters it, and an added tile launches its screen.
-- [ ] Reboot: confirm → the head unit restarts. If NEMESIS's root channel refuses, the popup shows its output.
+- [ ] Reboot Head Unit: confirm → the head unit restarts. If NEMESIS's root channel refuses, the popup shows its output.
 
 If something fails, `adb logcat | grep -i tilepad` (with ADB enabled) or NEMESIS Manager →
 Logs → Copy to USB helps.
@@ -210,7 +209,7 @@ The debug build simulates the vehicle on an emulator (`ranchu`/`goldfish`). Laun
 | | |
 | --- | --- |
 | `MainActivity` | tiles, popups, preconditioning popup flow, Wi-Fi polling, TUNE knob navigation |
-| `TileGrid` | square layout, long-press drag reorder, edit mode, row-snapping scroll |
+| `TileGrid`, `PagedGridMath` | square tiles on swipeable pages with dots, fixed core block on page one, long-press drag reorder across pages, edit mode |
 | `TileView` / `StatusTile` / `WifiTile` / `PreconTile` | tile views |
 | `AddShortcutPage`, `KeyPad` | screen picker and built-in keyboard |
 | `Sheet`, `StatusCard` | popup layer |
