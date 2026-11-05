@@ -30,6 +30,9 @@ public final class TweaksCommand {
                 // checks remain mandatory in the write transaction; status is the full audit.
                 if (args.length == 1 && args[0].equals("settings")) { printStatus(c, false); return; }
                 if (args.length == 1 && args[0].equals("status")) { printStatus(c, true); return; }
+                if (args.length == 1 && args[0].equals("report")) {
+                    System.out.println("saved=" + UsbReport.save(status(c, true))); return;
+                }
                 if (args.length >= 3 && args.length % 2 == 1 && args[0].equals("options")) {
                     String[] pairs = new String[args.length - 1];
                     System.arraycopy(args, 1, pairs, 0, pairs.length);
@@ -52,7 +55,7 @@ public final class TweaksCommand {
                     if (c.enabled("chargeaway") && c.changedFrom(previous, "chargeaway")) ScheduledCharging.requireSupported();
                     if (c.needsVehicleCheck(previous)) Platform.requireVehicle();
                     if (c.enabled("dst") && c.dstChanged(previous)) DstRules.baseOffsetMinutes(Platform.property("persist.sys.timezone"));
-                } else throw new IllegalArgumentException("Usage: settings | summary | status | home | restore | set/update/options KEY VALUE [KEY VALUE…]");
+                } else throw new IllegalArgumentException("Usage: settings | summary | status | report | home | restore | set/update/options KEY VALUE [KEY VALUE…]");
                 // Intent survives termination between a /system write and config commit.
                 if (restoring) transaction().commitFull(c); else transaction().commit(c);
                 if (args[0].equals("update")) { printStatus(c, false); return; }
@@ -74,6 +77,9 @@ public final class TweaksCommand {
         });
     }
     private static void printStatus(Config c, boolean verify) throws Exception {
+        status(c, verify).store(System.out, "Tilepad Tweaks status");
+    }
+    private static Properties status(Config c, boolean verify) throws Exception {
         Properties out = (Properties) c.values.clone();
         for (String key : new String[]{"region", "threshold", "driver", "wheel", "passenger", "driverLevel", "passengerLevel", "units", "homeLat", "homeLon"}) out.setProperty(key, c.get(key));
         String vehicleError = null;
@@ -116,7 +122,7 @@ public final class TweaksCommand {
                 runtime = "Tweak listeners are not running. Restart the head unit or Tilepad’s longstar service.";
         } catch (Exception e) { runtime = "Tweak listeners are not running. Restart the head unit or Tilepad’s longstar service."; }
         out.setProperty("runtime", runtime);
-        out.store(System.out, "Tilepad Tweaks status");
+        return out;
     }
     private TweaksCommand() { }
 }

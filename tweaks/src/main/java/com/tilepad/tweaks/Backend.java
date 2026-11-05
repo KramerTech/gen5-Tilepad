@@ -19,7 +19,7 @@ final class Backend {
         if (code != 0) throw new IOException(text.trim().isEmpty() ? "The tweak command failed (" + code + ")." : text.trim());
         Properties result = new Properties();
         if ((args.length == 1 && (args[0].equals("status") || args[0].equals("settings")))
-            || (args[0].equals("options") || args[0].equals("update") || args[0].equals("home"))) result.load(new StringReader(text));
+            || (args[0].equals("options") || args[0].equals("update") || args[0].equals("home") || args[0].equals("report"))) result.load(new StringReader(text));
         return result;
     }
     private static String quote(String s) { return "'" + s.replace("'", "'\\''") + "'"; }

@@ -32,8 +32,10 @@ Opening the app and reading back a save use the lightweight root `settings`
 command: configuration plus small listener/restart status files. It does not hash
 system APKs or probe the vehicle interface. Full compatibility verification still
 runs before a system-file change and remains available through the diagnostic `status`
-command. Unsupported or conflicting files are refused when a change is requested.
-An interrupted transaction is recovered before settings become editable.
+command. Once settings have loaded, the app runs `status` once in the background so an
+unsupported tweak shows why before its checkbox is tried. Unsupported or conflicting files
+are refused when a change is requested. An interrupted transaction is recovered before
+settings become editable.
 
 All controls share one optimistic save queue. Values update immediately; edits
 save together after a 300 ms pause. While a command runs, newer edits replace
@@ -195,6 +197,16 @@ First-draft vehicle support is the captured IONIQ 5:
 Vehicle writes require API 19, that device ID, and the exact captured SHA-256 of
 both `automotive.odex` and `automotive-service.odex`. Interface descriptors and
 reply shapes are checked before accepting a result. No OEM framework is bundled.
+
+On other firmware, an unavailable tweak shows **Save Compatibility Report to USB**. The root
+`report` command writes `tilepad-compat-<ro.build.product>.txt` to the first USB drive
+(`/mnt/media_rw/usbN`, written as media_rw, uid 1023): the build properties, the SHA-256 of
+every gated file (the vehicle and projection frameworks, the EV Settings APK, each patch
+recipe's target and paired APK, Tilepad's stock backup of any file it patched, and every
+`daudio_*_base.kl` key layout), and each tweak's on/off state and unavailable reason. No OEM
+file, GPS position or Home is included. The owner attaches it to a GitHub issue
+(`.github/ISSUE_TEMPLATE/compatibility.md`); matching hashes mean a profile can be added
+directly, differing ones mean the files need reverse engineering first.
 
 Static patches require exact stock file hashes and exact paired APK hashes:
 

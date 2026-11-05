@@ -20,6 +20,9 @@ public final class TweaksActivity extends Activity {
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private final Handler main = new Handler(Looper.getMainLooper());
     private Properties values = new Properties();
+    /** unavailable.<id> from one background compatibility audit after the settings load. */
+    private final Properties audit = new Properties();
+    private boolean audited;
     private Resources stock;
     private LinearLayout controls;
     private ScrollView railScroll, controlScroll, helpScroll;
@@ -28,6 +31,9 @@ public final class TweaksActivity extends Activity {
     private boolean capturingHome;
     /** "Home saved." or "Home updated." after a Home change, until another tweak is selected. */
     private String homeNotice;
+    /** Where the compatibility report went (or why it didn't), until another tweak is selected. */
+    private String reportNotice;
+    private boolean savingReport;
     private final SettingsEdits edits = new SettingsEdits();
     private final Runnable saveFlush = new Runnable() { @Override public void run() { flushEdits(); } };
     private int selected, bg, ink, muted, line, accent = 0xff00b5de;
@@ -85,7 +91,7 @@ public final class TweaksActivity extends Activity {
         FrameLayout header = new FrameLayout(this);
         TextView title = text("Tweaks", 28, ink); title.setTypeface(null, Typeface.BOLD); title.setGravity(Gravity.CENTER);
         header.addView(title, new FrameLayout.LayoutParams(-1, -1));
-        String notice = preview ? "Preview" : edits.hasWork() ? "Saving…" : busy ? (capturingHome ? "Saving…" : "Reading settings…") : "true".equals(values.getProperty("restart")) ? "Restart required" : "";
+        String notice = preview ? "Preview" : edits.hasWork() ? "Saving…" : busy ? (capturingHome || savingReport ? "Saving…" : "Reading settings…") : "true".equals(values.getProperty("restart")) ? "Restart required" : "";
         TextView state = text(notice, 16, ink); state.setPadding(dp(12), 0, dp(22), 0); state.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
         header.addView(state, new FrameLayout.LayoutParams(-1, -1));
         root.addView(header, new LinearLayout.LayoutParams(-1, dp(60))); divider(root);
@@ -105,7 +111,7 @@ public final class TweaksActivity extends Activity {
             tab.setContentDescription(item.railTitle() + (i == selected ? ", selected" : ""));
             tab.setOnClickListener(new View.OnClickListener() { @Override public void onClick(View v) {
                 if (selected == index) return;
-                selected = index; homeNotice = null; getPreferences(0).edit().putInt("selected", selected).apply();
+                selected = index; homeNotice = null; reportNotice = null; getPreferences(0).edit().putInt("selected", selected).apply();
                 controlScroll.scrollTo(0, 0); helpScroll.scrollTo(0, 0); render();
             } });
             rail.addView(tab, new LinearLayout.LayoutParams(-1, -2)); divider(rail);
@@ -113,7 +119,7 @@ public final class TweaksActivity extends Activity {
         controlScroll = scroller("Selected tweak controls"); controls = column(); controlScroll.addView(controls);
         panes.addView(controlScroll, new LinearLayout.LayoutParams(dp(600 * scale), -1)); verticalDivider(panes);
         final TweakInfo item = TweakInfo.RAIL[selected];
-        String unavailable = values.getProperty("unavailable." + item.id, "");
+        String unavailable = unavailable(item.id);
         boolean enabled = new Config(values).enabled(item.id);
         checkbox(controls, item.title, item.id, enabled, ready && !busy && (unavailable.isEmpty() || enabled));
         String runtime = values.getProperty("status." + item.id, "");
@@ -127,13 +133,24 @@ public final class TweaksActivity extends Activity {
         if (item.companion != null) {
             // The nav handle: forced hidden while the pop-over is disabled, otherwise its own choice.
             TweakInfo second = item.companion;
-            String secondUnavailable = values.getProperty("unavailable." + second.id, "");
+            String secondUnavailable = unavailable(second.id);
             boolean hidden = enabled || new Config(values).enabled(second.id);
             checkbox(controls, second.title, second.id, hidden, ready && !busy && !enabled && (secondUnavailable.isEmpty() || hidden));
             String secondState = !ready ? null : enabled && !pending(second.id)
                 ? "The nav handle is always hidden while the right-hand pop-over is disabled." : second.state(hidden, pending(second.id));
             if (secondState != null) note(secondState, false);
             if (!secondUnavailable.isEmpty() && !enabled) note("Unavailable: " + secondUnavailable, true);
+        }
+        // Firmware this build wasn't made for: offer the details needed to add it.
+        boolean incompatible = !unavailable.isEmpty()
+            || (item.companion != null && !unavailable(item.companion.id).isEmpty());
+        if (ready && incompatible) {
+            if (reportNotice != null) note(reportNotice, false);
+            Button report = button("Save Compatibility Report to USB", "Save this head unit's firmware details to the USB drive", new View.OnClickListener() {
+                @Override public void onClick(View v) { saveReport(); }
+            });
+            report.setTextSize(22); report.setEnabled(ready && !busy && !edits.hasWork());
+            controls.addView(report, new LinearLayout.LayoutParams(-1, dp(72))); divider(controls);
         }
         if (!values.getProperty("runtime", "").isEmpty()) note(values.getProperty("runtime"), true);
         if (item.id.equals("chargeaway")) {
@@ -232,7 +249,24 @@ public final class TweaksActivity extends Activity {
             try { result = Backend.run("settings"); } catch (Exception e) { failure = e.getMessage(); }
             final Properties loaded = result; final String problem = failure;
             main.post(new Runnable() { @Override public void run() { if (isFinishing()) return; if (loaded != null) edits.reset(loaded); error = problem; ready = loaded != null; busy = false; render(); } });
+            // Settings skips the firmware checks to open quickly; run them once afterwards so an
+            // incompatible car sees why, and the report button, before trying a checkbox.
+            if (result != null && !audited) {
+                audited = true;
+                try {
+                    final Properties full = Backend.run("status");
+                    main.post(new Runnable() { @Override public void run() {
+                        if (isFinishing()) return;
+                        for (String key : full.stringPropertyNames()) if (key.startsWith("unavailable.")) audit.setProperty(key, full.getProperty(key));
+                        render();
+                    } });
+                } catch (Exception ignored) { }
+            }
         } });
+    }
+    private String unavailable(String id) {
+        String reason = values.getProperty("unavailable." + id, "");
+        return reason.isEmpty() ? audit.getProperty("unavailable." + id, "") : reason;
     }
     private void save(String... args) {
         if (busy || !ready) return;
@@ -267,6 +301,23 @@ public final class TweaksActivity extends Activity {
                 } });
                 if (read == null) break;
             }
+        } });
+    }
+    private void saveReport() {
+        if (!ready || busy || edits.hasWork()) return;
+        busy = true; savingReport = true; reportNotice = null; render();
+        worker.execute(new Runnable() { @Override public void run() {
+            String notice;
+            try {
+                String name = preview ? "tilepad-compat-PREVIEW.txt" : Backend.run("report").getProperty("saved", "");
+                notice = "Saved " + name + " to the USB drive. To ask for this car to be supported, open a new issue at "
+                    + "github.com/KramerTech/gen5-Tilepad/issues on a computer and attach that file.";
+            } catch (Exception e) { notice = "Couldn't save the report: " + e.getMessage(); }
+            final String result = notice;
+            main.post(new Runnable() { @Override public void run() {
+                if (isFinishing() || isDestroyed()) return;
+                busy = false; savingReport = false; reportNotice = result; render();
+            } });
         } });
     }
     private void confirmClearHome() {
