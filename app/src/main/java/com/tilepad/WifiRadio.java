@@ -13,9 +13,10 @@ import java.util.Locale;
  * CarPlay/Android Auto use, and the head unit boots with the hotspot up. The hotspot has to go
  * first (this firmware's WifiController ignores a client toggle while it's on).
  *
- * Talks to the framework's IWifiManager directly, through reflection (hidden API on 4.4), so the
- * same code runs in Tilepad (which holds CHANGE_WIFI_STATE) and at boot as root under
- * app_process, where there is no Context ({@link #main}, started by svc/longstar.sh).
+ * Talks to the framework's IWifiManager directly, through reflection (hidden API on 4.4), under
+ * app_process, where there is no Context ({@link #main}): at boot as root from svc/longstar.sh,
+ * and for the ADB tile as uid 1000 from bin/adb-tile.sh. Turning the hotspot off needs
+ * CONNECTIVITY_INTERNAL, a system permission the Tilepad app itself doesn't hold.
  */
 public final class WifiRadio {
     // WifiManager.WIFI_STATE_* and WIFI_AP_STATE_* (the latter hidden on 4.4)
@@ -28,8 +29,17 @@ public final class WifiRadio {
 
     private WifiRadio() { }
 
-    /** Boot, while the ADB tile has ADB on: run as root by svc/longstar.sh under app_process. */
+    /**
+     * Boot, while the ADB tile has ADB on: run as root by svc/longstar.sh under app_process,
+     * retrying while the Wi-Fi service starts. With "once" (the ADB tile, through bin/adb-tile.sh
+     * as uid 1000): one try, printing why not and exiting 1 if Wi-Fi couldn't be turned on.
+     */
     public static void main(String[] args) {
+        if (args.length > 0 && args[0].equals("once")) {
+            String problem = ensureClientOn();
+            if (problem != null) System.out.println(problem);
+            System.exit(problem == null ? 0 : 1);
+        }
         long end = SystemClock.uptimeMillis() + BOOT_TRY_MS;
         String problem;
         while ((problem = ensureClientOn()) != null && SystemClock.uptimeMillis() < end) {

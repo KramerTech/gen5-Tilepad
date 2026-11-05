@@ -1059,7 +1059,7 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
                 // its error only shows if adbd doesn't reach the new state (see onAdb).
                 final String failed = r.code == 0 ? null : r.output.isEmpty() ? "nemesis exited with code " + r.code : r.output;
                 if (failed != null) Log.w(TAG, "adb-tile " + (on ? "on" : "off") + " exited " + r.code + ": " + r.output);
-                final String wifi = failed == null && on ? WifiRadio.ensureClientOn() : null;
+                final String wifi = failed == null && on ? wifiOn() : null;
                 main.post(new Runnable() { @Override public void run() {
                     if (isFinishing() || !resumed || epoch != adbEpoch) return;
                     if (wifi != null) {
@@ -1072,6 +1072,13 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
                 } });
             }
         }, "tilepad-adb-toggle").start();
+    }
+
+    /** Turns the Wi-Fi client on as the system user (see bin/adb-tile.sh wifi); null once it's on. */
+    private static String wifiOn() {
+        RootShell.Result r = RootShell.run("sh " + ADB_TILE_SCRIPT + " wifi");
+        if (r.code == 0) return null;
+        return r.output.isEmpty() ? "Couldn't turn on Wi-Fi (exit code " + r.code + ")." : r.output;
     }
 
     // ---- TUNE knob ----

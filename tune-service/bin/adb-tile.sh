@@ -1,15 +1,16 @@
 #!/system/bin/sh
 # The ADB tile's root side, run by Tilepad through `nemesis root -c`.
 #
-#   sh /data/nemesis/apps/tilepad/bin/adb-tile.sh on|off
+#   sh /data/nemesis/apps/tilepad/bin/adb-tile.sh on|off|wifi
 #
 # on   sets persist.service.adb.tcp.enable=1. This firmware's init.daudio.rc reacts to that by
 #      setting service.adb.tcp.port=5555 and restarting adbd, now and at every boot. It's set
 #      to 0 first so the trigger fires even if the property was already 1.
 # off  clears it and stops adbd (nothing in the firmware reacts to 0), with a negative live
 #      port so adbd won't listen over TCP if something starts it again before a reboot.
-#
-# Wi-Fi is Tilepad's side (WifiRadio): it turns the client on after `on`.
+# wifi turns the Wi-Fi client on (the CarPlay hotspot off first), once, after `on`. That needs
+#      the system's network permissions, which the Tilepad app doesn't hold, so WifiRadio runs
+#      as uid 1000 under app_process (as root it can't write the dex cache). Prints why not, if not.
 . /data/nemesis/apps/tilepad/scripts/common.sh
 
 case "$1" in
@@ -27,6 +28,14 @@ case "$1" in
         rm -f "$ADB_MARK"
         log "adb-tile: off"
         ;;
-    *) echo "usage: adb-tile.sh on|off"; exit 1 ;;
+    wifi)
+        if [ -z "$BOOTCLASSPATH" ] && [ -r /init.environ.rc ]; then
+            while read CMD NAME VALUE; do
+                [ "$CMD" = export ] && export "$NAME=$VALUE"
+            done < /init.environ.rc
+        fi
+        exec /system/xbin/nemesis root 1000 -c "BOOTCLASSPATH=$BOOTCLASSPATH CLASSPATH=$DEX app_process /system/bin --nice-name=tilepad-wifi com.tilepad.WifiRadio once"
+        ;;
+    *) echo "usage: adb-tile.sh on|off|wifi"; exit 1 ;;
 esac
 exit 0
