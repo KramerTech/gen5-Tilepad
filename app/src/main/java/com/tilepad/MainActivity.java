@@ -821,15 +821,13 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
         final StatusCard card = new StatusCard(ui);
         if (wifiClientPending()) {
             sheet.show(card, 680, null);
-            askRebootForWifiClient(card, "Wi-Fi client is on",
-                "It starts after the head unit reboots. Then tap Wi-Fi again to join a network.");
+            askRebootForWifiClient(card);
             return;
         }
         card.set(Glyph.Kind.WIFI_OFF, Ui.ACCENT, false, "Turn on Wi-Fi?",
-            "This head unit's Wi-Fi only runs the hotspot that wireless CarPlay and Android Auto use, so it "
-                + "can't join a network. Tilepad can turn on the Wi-Fi client, the same switch as HMG Leafia Plus's "
-                + "Wi-Fi client option. It takes effect after a reboot.",
-            "There's one Wi-Fi radio: while it's connected to a network, wireless CarPlay and Android Auto may not connect.");
+            "The car's Wi-Fi is set up only for wireless CarPlay and Android Auto. Turn it on to join "
+                + "Wi-Fi networks too. This needs a reboot.",
+            "While the car is on a Wi-Fi network, wireless CarPlay and Android Auto may not connect.");
         List<View> buttons = card.setActions(
             new StatusCard.Action("Cancel", Ui.SURFACE, dismiss()),
             new StatusCard.Action("Turn on", Ui.ACCENT, new Runnable() { @Override public void run() { enableWifiClient(card); } }));
@@ -838,7 +836,7 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
     }
 
     private void enableWifiClient(final StatusCard card) {
-        card.set(null, Ui.ACCENT, true, "Turning on Wi-Fi…", "Adding the Wi-Fi client feature.", null);
+        card.set(null, Ui.ACCENT, true, "Turning on Wi-Fi…", "This takes a few seconds.", null);
         sheet.setTargets(card.setActions());
         new Thread(new Runnable() {
             @Override public void run() {
@@ -847,8 +845,7 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
                     if (isFinishing()) return;
                     bindWifiClientOff();
                     if (result.code == 0 && wifiClientPending()) {
-                        askRebootForWifiClient(card, "Wi-Fi client on", "Reboot the head unit to finish. "
-                            + "Then tap Wi-Fi to join a network.");
+                        askRebootForWifiClient(card);
                         return;
                     }
                     String detail = result.output.isEmpty() ? "nemesis exited with code " + result.code : result.output;
@@ -860,8 +857,9 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
     }
 
     /** Shows the reboot prompt on a card that is already on screen. */
-    private void askRebootForWifiClient(final StatusCard card, String title, String body) {
-        card.set(Glyph.Kind.CHECK, Ui.GREEN, false, title, body, null);
+    private void askRebootForWifiClient(final StatusCard card) {
+        card.set(Glyph.Kind.CHECK, Ui.GREEN, false, "Reboot to finish",
+            "Wi-Fi turns on after the head unit reboots. Then tap the Wi-Fi tile to join a network.", null);
         List<View> buttons = card.setActions(
             new StatusCard.Action("Later", Ui.SURFACE, dismiss()),
             new StatusCard.Action("Reboot", Ui.RED, new Runnable() { @Override public void run() { reboot(card); } }));
