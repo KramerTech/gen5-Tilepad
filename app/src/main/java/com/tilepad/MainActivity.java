@@ -66,6 +66,8 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
     private PreconTile preconTile;
     private AdbTile adbTile;
     private TileGrid.Scroll scroll;
+    /** A settings screen this opened is on top of it (see launch). */
+    private boolean settingsOnTop;
     private TweaksTile tweaksTile;
     private TweaksSnapshot tweaks = TweaksSnapshot.checking();
     private boolean tweaksReading;
@@ -183,6 +185,9 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
 
     @Override protected void onStop() {
         started = false;
+        // Like noHistory: Tilepad closes once something covers it, except a settings screen it
+        // opened itself, which Back returns from.
+        if (!settingsOnTop) finish();
         if (vehicleBound) { unbindService(vehicleConnection); vehicleBound = false; }
         vehicleService = null;
         super.onStop();
@@ -191,6 +196,7 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
     @Override protected void onResume() {
         super.onResume();
         resumed = true;
+        settingsOnTop = false;
         resumedAt = SystemClock.uptimeMillis();
         if (support.wifi && !support.wifiClient) bindWifiClientOff();
         else if (support.wifi) {
@@ -323,7 +329,7 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
         switch (spec.kind) {
             case WIFI:
                 if (!support.wifiClient) { offerWifiClient(); return; }
-                launch(intentFor(spec), titleOf(tile));
+                launch(intentFor(spec), titleOf(tile), true);
                 return;
             case ADB: onAdbTap(); return;
             case PRECONDITION: onPreconTap(); return;
@@ -331,7 +337,7 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
             case ADD: openAddPage(); return;
             default:
                 Intent intent = intentFor(spec);
-                if (intent != null) launch(intent, titleOf(tile));
+                if (intent != null) launch(intent, titleOf(tile), tile.spec.kind != TileSpec.Kind.SHORTCUT);
         }
     }
 
@@ -368,16 +374,21 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
             || getPackageManager().checkPermission(info.permission, getPackageName()) == PackageManager.PERMISSION_GRANTED;
     }
 
-    private void launch(Intent intent, String title) {
+    /**
+     * A shortcut opens like from a launcher: in its own task, and Tilepad closes. A core tile's
+     * settings screen (Wi-Fi, Tweaks, Nemesis Manager) opens on top of Tilepad, so Back returns here.
+     */
+    private void launch(Intent intent, String title, boolean returnHere) {
         if (!canStart(intent)) {
             showMessage(Glyph.Kind.ALERT, Ui.AMBER, "Can't open " + title,
                 "It isn't installed or can't be opened on this head unit.");
             return;
         }
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
+        if (!returnHere) intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
         try {
             startActivity(intent);
-            finish();
+            if (returnHere) settingsOnTop = true;
+            else finish();
         } catch (ActivityNotFoundException | SecurityException e) {
             showMessage(Glyph.Kind.ALERT, Ui.RED, "Can't open " + title, e.getMessage());
         }

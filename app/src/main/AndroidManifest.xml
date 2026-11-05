@@ -27,7 +27,6 @@
             android:excludeFromRecents="true"
             android:exported="true"
             android:launchMode="singleTask"
-            android:noHistory="true"
             android:screenOrientation="landscape"
             android:windowSoftInputMode="stateAlwaysHidden">
             <intent-filter>
