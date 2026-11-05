@@ -290,6 +290,8 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
         tile.setOnLongClickListener(new View.OnLongClickListener() {
             @Override public boolean onLongClick(View v) {
                 if (sheet.isShowing() || addPage != null) return false;
+                // The Wi-Fi tile never moves, so its long-press shows the radio's MAC address instead.
+                if (tile.spec.kind == TileSpec.Kind.WIFI && !grid.isEditing()) { showWifiMac(); return true; }
                 grid.beginDrag(tile);
                 return true;
             }
@@ -532,6 +534,39 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
 
     private Runnable dismiss() {
         return new Runnable() { @Override public void run() { sheet.dismiss(); } };
+    }
+
+    /** For reserving the car a static IP on a home router: the address the client radio joins networks with. */
+    private void showWifiMac() {
+        String mac = wifiMac();
+        StatusCard card = new StatusCard(ui);
+        if (mac == null) card.set(Glyph.Kind.WIFI_OFF, Ui.MUTED, false, "Wi-Fi MAC address",
+            "The Wi-Fi radio hasn't reported its address. Turn the Wi-Fi client on and try again.", null);
+        else card.set(Glyph.Kind.WIFI, Ui.ACCENT, false, "Wi-Fi MAC address", mac,
+            "Use this to reserve a static IP address for the car on your router.");
+        List<View> buttons = card.setActions(new StatusCard.Action("Close", Ui.SURFACE, dismiss()));
+        sheet.show(card, 680, null);
+        sheet.setTargets(buttons);
+    }
+
+    /** The framework's report, else the kernel's for wlan0, which is there even while the client is off. */
+    private String wifiMac() {
+        String mac = null;
+        try {
+            WifiInfo info = ((WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE)).getConnectionInfo();
+            if (info != null) mac = info.getMacAddress();
+        } catch (RuntimeException ignored) { }
+        if (!realMac(mac)) {
+            try (java.io.BufferedReader in = new java.io.BufferedReader(new java.io.FileReader("/sys/class/net/wlan0/address"))) {
+                mac = in.readLine();
+            } catch (java.io.IOException ignored) { mac = null; }
+        }
+        return realMac(mac) ? mac.trim().toUpperCase(java.util.Locale.US) : null;
+    }
+
+    private static boolean realMac(String mac) {
+        return mac != null && mac.trim().matches("(?i)([0-9a-f]{2}:){5}[0-9a-f]{2}") && !mac.trim().equals("00:00:00:00:00:00")
+            && !mac.trim().equalsIgnoreCase("02:00:00:00:00:00");
     }
 
     private void confirmReboot() {

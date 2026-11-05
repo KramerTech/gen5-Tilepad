@@ -35,7 +35,7 @@ nothing, because of Launchpad's firmware gate.
 
 | Tile | Shows | Tap |
 | --- | --- | --- |
-| **Wi-Fi** *(Wi-Fi module only)* | signal bars, Connected / No network / Off, network name, IP, link speed. *Hotspot only* when the client is off | Android's Wi-Fi network picker, or *turn on Wi-Fi* (see below) |
+| **Wi-Fi** *(Wi-Fi module only)* | signal bars, Connected / No network / Off, network name, IP, link speed. *Hotspot only* when the client is off | Android's Wi-Fi network picker, or *turn on Wi-Fi* (see below). Long-press: the Wi-Fi MAC address, for a static IP reservation |
 | **Precondition** *(EVs only)* | Off / Waiting / Active / Unavailable…, spinner while waiting, elapsed time, a *Conditioning* pill while the car's own indicator is on | see below |
 | **Tweaks** | On when any tweak is enabled, Off when none are; enabled count | opens the bundled `Tweaks.apk`; each feature has a checkbox and detailed explanation |
 | **ADB** | On / Off and the port | asks to confirm, then turns ADB over Wi-Fi on or off (see below) |
