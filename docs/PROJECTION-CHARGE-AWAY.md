@@ -26,7 +26,7 @@ blind transaction probing or schedule changes on the car during investigation.
 
 Both switches default off and appear in the stock-style three-pane Tweaks UI.
 The Tilepad summary automatically counts all ten selections. Existing optimistic
-settings saves are retained; marking Home is a separate explicit action, shows
+settings saves are retained; setting, updating or clearing Home is a separate explicit action (clearing asks first), shows
 six-decimal latitude/longitude, and saves both coordinates atomically. No map,
 network geocoding, or search dependency is introduced. Home is kept in the existing
 protected root configuration, not written to a shared external-storage file.

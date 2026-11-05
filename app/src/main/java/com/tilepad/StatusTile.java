@@ -33,7 +33,11 @@ abstract class StatusTile extends TileView {
         image.setImageDrawable(glyph);
         image.setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
         icon.addView(image, new FrameLayout.LayoutParams(ui.dp(44), ui.dp(44), Gravity.CENTER));
-        content.addView(icon, new FrameLayout.LayoutParams(ui.dp(64), ui.dp(64), Gravity.TOP | Gravity.LEFT));
+        // The glyph sits centred in its 64 dp spinner ring; shift the ring so the glyph itself
+        // starts at the same left edge as the caption text below it.
+        FrameLayout.LayoutParams iconParams = new FrameLayout.LayoutParams(ui.dp(64), ui.dp(64), Gravity.TOP | Gravity.LEFT);
+        iconParams.leftMargin = -ui.dp(10);
+        content.addView(icon, iconParams);
 
         pillBox = ui.row();
         pillBox.setGravity(Gravity.CENTER_VERTICAL);

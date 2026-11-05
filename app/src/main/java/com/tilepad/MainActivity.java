@@ -22,6 +22,7 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.SystemClock;
+import android.util.Log;
 import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.View;
@@ -40,6 +41,7 @@ import java.util.Set;
 /** Minimal grid launcher: square tiles, long-press to rearrange, steering-wheel star hold to open or close. */
 public final class MainActivity extends Activity implements TileGrid.Listener, TileView.EditListener, Sheet.Listener {
     static final String EXTRA_FROM_KNOB = "from_knob";
+    private static final String TAG = "Tilepad";
     private static final String NEMESIS_COMPONENT = "com.nemesis.manager/.MainActivity";
     /** Root-side half of "turn on the Wi-Fi client", shipped in the NEMESIS package. */
     private static final String WIFI_CLIENT_SCRIPT = "/data/nemesis/apps/tilepad/bin/wifi-client.sh";
@@ -76,6 +78,8 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
     private boolean adbPendingOn;
     /** While a toggle is in flight, holds the Starting/Stopping display until the daemon catches up. */
     private long adbPendingSince;
+    /** Why the last toggle's root command failed; shown only if adbd doesn't settle anyway. */
+    private String adbPendingError;
     /** The ADB popup, while it is the sheet on screen. */
     private StatusCard adbCard;
 
@@ -141,7 +145,7 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
         root.setBackgroundColor(Ui.BG);
         grid = new TileGrid(this, ui);
         grid.setListener(this);
-        TileGrid.Scroll scroll = new TileGrid.Scroll(this, grid);
+        TileGrid.Scroll scroll = new TileGrid.Scroll(this, grid, ui);
         // The right inset keeps tiles clear of Hyundai's split-screen handle.
         scroll.setPadding(ui.dp(24), ui.dp(16), ui.dp(64), ui.dp(16));
         scroll.setClipToPadding(false);
@@ -271,13 +275,10 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
                 tweaksTile.bind(tweaks);
                 break;
             case NEMESIS:
-                tile = TileView.simple(ui, spec, this, TileView.chip(ui, Glyph.Kind.TERMINAL, Ui.PURPLE), 80, "NEMESIS");
-                break;
-            case CAR_HOME:
-                tile = TileView.simple(ui, spec, this, TileView.chip(ui, Glyph.Kind.CAR, Ui.ACCENT), 80, "Car Home");
+                tile = TileView.simple(ui, spec, this, TileView.chip(ui, Glyph.Kind.TERMINAL, Ui.PURPLE), 80, "Nemesis Manager");
                 break;
             case REBOOT:
-                tile = TileView.simple(ui, spec, this, TileView.chip(ui, Glyph.Kind.REBOOT, Ui.RED), 80, "Reboot");
+                tile = TileView.simple(ui, spec, this, TileView.chip(ui, Glyph.Kind.REBOOT, Ui.RED), 80, "Reboot Head Unit");
                 break;
             case ADD: {
                 tile = TileView.simple(ui, spec, this, ui.glyph(Glyph.Kind.PLUS, Ui.MUTED, 56), 56, "Add shortcut");
@@ -293,6 +294,8 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
         tile.setOnLongClickListener(new View.OnLongClickListener() {
             @Override public boolean onLongClick(View v) {
                 if (sheet.isShowing() || addPage != null) return false;
+                // The Wi-Fi tile never moves, so its long-press shows the radio's MAC address instead.
+                if (tile.spec.kind == TileSpec.Kind.WIFI && !grid.isEditing()) { showWifiMac(); return true; }
                 grid.beginDrag(tile);
                 return true;
             }
@@ -337,7 +340,6 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
             case TWEAKS: return new Intent(Intent.ACTION_MAIN).setComponent(new ComponentName("com.tilepad.tweaks", "com.tilepad.tweaks.TweaksActivity"));
             case WIFI: return new Intent("android.settings.WIFI_SETTINGS");
             case NEMESIS: return new Intent(Intent.ACTION_MAIN).setComponent(ComponentName.unflattenFromString(NEMESIS_COMPONENT));
-            case CAR_HOME: return new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME);
             case SHORTCUT: {
                 ComponentName component = ComponentName.unflattenFromString(spec.component);
                 if (component == null) return null;
@@ -353,8 +355,7 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
         switch (tile.spec.kind) {
             case TWEAKS: return "Tweaks";
             case WIFI: return "Wi-Fi settings";
-            case NEMESIS: return "NEMESIS Manager";
-            case CAR_HOME: return "Car Home";
+            case NEMESIS: return "Nemesis Manager";
             default: return shortcutLabel(tile.spec);
         }
     }
@@ -537,6 +538,39 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
 
     private Runnable dismiss() {
         return new Runnable() { @Override public void run() { sheet.dismiss(); } };
+    }
+
+    /** For reserving the car a static IP on a home router: the address the client radio joins networks with. */
+    private void showWifiMac() {
+        String mac = wifiMac();
+        StatusCard card = new StatusCard(ui);
+        if (mac == null) card.set(Glyph.Kind.WIFI_OFF, Ui.MUTED, false, "Wi-Fi MAC address",
+            "The Wi-Fi radio hasn't reported its address. Turn the Wi-Fi client on and try again.", null);
+        else card.set(Glyph.Kind.WIFI, Ui.ACCENT, false, "Wi-Fi MAC address", mac,
+            "Use this to reserve a static IP address for the car on your router.");
+        List<View> buttons = card.setActions(new StatusCard.Action("Close", Ui.SURFACE, dismiss()));
+        sheet.show(card, 680, null);
+        sheet.setTargets(buttons);
+    }
+
+    /** The framework's report, else the kernel's for wlan0, which is there even while the client is off. */
+    private String wifiMac() {
+        String mac = null;
+        try {
+            WifiInfo info = ((WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE)).getConnectionInfo();
+            if (info != null) mac = info.getMacAddress();
+        } catch (RuntimeException ignored) { }
+        if (!realMac(mac)) {
+            try (java.io.BufferedReader in = new java.io.BufferedReader(new java.io.FileReader("/sys/class/net/wlan0/address"))) {
+                mac = in.readLine();
+            } catch (java.io.IOException ignored) { mac = null; }
+        }
+        return realMac(mac) ? mac.trim().toUpperCase(java.util.Locale.US) : null;
+    }
+
+    private static boolean realMac(String mac) {
+        return mac != null && mac.trim().matches("(?i)([0-9a-f]{2}:){5}[0-9a-f]{2}") && !mac.trim().equals("00:00:00:00:00:00")
+            && !mac.trim().equalsIgnoreCase("02:00:00:00:00:00");
     }
 
     private void confirmReboot() {
@@ -803,15 +837,13 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
         final StatusCard card = new StatusCard(ui);
         if (wifiClientPending()) {
             sheet.show(card, 680, null);
-            askRebootForWifiClient(card, "Wi-Fi client is on",
-                "It starts after the head unit reboots. Then tap Wi-Fi again to join a network.");
+            askRebootForWifiClient(card);
             return;
         }
         card.set(Glyph.Kind.WIFI_OFF, Ui.ACCENT, false, "Turn on Wi-Fi?",
-            "This head unit's Wi-Fi only runs the hotspot that wireless CarPlay and Android Auto use, so it "
-                + "can't join a network. Tilepad can turn on the Wi-Fi client, the same switch as HMG Leafia Plus's "
-                + "Wi-Fi client option. It takes effect after a reboot.",
-            "There's one Wi-Fi radio: while it's connected to a network, wireless CarPlay and Android Auto may not connect.");
+            "The car's Wi-Fi is set up only for wireless CarPlay and Android Auto. Turn it on to join "
+                + "Wi-Fi networks too. This needs a reboot.",
+            "While the car is on a Wi-Fi network, wireless CarPlay and Android Auto may not connect.");
         List<View> buttons = card.setActions(
             new StatusCard.Action("Cancel", Ui.SURFACE, dismiss()),
             new StatusCard.Action("Turn on", Ui.ACCENT, new Runnable() { @Override public void run() { enableWifiClient(card); } }));
@@ -820,7 +852,7 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
     }
 
     private void enableWifiClient(final StatusCard card) {
-        card.set(null, Ui.ACCENT, true, "Turning on Wi-Fi…", "Adding the Wi-Fi client feature.", null);
+        card.set(null, Ui.ACCENT, true, "Turning on Wi-Fi…", "This takes a few seconds.", null);
         sheet.setTargets(card.setActions());
         new Thread(new Runnable() {
             @Override public void run() {
@@ -829,8 +861,7 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
                     if (isFinishing()) return;
                     bindWifiClientOff();
                     if (result.code == 0 && wifiClientPending()) {
-                        askRebootForWifiClient(card, "Wi-Fi client on", "Reboot the head unit to finish. "
-                            + "Then tap Wi-Fi to join a network.");
+                        askRebootForWifiClient(card);
                         return;
                     }
                     String detail = result.output.isEmpty() ? "nemesis exited with code " + result.code : result.output;
@@ -842,8 +873,9 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
     }
 
     /** Shows the reboot prompt on a card that is already on screen. */
-    private void askRebootForWifiClient(final StatusCard card, String title, String body) {
-        card.set(Glyph.Kind.CHECK, Ui.GREEN, false, title, body, null);
+    private void askRebootForWifiClient(final StatusCard card) {
+        card.set(Glyph.Kind.CHECK, Ui.GREEN, false, "Reboot to finish",
+            "Wi-Fi turns on after the head unit reboots. Then tap the Wi-Fi tile to join a network.", null);
         List<View> buttons = card.setActions(
             new StatusCard.Action("Later", Ui.SURFACE, dismiss()),
             new StatusCard.Action("Reboot", Ui.RED, new Runnable() { @Override public void run() { reboot(card); } }));
@@ -914,8 +946,11 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
             } else if (SystemClock.uptimeMillis() - adbPendingSince < 12000) {
                 value = AdbSnapshot.of(adbPendingOn ? AdbSnapshot.State.STARTING : AdbSnapshot.State.STOPPING, value.port);
             } else {
-                adbPendingSince = 0; // give up waiting; show what adbd reports
+                // Give up waiting: show the command's error if it had one, else what adbd reports.
+                adbPendingSince = 0;
+                if (adbPendingError != null) value = AdbSnapshot.error(adbPendingError);
             }
+            if (adbPendingSince == 0) adbPendingError = null;
         }
         adb = value;
         if (adbTile != null) adbTile.bind(value);
@@ -997,6 +1032,7 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
     private void toggleAdb(final boolean on) {
         adbPendingSince = SystemClock.uptimeMillis();
         adbPendingOn = on;
+        adbPendingError = null;
         adb = AdbSnapshot.of(on ? AdbSnapshot.State.STARTING : AdbSnapshot.State.STOPPING, adb.port);
         if (adbTile != null) adbTile.bind(adb);
         if (adbCard != null) renderAdbCard();
@@ -1004,15 +1040,18 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
         new Thread(new Runnable() {
             @Override public void run() {
                 RootShell.Result r = RootShell.run("sh " + ADB_TILE_SCRIPT + " " + (on ? "on" : "off"));
-                String problem = r.code != 0 ? (r.output.isEmpty() ? "nemesis exited with code " + r.code : r.output)
-                    : on ? WifiRadio.ensureClientOn() : null;
-                final String error = problem;
+                // The root command can report a failure even though the change went through, so
+                // its error only shows if adbd doesn't reach the new state (see onAdb).
+                final String failed = r.code == 0 ? null : r.output.isEmpty() ? "nemesis exited with code " + r.code : r.output;
+                if (failed != null) Log.w(TAG, "adb-tile " + (on ? "on" : "off") + " exited " + r.code + ": " + r.output);
+                final String wifi = failed == null && on ? WifiRadio.ensureClientOn() : null;
                 main.post(new Runnable() { @Override public void run() {
                     if (isFinishing() || !resumed || epoch != adbEpoch) return;
-                    if (error != null) {
+                    if (wifi != null) {
                         adbPendingSince = 0;
-                        onAdb(AdbSnapshot.error(error));
+                        onAdb(AdbSnapshot.error(wifi));
                     } else {
+                        adbPendingError = failed;
                         refreshAdb();
                     }
                 } });

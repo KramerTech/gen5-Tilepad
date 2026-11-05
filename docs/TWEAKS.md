@@ -2,9 +2,10 @@
 
 `Tweaks.apk` (`com.tilepad.tweaks`) is a separate settings app installed with
 Tilepad. The permanent **Tweaks** tile occupies the lower-left corner of the fixed
-status square, with Precondition to its right. Wi-Fi and ADB occupy the upper row. A thin vertical divider separates these four from
-the other tiles; scrolling/reordering on the right leaves the status square in
-place. Existing user-tile order and shortcuts are retained.
+core block on page one, with Precondition and Reboot Head Unit to its right; Wi-Fi,
+ADB and Nemesis Manager occupy the upper row. A thin vertical divider separates the
+block from the user's tiles, which continue on further swipeable pages when they
+don't fit. Existing user-tile order and shortcuts are retained.
 
 The Tweaks tile uses the same status-card format as the other three: glyph,
 status pill, caption, headline, detail and hint. Any enabled tweak gives an **On**
@@ -64,7 +65,7 @@ The older heater-only `options` command remains supported for compatibility.
 | Maintain Climate Sync | A passenger temperature change moves the driver temperature to match, then turns Sync back on | None | No |
 | Automatic Driver Only | Driver Only every time the car is turned on; Sync once the passenger belt is buckled (one way, until the next car start) | None | No |
 | Auto-Open Phone Projection | Opens AA/CarPlay once when a session becomes available, independently of the right pop-over | None | No |
-| Charge-Away | Scheduled Charging off beyond 1.5 miles of Home, on within 1 mile; retains state between boundaries and preserves the off-peak-only choice | Save current GPS location as Home; latitude/longitude shown | No |
+| Charge-Away | Scheduled Charging off beyond 1.5 miles of Home, on within 1 mile; retains state between boundaries and preserves the off-peak-only choice | Set Home from the current GPS location, update it, or clear it; coordinates shown | No |
 
 The broad pop-over switch hides other notices using that same OSD panel as well.
 The stock **Display → Media change notifications** preference is insufficient for

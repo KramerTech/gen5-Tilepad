@@ -20,7 +20,7 @@ def main():
     classes.mkdir(parents=True, exist_ok=True)
     core = ROOT / "tweaks-core/src/main/java/com/tilepad/tweakcore"
     sources = [core / (n + ".java") for n in ("Config", "Files", "DstRules", "HeaterPolicy", "PatchManager", "ClimatePolicy", "VehicleLocation", "ChargeAwayPolicy", "ProjectionPolicy", "Transaction")]
-    pure_names = ("AdbSnapshot", "TweaksSnapshot", "ConnectionSnapshot", "TileSpec", "TileOrder", "TileSupport", "GridMath", "GroupedGridMath", "SearchFilter", "PreconPresenter", "BatteryTemperature", "PreconditioningProfile", "PreconditioningSnapshot", "PreconditioningController", "VehiclePort")
+    pure_names = ("AdbSnapshot", "TweaksSnapshot", "ConnectionSnapshot", "TileSpec", "TileOrder", "TileSupport", "GridMath", "PagedGridMath", "SearchFilter", "PreconPresenter", "BatteryTemperature", "PreconditioningProfile", "PreconditioningSnapshot", "PreconditioningController", "VehiclePort")
     sources += [ROOT / "app/src/main/java/com/tilepad" / (n + ".java") for n in pure_names]
     sources += [ROOT / "app/src/main/java/com/tilepad/longstar" / (n + ".java") for n in ("Evdev", "HoldDetector")]
     tests = sorted((ROOT / "app/src/test/java").rglob("*Test.java")) + sorted((ROOT / "tweaks/src/test/java").rglob("*Test.java"))

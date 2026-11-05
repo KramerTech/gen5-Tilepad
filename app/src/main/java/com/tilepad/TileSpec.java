@@ -4,14 +4,19 @@ package com.tilepad;
 final class TileSpec {
     enum Kind {
         WIFI("core:wifi"), ADB("core:adb"), PRECONDITION("core:precondition"), TWEAKS("core:tweaks"), NEMESIS("core:nemesis"),
-        CAR_HOME("core:car_home"), REBOOT("core:reboot"), ADD("core:add"), SHORTCUT(null);
+        REBOOT("core:reboot"), ADD("core:add"), SHORTCUT(null);
 
         final String coreId;
         Kind(String coreId) { this.coreId = coreId; }
     }
 
     /** Default order for a fresh install; also the order missing core tiles are restored in. */
-    static final Kind[] CORE = {Kind.WIFI, Kind.ADB, Kind.PRECONDITION, Kind.TWEAKS, Kind.NEMESIS, Kind.CAR_HOME, Kind.REBOOT, Kind.ADD};
+    static final Kind[] CORE = {Kind.WIFI, Kind.ADB, Kind.PRECONDITION, Kind.TWEAKS, Kind.NEMESIS, Kind.REBOOT, Kind.ADD};
+    /**
+     * The fixed block left of the divider on page one, row-major in three columns:
+     * Wi-Fi, ADB, Nemesis Manager over Tweaks, Precondition, Reboot Head Unit. These can't be moved.
+     */
+    static final Kind[] FIXED = {Kind.WIFI, Kind.ADB, Kind.NEMESIS, Kind.TWEAKS, Kind.PRECONDITION, Kind.REBOOT};
 
     final String id;
     final Kind kind;
@@ -41,6 +46,9 @@ final class TileSpec {
     boolean isStatus() {
         return kind == Kind.WIFI || kind == Kind.ADB || kind == Kind.PRECONDITION || kind == Kind.TWEAKS;
     }
+
+    /** Part of the fixed block on page one: not draggable, not part of the user's order. */
+    boolean isFixed() { return isStatus() || kind == Kind.NEMESIS || kind == Kind.REBOOT; }
 
     TileSpec withLabel(String value) {
         return new TileSpec(id, kind, component, launcher, emptyToNull(value));
