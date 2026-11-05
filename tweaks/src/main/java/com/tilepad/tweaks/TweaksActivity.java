@@ -1,6 +1,8 @@
 package com.tilepad.tweaks;
 
 import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.DialogInterface;
 import android.content.pm.ApplicationInfo;
 import android.content.res.Configuration;
 import android.content.res.Resources;
@@ -24,6 +26,8 @@ public final class TweaksActivity extends Activity {
     private boolean preview, busy = true, ready;
     private String error;
     private boolean capturingHome;
+    /** "Home saved." or "Home updated." after a Home change, until another tweak is selected. */
+    private String homeNotice;
     private final SettingsEdits edits = new SettingsEdits();
     private final Runnable saveFlush = new Runnable() { @Override public void run() { flushEdits(); } };
     private int selected, bg, ink, muted, line, accent = 0xff00b5de;
@@ -81,7 +85,7 @@ public final class TweaksActivity extends Activity {
         FrameLayout header = new FrameLayout(this);
         TextView title = text("Tweaks", 28, ink); title.setTypeface(null, Typeface.BOLD); title.setGravity(Gravity.CENTER);
         header.addView(title, new FrameLayout.LayoutParams(-1, -1));
-        String notice = preview ? "Preview" : edits.hasWork() ? "Saving…" : busy ? (capturingHome ? "Saving Home…" : "Reading settings…") : "true".equals(values.getProperty("restart")) ? "Restart required" : "";
+        String notice = preview ? "Preview" : edits.hasWork() ? "Saving…" : busy ? (capturingHome ? "Saving…" : "Reading settings…") : "true".equals(values.getProperty("restart")) ? "Restart required" : "";
         TextView state = text(notice, 16, ink); state.setPadding(dp(12), 0, dp(22), 0); state.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
         header.addView(state, new FrameLayout.LayoutParams(-1, -1));
         root.addView(header, new LinearLayout.LayoutParams(-1, dp(60))); divider(root);
@@ -101,7 +105,7 @@ public final class TweaksActivity extends Activity {
             tab.setContentDescription(item.railTitle() + (i == selected ? ", selected" : ""));
             tab.setOnClickListener(new View.OnClickListener() { @Override public void onClick(View v) {
                 if (selected == index) return;
-                selected = index; getPreferences(0).edit().putInt("selected", selected).apply();
+                selected = index; homeNotice = null; getPreferences(0).edit().putInt("selected", selected).apply();
                 controlScroll.scrollTo(0, 0); helpScroll.scrollTo(0, 0); render();
             } });
             rail.addView(tab, new LinearLayout.LayoutParams(-1, -2)); divider(rail);
@@ -114,6 +118,7 @@ public final class TweaksActivity extends Activity {
         checkbox(controls, item.title, item.id, enabled, ready && !busy && (unavailable.isEmpty() || enabled));
         String runtime = values.getProperty("status." + item.id, "");
         String described = ready ? item.state(enabled, pending(item.id)) : null;
+        if (ready && enabled && item.id.equals("chargeaway") && !new Config(values).hasHome()) described = TweakInfo.CHARGE_AWAY_NO_HOME;
         if (described != null) note(described, false);
         // Then what the tweak is doing right now, if it says.
         if (!runtime.isEmpty() && (described == null || enabled)) note(runtime, false);
@@ -132,13 +137,23 @@ public final class TweaksActivity extends Activity {
         }
         if (!values.getProperty("runtime", "").isEmpty()) note(values.getProperty("runtime"), true);
         if (item.id.equals("chargeaway")) {
-            Config config = new Config(values);
-            note(config.hasHome() ? String.format(Locale.US, "Home\nLat: %.6f\nLon: %.6f", Double.parseDouble(config.get("homeLat")), Double.parseDouble(config.get("homeLon"))) : "No Home location saved.", false);
-            Button mark = button("Set Current Location as Home", "Save current GPS location as Home", new View.OnClickListener() {
-                @Override public void onClick(View v) { captureHome(); }
+            boolean home = new Config(values).hasHome();
+            note(home ? String.format(Locale.US, "Home: %.6f, %.6f", Double.parseDouble(values.getProperty("homeLat")), Double.parseDouble(values.getProperty("homeLon")))
+                : "No Home location set.", false);
+            if (homeNotice != null) note(homeNotice, false);
+            Button mark = button(home ? "Update Home to Current Location" : "Set Current Location as Home",
+                home ? "Replace Home with the current GPS location" : "Save the current GPS location as Home", new View.OnClickListener() {
+                @Override public void onClick(View v) { captureHome(false); }
             });
             mark.setTextSize(22); mark.setEnabled(ready && !busy && !edits.hasWork());
             controls.addView(mark, new LinearLayout.LayoutParams(-1, dp(72))); divider(controls);
+            if (home) {
+                Button clear = button("Clear Home", "Remove the saved Home location", new View.OnClickListener() {
+                    @Override public void onClick(View v) { confirmClearHome(); }
+                });
+                clear.setTextSize(22); clear.setEnabled(ready && !busy && !edits.hasWork());
+                controls.addView(clear, new LinearLayout.LayoutParams(-1, dp(72))); divider(controls);
+            }
         } else if (enabled && item.options) {
             if (item.id.equals("dst")) {
                 note("Daylight-saving schedule", false);
@@ -254,22 +269,36 @@ public final class TweaksActivity extends Activity {
             }
         } });
     }
-    private void captureHome() {
+    private void confirmClearHome() {
+        new AlertDialog.Builder(this).setTitle("Clear Home?")
+            .setMessage("Charge-Away stops changing Scheduled Charging until you set Home again. Scheduled Charging is left as it is.")
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Clear Home", new DialogInterface.OnClickListener() {
+                @Override public void onClick(DialogInterface d, int which) { captureHome(true); }
+            }).show();
+    }
+    /** Saves the current GPS fix as Home, or clears Home. */
+    private void captureHome(final boolean clear) {
         if (!ready || busy || edits.hasWork()) return;
-        busy = true; capturingHome = true; error = null; render();
+        final boolean hadHome = new Config(values).hasHome();
+        busy = true; capturingHome = true; error = null; homeNotice = null; render();
         worker.execute(new Runnable() { @Override public void run() {
             Properties read = null; String failure = null;
             try {
                 if (preview) {
-                    read = edits.confirmed(); new Config(read).set("homeLat", "37.0"); new Config(read).set("homeLon", "-122.0");
+                    read = edits.confirmed(); Config c = new Config(read);
+                    c.set("homeLat", clear ? "" : "37.0"); c.set("homeLon", clear ? "" : "-122.0");
                     java.io.StringWriter stored = new java.io.StringWriter(); read.store(stored, "Preview");
                     getPreferences(0).edit().putString("preview", stored.toString()).apply();
-                } else read = Backend.run("home");
+                } else read = clear ? Backend.run("update", "homeLat", "", "homeLon", "") : Backend.run("home");
             } catch (Exception e) { failure = e.getMessage(); }
             final Properties result = read; final String problem = failure;
             main.post(new Runnable() { @Override public void run() {
                 if (isFinishing() || isDestroyed()) return;
-                if (result != null) edits.reset(result);
+                if (result != null) {
+                    edits.reset(result);
+                    homeNotice = clear ? "Home cleared." : hadHome ? "Home updated to your current location." : "Home saved.";
+                }
                 busy = false; capturingHome = false; error = problem; render();
             } });
         } });

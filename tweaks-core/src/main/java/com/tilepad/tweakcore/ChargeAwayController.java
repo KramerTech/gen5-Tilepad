@@ -30,7 +30,8 @@ final class ChargeAwayController {
     synchronized void configure(Config source) {
         if (handler == null) {
             if (!source.enabled("chargeaway") || !source.hasHome()) {
-                if (source.enabled("chargeaway")) status("Set your current location as Home to begin.");
+                // The Tweaks app says to set Home; there's nothing running to report.
+                if (source.enabled("chargeaway")) status("");
                 return;
             }
             worker = new HandlerThread("tilepad-charge-away"); worker.setDaemon(true); worker.start();
@@ -45,8 +46,7 @@ final class ChargeAwayController {
         if (next == enabled && key.equals(homeKey)) return;
         handler.removeCallbacks(poll); enabled = next; homeKey = key; pendingMode = -1; attempts = 0;
         zone = ChargeAwayPolicy.Zone.UNKNOWN;
-        if (!next) { status("Charge-Away is off. Scheduled Charging is left as it is; Home is kept."); return; }
-        if (key.isEmpty()) { status("Set your current location as Home to begin."); return; }
+        if (!next || key.isEmpty()) { status(""); return; }
         latitude = Double.parseDouble(config.get("homeLat")); longitude = Double.parseDouble(config.get("homeLon"));
         try {
             Properties saved = Files.properties(state);

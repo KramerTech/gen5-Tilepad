@@ -34,6 +34,9 @@ final class TweakInfo {
             "The nav handle will be hidden after the next head-unit restart. Until then, it still shows.",
             "The nav handle comes back after the next head-unit restart. Until then, it stays hidden.");
 
+    /** Charge-Away's line while it's on with no Home saved yet. */
+    static final String CHARGE_AWAY_NO_HOME = "Set your current location as Home to begin. Until then, Scheduled Charging is left as it is.";
+
     /** Every tweak, for lookups by id. */
     static final TweakInfo[] ALL = {
         new TweakInfo("dst", "Automatic Daylight Saving Time", "Keeps the head unit’s daylight-saving switch in step with your region.", true, false,
@@ -96,14 +99,15 @@ final class TweakInfo {
             + "It does not pair phones, enable Wi-Fi, change projection settings, or bypass the OEM's launch restrictions. Wired and wireless sessions use the same ready-state checks. This first version requires the exact captured IONIQ 5 projection interfaces. Turning it off stops automatic opening and leaves the current screen alone.").states(
             "Android Auto or CarPlay opens automatically when a connection becomes available.",
             "Phone Projection opens only when you or the stock system choose it.", null, null),
-        new TweakInfo("chargeaway", "Charge-Away", "Scheduled Charging at Home; unrestricted charging when away.", true, false,
-            "Save your current location as Home using the button in the middle pane. Its latitude and longitude are saved on the head unit and shown here. Mark Home while parked at the location you want to use. You can replace it with the same button later; turning this tweak off keeps Home.\n\n"
-            + "While enabled with Home set, checks the vehicle's existing GPS fix every ten seconds. Beyond 1.5 miles (2.41 km), turns Scheduled Charging off. Within 1 mile (1.61 km), turns it back on. Between those distances, keeps the last Home/Away state to prevent repeated changes near a boundary. That state survives a restart. Before either boundary has been established, it leaves scheduling unchanged.\n\n"
-            + "It changes only the Scheduled Charging master mode. Your Charge ONLY during Off-peak choice, charging times and departure/climate settings are not edited. On returning Home it reads the stock saved off-peak choice, so it restores the mode you selected. Configure off-peak times and select Charge ONLY during Off-peak yourself in EV Settings if you want strict time-of-use charging. It cannot guarantee a charge completion time or electricity rate.\n\n"
-            + "Missing, stale (over 60 seconds), or inaccurate (over 150 metres) GPS pauses changes. The entire accuracy circle must cross a boundary before switching. While enabled, a manual change to Scheduled Charging is corrected at the next valid check if it conflicts with the current Home/Away state. It sends a request only when needed, checks vehicle feedback, and stops retrying after three unconfirmed requests until the state or configuration changes, or the runtime restarts.\n\n"
-            + "Turning this tweak off stops the location checks and leaves Scheduled Charging in its current state; it does not restore an earlier setting. The saved location stays local in Tilepad's protected configuration. This first version requires the exact captured IONIQ 5 EV Settings interface.").states(
-            "Scheduled Charging follows your saved Home location. Set Home below before the first use.",
-            "Scheduled Charging is left as it is. Your saved Home location is kept.", null, null)
+        new TweakInfo("chargeaway", "Charge-Away", "Turns off charging schedules away from Home, for a full charge at public chargers or while traveling.", true, false,
+            "Turns off Scheduled Charging when you're away from Home and turns it back on when you return. This lets you get a full charge at public chargers or while traveling, even if you normally limit charging to off-peak hours at home.\n\n"
+            + "Set Home while parked there, using the button in the middle pane. You can update or clear it later. Turning this tweak off keeps your saved Home.\n\n"
+            + "While on, it checks the car's GPS every ten seconds. More than 1.5 miles (2.4 km) from Home, it turns Scheduled Charging off. Within 1 mile (1.6 km), it turns it back on. In between, nothing changes, so it doesn't flip back and forth near the edge. If the GPS fix is missing, old or imprecise, it waits for a better one.\n\n"
+            + "Only the Scheduled Charging on/off switch changes. Your charging times, 'Charge ONLY during Off-peak' choice and departure settings stay as you set them in EV Settings, so set those up there first.\n\n"
+            + "While this is on, turning Scheduled Charging on or off by hand is corrected at the next check. To manage it yourself, turn this tweak off; Scheduled Charging is then left as it is. If the car doesn't confirm a change after three tries, it stops asking until something changes.\n\n"
+            + "This first version works only on the exact IONIQ 5 EV Settings version it was built against.").states(
+            "Scheduled Charging turns off more than 1.5 miles from Home and back on within 1 mile.",
+            "Scheduled Charging is left as it is.", null, null)
     };
     /** The left pane: every tweak except companions, which show inside their partner's entry. */
     static final TweakInfo[] RAIL = rail();

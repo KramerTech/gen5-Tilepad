@@ -85,7 +85,8 @@ public final class TweaksRuntime {
         syncDst();
         beginHeaters();
         climate = new ClimateController(handler);
-        applyClimate(TweaksCommand.load());
+        Config config = TweaksCommand.load();
+        applyClimate(config);
         projection = new ProjectionController(context, handler);
         chargeAway = new ChargeAwayController(context);
         IntentFilter projectionEvents = new IntentFilter();
@@ -93,7 +94,6 @@ public final class TweaksRuntime {
         registerRootReceiver(new BroadcastReceiver() {
             @Override public void onReceive(Context c, Intent i) { projection.event(); }
         }, projectionEvents);
-        Config config = TweaksCommand.load();
         projection.configure(config.enabled("projection")); chargeAway.configure(config);
         Looper.loop();
     }

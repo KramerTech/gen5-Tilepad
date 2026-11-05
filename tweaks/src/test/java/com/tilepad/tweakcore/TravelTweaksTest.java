@@ -83,6 +83,12 @@ public class TravelTweaksTest {
         }
         c.set("projection","true");c.set("chargeaway","true");assertFalse(c.staticChanged(old));assertFalse(c.dstChanged(old));
     }
+    @Test public void clearingHomeLeavesNoHome() {
+        Config c=new Config(new Properties());
+        c.set("homeLat","35.1");c.set("homeLon","-78.2");c.set("chargeaway","true");
+        c.set("homeLat","");c.set("homeLon","");c.validateHome();
+        assertFalse(c.hasHome());assertTrue(c.enabled("chargeaway"));
+    }
     @Test public void projectionOpensOncePerConnectionAndUnknownDoesNotReopen() {
         ProjectionPolicy p=new ProjectionPolicy(0);
         assertEquals(1,p.observe(1));assertEquals(0,p.observe(1));assertEquals(0,p.observe(null));assertEquals(0,p.observe(1));
