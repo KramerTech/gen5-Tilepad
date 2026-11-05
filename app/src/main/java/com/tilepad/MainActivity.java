@@ -936,7 +936,19 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
         if (adbTile == null) return;
         if (preview) { onAdb(PreviewData.adb()); return; }
         if (!RootShell.available()) { onAdb(AdbSnapshot.of(AdbSnapshot.State.OFF, 0)); return; }
-        onAdb(AdbSnapshot.read(prop("init.svc.adbd"), prop("service.adb.tcp.port"), prop("persist.adb.tcp.port")));
+        onAdb(AdbSnapshot.read(prop("init.svc.adbd"), prop("service.adb.tcp.port"), prop("persist.adb.tcp.port"), sockets()));
+    }
+
+    /** /proc/net/tcp and tcp6 together, or null if neither can be read. */
+    private static String sockets() {
+        StringBuilder out = new StringBuilder(); boolean any = false;
+        for (String path : new String[]{"/proc/net/tcp", "/proc/net/tcp6"}) {
+            try (java.io.BufferedReader in = new java.io.BufferedReader(new java.io.FileReader(path))) {
+                for (String line; (line = in.readLine()) != null; ) out.append(line).append('\n');
+                any = true;
+            } catch (java.io.IOException ignored) { }
+        }
+        return any ? out.toString() : null;
     }
 
     /** android.os.SystemProperties.get (hidden API); "" if it can't be read. */

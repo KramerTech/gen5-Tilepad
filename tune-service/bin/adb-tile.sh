@@ -15,6 +15,10 @@
 
 case "$1" in
     on)
+        # init.daudio.rc sets the port from a separate oneshot service and restarts adbd without
+        # waiting for it, so adbd can start with the old port (-1 after off) and skip TCP. Set it
+        # first.
+        setprop service.adb.tcp.port 5555
         setprop persist.service.adb.tcp.enable 0
         setprop persist.service.adb.tcp.enable 1
         [ "$(getprop persist.service.adb.tcp.enable)" = 1 ] || { echo "Couldn't set persist.service.adb.tcp.enable."; exit 1; }

@@ -31,9 +31,29 @@ final class AdbSnapshot {
      * A negative live port turns TCP off and must not fall back to a stale persistent one.
      */
     static AdbSnapshot read(String adbd, String livePort, String persistentPort) {
+        return read(adbd, livePort, persistentPort, null);
+    }
+
+    /**
+     * As above, and with the socket tables ({@code /proc/net/tcp} and {@code tcp6}; null if
+     * unreadable) also requires something listening on the port. The properties alone can say
+     * 5555 while adbd started before the port was set and listens over USB only.
+     */
+    static AdbSnapshot read(String adbd, String livePort, String persistentPort, String sockets) {
         String advertised = livePort == null || livePort.trim().isEmpty() ? persistentPort : livePort;
         int port = num(advertised);
-        return "running".equals(adbd) && port > 0 ? new AdbSnapshot(State.ON, port, "") : new AdbSnapshot(State.OFF, 0, "");
+        boolean on = "running".equals(adbd) && port > 0 && (sockets == null || listening(sockets, port));
+        return on ? new AdbSnapshot(State.ON, port, "") : new AdbSnapshot(State.OFF, 0, "");
+    }
+
+    /** A LISTEN (st 0A) row for this local port in /proc/net/tcp-format text. */
+    static boolean listening(String sockets, int port) {
+        String suffix = String.format(java.util.Locale.US, ":%04X", port);
+        for (String line : sockets.split("\n")) {
+            String[] f = line.trim().split("\s+");
+            if (f.length > 3 && f[1].toUpperCase(java.util.Locale.US).endsWith(suffix) && f[3].equals("0A")) return true;
+        }
+        return false;
     }
 
     private static int num(String value) {
