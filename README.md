@@ -118,7 +118,7 @@ The TUNE knob also works: turn it to move the highlight and press it to open the
    replaces it (same preconditioning backend and hold-to-open service). Tilepad refuses to
    install (from USB or NEMESIS Manager) while any trace of Launchpad is left, and its log
    says what it found. Nothing is changed when it refuses.
-2. Download **`Tilepad-install-usb.zip`** from the [latest release](https://github.com/KramerTech/gen5-TileGrid/releases/latest)
+2. Download **`Tilepad-install-usb.zip`** from the [latest release](https://github.com/KramerTech/gen5-Tilepad/releases/latest)
    and extract it so its *contents* sit at the root of a FAT32/exFAT drive, with nothing else
    from NEMESIS on it:
    ```text
