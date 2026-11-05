@@ -18,6 +18,13 @@ public final class TweaksCommand {
                     Config summary = load(); int enabled = 0;
                     for (String id : Config.IDS) if (summary.enabled(id)) enabled++;
                     System.out.println("enabled=" + enabled + "\ntotal=" + Config.IDS.length);
+                    // Whether this boot started with the nav handle hidden, so the launcher can
+                    // drop the inset that keeps tiles clear of it.
+                    try {
+                        Properties live = Files.properties(new File(Platform.STATE, "runtime.properties"));
+                        if (Platform.boot().equals(live.getProperty("boot")))
+                            System.out.println("handleHidden=" + "true".equals(live.getProperty("applied.nav")));
+                    } catch (Exception unknown) { }
                     return;
                 }
                 boolean restoring = args.length == 1 && args[0].equals("restore");

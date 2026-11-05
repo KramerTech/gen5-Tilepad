@@ -7,7 +7,12 @@ import java.util.Properties;
 final class TweaksSnapshot {
     final int enabled, total;
     final String problem;
-    private TweaksSnapshot(int enabled, int total, String problem) { this.enabled = enabled; this.total = total; this.problem = problem; }
+    /** The nav handle was hidden when this boot started (Hide Right-Hand Nav Handle). */
+    final boolean handleHidden;
+    private TweaksSnapshot(int enabled, int total, String problem) { this(enabled, total, problem, false); }
+    private TweaksSnapshot(int enabled, int total, String problem, boolean handleHidden) {
+        this.enabled = enabled; this.total = total; this.problem = problem; this.handleHidden = handleHidden;
+    }
     static TweaksSnapshot checking() { return new TweaksSnapshot(-1, 0, null); }
     static TweaksSnapshot unavailable(String why) { return new TweaksSnapshot(-1, 0, why); }
     static TweaksSnapshot of(int enabled, int total) {
@@ -17,7 +22,8 @@ final class TweaksSnapshot {
     static TweaksSnapshot parse(String text) {
         try {
             Properties p = new Properties(); p.load(new StringReader(text));
-            return of(Integer.parseInt(p.getProperty("enabled")), Integer.parseInt(p.getProperty("total")));
+            TweaksSnapshot s = of(Integer.parseInt(p.getProperty("enabled")), Integer.parseInt(p.getProperty("total")));
+            return s.problem != null ? s : new TweaksSnapshot(s.enabled, s.total, null, "true".equals(p.getProperty("handleHidden")));
         } catch (Exception e) { return unavailable("Could not read tweak settings"); }
     }
     boolean on() { return enabled > 0; }

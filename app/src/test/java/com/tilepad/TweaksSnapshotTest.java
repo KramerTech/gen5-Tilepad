@@ -16,4 +16,9 @@ public class TweaksSnapshotTest {
         }
         assertEquals(-1, TweaksSnapshot.checking().enabled); assertNull(TweaksSnapshot.checking().problem);
     }
+    @Test public void readsWhetherTheNavHandleIsHidden() {
+        assertTrue(TweaksSnapshot.parse("enabled=3\ntotal=10\nhandleHidden=true\n").handleHidden);
+        assertFalse(TweaksSnapshot.parse("enabled=3\ntotal=10\nhandleHidden=false\n").handleHidden);
+        assertFalse(TweaksSnapshot.parse("enabled=3\ntotal=10\n").handleHidden);
+    }
 }

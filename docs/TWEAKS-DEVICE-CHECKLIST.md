@@ -97,6 +97,12 @@ fresh 12-field charging callback, saved off-peak-only preference, fresh GPS fix.
 The mapped-fixture tests exercise writes without changing the real vehicle.
 The following still require a phone or an actual trip:
 
+November 5 correction: wired Pixel AA now opens automatically, confirmed by the
+user and production callback/launch/foreground logs. Native root callbacks and
+an enabled-only status fallback replace reliance on dropped ordered broadcasts.
+CarPlay, wireless reconnection, camera deferral and the remaining combinations
+below still require their respective physical checks.
+
 - [ ] **Auto-Open Phone Projection:** enable; connect each available wired/wireless
   AA/CarPlay session. Projection opens once. Leave it manually and verify repeated
   notices do not bring it forward. Disconnect/reconnect to open again. Test with

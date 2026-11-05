@@ -37,6 +37,8 @@ abstract class StatusTile extends TileView {
         // starts at the same left edge as the caption text below it.
         FrameLayout.LayoutParams iconParams = new FrameLayout.LayoutParams(ui.dp(64), ui.dp(64), Gravity.TOP | Gravity.LEFT);
         iconParams.leftMargin = -ui.dp(10);
+        // Up a little, so the glyph doesn't crowd the caption below it.
+        iconParams.topMargin = -ui.dp(6);
         content.addView(icon, iconParams);
 
         pillBox = ui.row();

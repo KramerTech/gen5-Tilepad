@@ -65,6 +65,7 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
     private WifiTile wifiTile;
     private PreconTile preconTile;
     private AdbTile adbTile;
+    private TileGrid.Scroll scroll;
     private TweaksTile tweaksTile;
     private TweaksSnapshot tweaks = TweaksSnapshot.checking();
     private boolean tweaksReading;
@@ -145,9 +146,8 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
         root.setBackgroundColor(Ui.BG);
         grid = new TileGrid(this, ui);
         grid.setListener(this);
-        TileGrid.Scroll scroll = new TileGrid.Scroll(this, grid, ui);
-        // The right inset keeps tiles clear of Hyundai's split-screen handle.
-        scroll.setPadding(ui.dp(24), ui.dp(16), ui.dp(64), ui.dp(16));
+        scroll = new TileGrid.Scroll(this, grid, ui);
+        applyInsets();
         scroll.setClipToPadding(false);
         root.addView(scroll, new FrameLayout.LayoutParams(-1, -1));
 
@@ -455,7 +455,7 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
                 return TileOrder.find(specs, TileSpec.shortcut(component, false, null).id) != null;
             }
         });
-        addPage.setPadding(ui.dp(24), ui.dp(16), ui.dp(64), ui.dp(16));
+        addPage.setPadding(ui.dp(24), ui.dp(16), rightInset(), ui.dp(16));
         root.addView(addPage, root.indexOfChild(done) + 1, new FrameLayout.LayoutParams(-1, -1));
     }
 
@@ -909,10 +909,25 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
                         if (epoch != tweaksEpoch) { refreshTweaks(); return; }
                         tweaks = snapshot;
                         if (tweaksTile != null) tweaksTile.bind(tweaks);
+                        applyInsets();
                     }
                 });
             }
         }, "tilepad-tweaks-summary").start();
+    }
+
+    /**
+     * The right inset keeps tiles clear of Hyundai's split-screen handle on the right edge. With
+     * the handle hidden by the tweak, the sides match so the grid sits centred.
+     */
+    private int rightInset() { return ui.dp(prefs.getBoolean("handleHidden", false) ? 24 : 64); }
+
+    private void applyInsets() {
+        // The last summary's answer is kept so the grid doesn't shift when the next one arrives.
+        if (tweaks.problem == null && tweaks.enabled >= 0 && tweaks.handleHidden != prefs.getBoolean("handleHidden", false))
+            prefs.edit().putBoolean("handleHidden", tweaks.handleHidden).apply();
+        if (scroll != null && scroll.getPaddingRight() != rightInset())
+            scroll.setPadding(ui.dp(24), ui.dp(16), rightInset(), ui.dp(16));
     }
 
     // ---- ADB ----

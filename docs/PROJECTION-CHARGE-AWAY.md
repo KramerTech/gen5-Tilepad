@@ -182,3 +182,20 @@ AA state 5-to-6 deduplication, CarPlay without broadcasts, late-state recovery
 when callback registration fails, removal/no polling when off, and bounded
 launch retries despite periodic checking. Physical reconnect verification follows
 installation of this correction.
+
+Installed the correction via NEMESIS on November 5, 2026; both system APKs were
+pulled back and matched the signed releases. Settings were byte-for-byte preserved.
+A backup is retained at `/data/nemesis/backup/tilepad-before-projection-fix-20261105`.
+After restarting, the user confirmed automatic opening worked. Production logs
+show native connection states 3, 0, 3, 4, 5; the status-5 edge issued exactly one
+`GPM_CUSTOM_SHORTCUT` request from the stock launcher. State 6 then arrived and
+the saved seen mask was 2. ActivityManager independently confirmed Android Auto's
+MainActivity resumed/focused, and `tilepad/longstar` was running (PID 241).
+The standalone diagnostic processes ended with the restart and their device DEX,
+cache and logs were removed after saving evidence under private `/tmp` directories.
+
+Final validation: 194 Java tests, 5 installer checks, 28 travel controller/Parcel
+scenarios, 10 preconditioning Binder scenarios and 6 service scenarios passed
+(243 total). API 19 release builds, signing verification, both lint runs (zero
+errors), rebuilt USB bundles/checksums and `git diff --check` passed. CarPlay
+without broadcasts is fixture-tested; no iPhone connection was physically tested.
