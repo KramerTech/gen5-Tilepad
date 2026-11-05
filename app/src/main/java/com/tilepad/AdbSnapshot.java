@@ -50,7 +50,7 @@ final class AdbSnapshot {
     static boolean listening(String sockets, int port) {
         String suffix = String.format(java.util.Locale.US, ":%04X", port);
         for (String line : sockets.split("\n")) {
-            String[] f = line.trim().split("\s+");
+            String[] f = line.trim().split("\\s+");
             if (f.length > 3 && f[1].toUpperCase(java.util.Locale.US).endsWith(suffix) && f[3].equals("0A")) return true;
         }
         return false;
