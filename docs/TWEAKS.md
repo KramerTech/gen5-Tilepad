@@ -61,7 +61,7 @@ The older heater-only `options` command remains supported for compatibility.
 | Swap Steering-Wheel Track Buttons | Reverses keys 34/35; up advances, down goes back | None | Yes |
 | Hide Right-Hand Nav Handle | Forces the stock handle controller's hidden path; shown under the pop-over entry and always on while the pop-over is disabled | None | Yes |
 | Disable Right-Hand Pop-Over | Blocks the shared right-side OSD request path and renderer | None | Yes |
-| Always Climate Sync | A passenger temperature change moves the driver temperature to match, then turns Sync back on | None | No |
+| Maintain Climate Sync | A passenger temperature change moves the driver temperature to match, then turns Sync back on | None | No |
 | Automatic Driver Only | Driver Only every time the car is turned on; Sync once the passenger belt is buckled (one way, until the next car start) | None | No |
 
 The broad pop-over switch hides other notices using that same OSD panel as well.
@@ -88,7 +88,7 @@ service, boot receiver, alarm receiver, or store/broker dependency.
   at most two minutes. The attempt is recorded against the kernel boot ID before
   any request. Even when disabled, the boot is recorded so enabling later applies
   at the next boot. A longstar restart cannot reapply heat over a manual adjustment.
-- Always Climate Sync and Automatic Driver Only share one DATC status listener (event-driven).
+- Maintain Climate Sync and Automatic Driver Only share one DATC status listener (event-driven).
   Ignition and the passenger belt have no working callback on this car, so Auto
   Driver Only reads them with in-process Binder getters once a second (the belt only
   while the car is on and not yet buckled). One `dumpsys com.hkmc.micom.datc` read
@@ -146,7 +146,7 @@ on 2026-11-04.
 
 The physical passenger temperature buttons are not head-unit input: no key event
 or head-unit request is produced. The DATC changes the passenger set point,
-reports it, then leaves sync. Always Climate Sync compares the passenger set point with its
+reports it, then leaves sync. Maintain Climate Sync compares the passenger set point with its
 value in the last Sync/Driver Only state. If it moved, the driver is stepped toward
 it one step at a time (one in flight; a step unseen after 1 s counts as lost), and
 once following it keeps following even if the passenger returns to where it began.

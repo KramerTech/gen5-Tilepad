@@ -78,7 +78,7 @@ transfer did not rewrite the active panel code or require a reboot.
 - [ ] **Panel combinations:** handle only, pop-over only, both on, then disable one
   at a time, rebooting after each change. The other setting must stay effective.
 
-- [ ] **Always Climate Sync:** synced, press passenger up twice: driver follows to the same
+- [ ] **Maintain Climate Sync:** synced, press passenger up twice: driver follows to the same
   setting and Sync comes back on. Same for down. From the screen, turn Sync off: it
   comes back on. Driver Only stays on when selected. No loops with the climate off.
 - [ ] **Automatic Driver Only:** each car start (including a short off/on that keeps the

@@ -3,7 +3,7 @@ package com.tilepad.tweakcore;
 import java.util.regex.*;
 
 /**
- * Pure climate decisions for Always Sync and Automatic Driver Only; ClimateController feeds it the
+ * Pure climate decisions for Maintain Climate Sync and Automatic Driver Only; ClimateController feeds it the
  * car's DATC status. Codes are IDATCService.setFrontClimateControl(flag, value) pairs, as the
  * stock climate app sends them (DATCFlag.DATCControl).
  */
@@ -29,7 +29,7 @@ public final class ClimatePolicy {
     }
 
     /**
-     * Always Sync: the two temperature controls move together. When the passenger set point is
+     * Maintain Climate Sync: the two temperature controls move together. When the passenger set point is
      * changed (the DATC then leaves sync), the driver set point is stepped to it and sync is turned
      * back on once the passenger side has been still for SYNC_QUIET_MS: turning sync on copies the
      * driver set point over the passenger one, so doing it mid-burst would undo a later press.

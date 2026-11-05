@@ -5,7 +5,7 @@ import java.io.File;
 import java.lang.reflect.Method;
 
 /**
- * Always Sync and Automatic Driver Only on the car, on the tweaks looper. Climate changes arrive as
+ * Maintain Climate Sync and Automatic Driver Only on the car, on the tweaks looper. Climate changes arrive as
  * DATC listener callbacks. Ignition and the passenger belt have no working callback on this car,
  * so Automatic Driver Only reads them once a second by in-process Binder calls. Each time the car is
  * turned on it starts over; a short stop doesn't restart the head unit, so a boot isn't enough.
@@ -204,7 +204,7 @@ final class ClimateController {
             }
             action = target;
         }
-        // Always Sync also tracks the settled passenger set point while Automatic Driver Only acts.
+        // Maintain Climate Sync also tracks the settled passenger set point while Automatic Driver Only acts.
         int lock = sync ? always.next(climate, SystemClock.uptimeMillis()) : ClimatePolicy.NONE;
         if (action == ClimatePolicy.NONE) action = lock;
         if (action == ClimatePolicy.NONE) {

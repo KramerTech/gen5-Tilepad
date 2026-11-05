@@ -72,7 +72,7 @@ final class TweakInfo {
             "Pop-overs come back after the next head-unit restart. Until then, they stay blocked.")
             .with("Right-Hand Pop-Over Settings", NAV),
         NAV,
-        new TweakInfo("sync", "Always Climate Sync", "Locks the passenger temperature to yours, so the two sides never differ.", false, false,
+        new TweakInfo("sync", "Maintain Climate Sync", "Locks the passenger temperature to yours, so the two sides never differ.", false, false,
             "Keeps the driver and passenger temperatures together. When the passenger temperature is changed, with the passenger buttons or the climate screen, the driver temperature is moved to the same setting and Sync is turned straight back on. Either side's buttons then adjust the whole cabin. If the driver temperature is changed while the driver side is still catching up, the driver's new setting wins and the passenger side follows it.\n\n"
             + "Turning Sync off yourself in the climate settings pauses this, so you can set the two sides apart when you want to. It resumes when Sync is pressed again or the head unit restarts.\n\n"
             + "The passenger buttons are handled by the climate controller itself, not the head unit, so this follows each press rather than replacing it: you may see the two temperatures differ for a moment and Sync blink off and on. The driver temperature is moved one step at a time, the same as pressing its own buttons.\n\n"

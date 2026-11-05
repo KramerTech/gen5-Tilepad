@@ -15,7 +15,7 @@ A short ★ press still runs whatever Hyundai's Button settings assign to it.
 - **Manual battery preconditioning** (if available on the vehicle): one-tap start and stop.
 - **Bundled Tweaks app**: automatic DST, startup-brief bypass, configurable cold-boot
   heaters, track-button swap, independent right-handle/pop-over suppression, and
-  climate tweaks: Always Climate Sync (passenger and driver temperatures move together) and
+  climate tweaks: Maintain Climate Sync (passenger and driver temperatures move together) and
   Automatic Driver Only (Driver Only at start, Sync once the passenger buckles up).
   A permanent Tweaks tile follows Precondition. All tweaks start off.
 - **ADB toggle**: turn ADB over Wi-Fi on and off. While it's on, any computer on the network can connect without approving a key. Turning it on also turns on Wi-Fi (so wireless CarPlay/Android Auto are off).

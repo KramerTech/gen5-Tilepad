@@ -347,7 +347,7 @@ Added and verified on the car with the user:
   aborted by Tilepad's manifest `StarHoldReceiver` and forwarded only to NEMESIS
   Manager. A daemon-registered receiver can't do this: AMS skips ordered
   broadcasts to it ("process crashing").
-- **Always Climate Sync** (`sync`) and **Automatic Driver Only** (`driveronly`),
+- **Maintain Climate Sync** (`sync`) and **Automatic Driver Only** (`driveronly`),
   `ClimatePolicy`/`ClimateController`; mappings in TWEAKS.md "Climate tweak
   details". Temperatures arrive only via `onTemperatureInformation`; passenger
   presses are DATC-internal, so the driver is stepped to match (one step in
@@ -361,7 +361,7 @@ Added and verified on the car with the user:
   `runtime.properties`.
 
 116 Java tests + 5 installer checks pass; release build signed. The last car
-install (before the copy/merge/pause changes) verified Always Climate Sync,
+install (before the copy/merge/pause changes) verified Maintain Climate Sync,
 the ★ hold and the ignition-cycle reset; the state-text/merge/pause build is
 built but not yet installed. Car reboot: `nemesis root 1000 -c "setprop
 sys.powerctl reboot"` (reboot.tool is gone).
