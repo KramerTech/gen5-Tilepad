@@ -21,6 +21,9 @@ if [ -d "$TWEAKS_STATE" ]; then
         log "preuninstall: FAILED: tweak restoration refused; keeping recovery files and APKs"
         exit 1
     }
+    # Everything is back to stock: its settings, saved Home and file backups go too.
+    rm -rf "$TWEAKS_STATE"
+    log "preuninstall: tweaks restored; removed $TWEAKS_STATE"
 fi
 
 # ADB tile: a real uninstall turns ADB over TCP off if the tile turned it on, as the tile's own
@@ -34,12 +37,39 @@ if [ -f "$ADB_MARK" ]; then
     rm -f "$ADB_MARK"
 fi
 
-if [ -f /data/nemesis/backup/tilepad/wifi-client ]; then
-    # Other apps may rely on the client by now, and HMG Leafia Plus may have adopted it.
-    log "preuninstall: leaving the Wi-Fi client on (turned on from the Wi-Fi tile). To turn it off,"
-    log "preuninstall: delete /system/etc/permissions/android.hardware.wifi.xml and reboot."
-    rm -rf /data/nemesis/backup/tilepad
+# Wi-Fi client: undo what the Wi-Fi tile turned on (bin/wifi-client.sh), unless HMG Leafia Plus
+# is installed, whose own client option uses the same feature file. The feature file goes only
+# if Tilepad added it and it's still exactly what Tilepad wrote. Takes effect after a reboot.
+if [ -f "$WIFI_RECORD" ]; then
+    ADDED=0; OLD_STATE=unset
+    while IFS='=' read KEY VALUE; do
+        case "$KEY" in added_xml) ADDED=$VALUE ;; old_wifi_state) OLD_STATE=$VALUE ;; esac
+    done < "$WIFI_RECORD"
+    LEAFIA=
+    for APP in "$NEMESIS_APPS"/*; do
+        case "${APP##*/}" in *[Ll][Ee][Aa][Ff][Ii][Aa]*) LEAFIA=${APP##*/} ;; esac
+    done
+    if [ -n "$LEAFIA" ]; then
+        log "preuninstall: leaving the Wi-Fi client on: $LEAFIA is installed and may use it"
+    else
+        if [ "$ADDED" = 1 ] && [ -f "$WIFI_XML" ]; then
+            wifi_client_xml > "$BACKUP/expected-wifi.xml"
+            if ! same_file "$WIFI_XML" "$BACKUP/expected-wifi.xml"; then
+                log "preuninstall: leaving $WIFI_XML: it changed since Tilepad added it"
+            elif system_rw; then
+                rm -f "$WIFI_XML"; sync; system_restore
+                log "preuninstall: removed $WIFI_XML (Wi-Fi client off after reboot)"
+            else
+                log "preuninstall: couldn't remount /system; $WIFI_XML left in place"
+            fi
+        fi
+        if [ "$OLD_STATE" != unset ] && [ "$OLD_STATE" != 3 ]; then
+            setprop persist.wifi.state "$OLD_STATE"
+            log "preuninstall: persist.wifi.state 3 -> $OLD_STATE"
+        fi
+    fi
 fi
+rm -rf "$BACKUP"
 
 [ -f "$SYSAPK" ] || [ -f "$TWEAKS_SYSAPK" ] || { log "preuninstall: APKs not present"; exit 0; }
 stop_app

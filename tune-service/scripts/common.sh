@@ -25,9 +25,21 @@ WORK=/data/nemesis/backup/tilepad-install
 # uninstall hooks, so its presence during preuninstall means "update".
 STAGE=/data/local/tmp/nemesis/stage/tilepad
 APP_PACKAGE=com.tilepad
-# Exists while ADB over TCP is on because the ADB tile turned it on (bin/adb-tile.sh), so a real
-# uninstall turns it back off. Outside the package dir, so it survives updates.
-ADB_MARK=/data/nemesis/backup/tilepad/adb.on
+# Tilepad's records of what it changed outside its package, so they survive updates and a real
+# uninstall can undo them (and then removes this directory).
+BACKUP=/data/nemesis/backup/tilepad
+# Exists while ADB over TCP is on because the ADB tile turned it on (bin/adb-tile.sh).
+ADB_MARK=$BACKUP/adb.on
+# Written by bin/wifi-client.sh when it added the Wi-Fi client feature or changed the Wi-Fi mode.
+WIFI_RECORD=$BACKUP/wifi-client
+WIFI_XML=/system/etc/permissions/android.hardware.wifi.xml
+NEMESIS_APPS=/data/nemesis/apps
+# The feature file bin/wifi-client.sh writes; uninstall only removes a file that still matches it.
+wifi_client_xml() {
+    echo '<permissions>'
+    echo '    <feature name="android.hardware.wifi" />'
+    echo '</permissions>'
+}
 
 log() { echo "$(date '+%Y-%m-%d %H:%M:%S') tilepad $*"; }
 

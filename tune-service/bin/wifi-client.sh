@@ -10,10 +10,10 @@
 # Exit 0: added, or already there. Exit 1: failed, nothing half-written left behind.
 . /data/nemesis/apps/tilepad/scripts/common.sh
 
-XML=/system/etc/permissions/android.hardware.wifi.xml
-TMP=/system/etc/permissions/.android.hardware.wifi.xml.tilepad
-# What Tilepad changed, so uninstall can say so. Uninstall leaves the client on.
-RECORD=/data/nemesis/backup/tilepad/wifi-client
+XML=$WIFI_XML
+TMP=${WIFI_XML%/*}/.android.hardware.wifi.xml.tilepad
+# What Tilepad changed, so a real uninstall can undo it (scripts/preuninstall.sh).
+RECORD=$WIFI_RECORD
 
 fail() { rm -f "$TMP"; system_restore; log "wifi-client: FAILED: $*"; echo "$*"; exit 1; }
 
@@ -25,11 +25,7 @@ if [ -f "$XML" ]; then
     log "wifi-client: $XML already present"
 else
     system_rw || fail "Couldn't make /system writable (nemesis remount rw)."
-    {
-        echo '<permissions>'
-        echo '    <feature name="android.hardware.wifi" />'
-        echo '</permissions>'
-    } > "$TMP" || fail "Couldn't write $TMP."
+    wifi_client_xml > "$TMP" || fail "Couldn't write $TMP."
     chmod 644 "$TMP"
     chown 0.0 "$TMP" 2>/dev/null || chown 0:0 "$TMP"
     mv "$TMP" "$XML" || fail "Couldn't create $XML."
