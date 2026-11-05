@@ -40,8 +40,8 @@ identity and both OEM framework hashes must match a supported profile.
 | --- | --- | --- |
 | **Wi-Fi** *(Wi-Fi module only)* | signal bars, Connected / No network / Off, network name, IP, link speed. *Hotspot only* when the client is off | Android's Wi-Fi network picker, or *turn on Wi-Fi* (see below). Long-press: the Wi-Fi MAC address, for a static IP reservation |
 | **Precondition** *(EVs only)* | Off / Waiting / Active / Unavailable…, spinner while waiting, elapsed time, a *Conditioning* pill while the car's own indicator is on | see below |
-| **Tweaks** | On when any tweak is enabled, Off when none are; enabled count | opens the bundled `Tweaks.apk`; each feature has a checkbox and detailed explanation |
-| **ADB** | On / Off and the port | asks to confirm, then turns ADB over Wi-Fi on or off (see below) |
+| **Tweaks** | On/Off pill (on when any tweak is enabled); how many are enabled and how many are off | opens the bundled `Tweaks.apk`; each feature has a checkbox and detailed explanation |
+| **ADB** | On/Off pill; the port while on, *Port closed* while off | asks to confirm, then turns ADB over Wi-Fi on or off (see below) |
 | **Nemesis Manager** | | NEMESIS Manager (dimmed if it's not installed) |
 | **Reboot Head Unit** | | asks to confirm, then hard-reboots the head unit (`nemesis root -c reboot`) |
 | **Add shortcut** | | searchable list of every screen (apps, plus Hyundai/system screens with no icon) |

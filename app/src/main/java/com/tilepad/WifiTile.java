@@ -26,8 +26,8 @@ final class WifiTile extends StatusTile {
             case DISCONNECTED:
                 glyph.setKind(Glyph.Kind.WIFI);
                 glyph.setColor(Ui.MUTED); glyph.setSignal(0);
-                setPill("No network", Ui.AMBER);
-                show(headline, "Not connected");
+                setPill("On", Ui.AMBER);
+                show(headline, "No network");
                 show(detail, "");
                 show(meta, "Tap to choose a network");
                 setContentDescription("Wi-Fi not connected");
@@ -36,7 +36,7 @@ final class WifiTile extends StatusTile {
                 glyph.setKind(Glyph.Kind.WIFI_OFF);
                 glyph.setColor(Ui.MUTED); glyph.setSignal(0);
                 setPill("Off", Ui.MUTED);
-                show(headline, "Off");
+                show(headline, "No network");
                 show(detail, "");
                 show(meta, "Tap to open settings");
                 setContentDescription("Wi-Fi off");
@@ -56,10 +56,10 @@ final class WifiTile extends StatusTile {
     void bindClientOff(boolean pendingReboot) {
         glyph.setKind(Glyph.Kind.WIFI_OFF);
         glyph.setColor(Ui.MUTED); glyph.setSignal(0);
-        setPill(pendingReboot ? "Reboot" : "Client off", pendingReboot ? Ui.AMBER : Ui.MUTED);
-        show(headline, pendingReboot ? "Turned on" : "Hotspot only");
+        setPill(pendingReboot ? "Pending" : "Client off", pendingReboot ? Ui.AMBER : Ui.MUTED);
+        show(headline, pendingReboot ? "Reboot to finish" : "Hotspot only");
         show(detail, "");
-        show(meta, pendingReboot ? "Reboot to finish" : "Tap to turn on Wi-Fi");
+        show(meta, pendingReboot ? "Tap to reboot" : "Tap to turn on Wi-Fi");
         setContentDescription(pendingReboot ? "Wi-Fi client on, reboot to finish" : "Wi-Fi client off");
     }
 }

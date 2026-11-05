@@ -17,25 +17,25 @@ final class AdbTile extends StatusTile {
                 spinner.setColor(Ui.ACCENT);
                 spinner.setSpinning(false);
                 setPill("On", Ui.GREEN);
-                show(headline, "On");
+                show(headline, "Port " + s.port);
                 headline.setTextColor(Ui.ACCENT);
-                show(detail, "Port " + s.port);
+                show(detail, "Open to this network");
                 show(meta, "Tap to turn off");
                 setContentDescription("ADB on, any computer on the network can connect on port " + s.port);
                 break;
             }
             case STARTING:
-                busy("Starting", "Opening ADB", Ui.AMBER);
+                busy("Starting", "Opening port", Ui.AMBER);
                 break;
             case STOPPING:
-                busy("Stopping", "Closing ADB", Ui.MUTED);
+                busy("Stopping", "Closing port", Ui.MUTED);
                 break;
             case ERROR:
                 glyph.setColor(Ui.RED);
                 spinner.setColor(Ui.RED);
                 spinner.setSpinning(false);
                 setPill("Error", Ui.RED);
-                show(headline, "Error");
+                show(headline, "Didn't switch");
                 headline.setTextColor(Ui.TEXT);
                 show(detail, "");
                 show(meta, "Tap for details");
@@ -57,7 +57,7 @@ final class AdbTile extends StatusTile {
                 spinner.setColor(Ui.MUTED);
                 spinner.setSpinning(false);
                 setPill("Off", Ui.MUTED);
-                show(headline, "Off");
+                show(headline, "Port closed");
                 headline.setTextColor(Ui.TEXT);
                 show(detail, "");
                 show(meta, "Tap to turn on");
