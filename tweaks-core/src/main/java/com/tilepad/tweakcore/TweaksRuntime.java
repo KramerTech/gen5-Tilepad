@@ -138,7 +138,7 @@ public final class TweaksRuntime {
         locked(new Action() {
             @Override public void run() throws Exception {
                 File bootFile = new File(Platform.STATE, "heaters.boot"); String boot = Platform.boot();
-                if (bootFile.isFile() && new String(Files.read(bootFile), "UTF-8").equals(boot)) return;
+                if (bootFile.isFile() && new String(Files.read(bootFile), "UTF-8").equals(boot)) { resumePassenger(); return; }
                 // Mark even when off: enabling later schedules the NEXT boot,
                 // and a service restart must never reapply heat over manual controls.
                 Files.write(bootFile, boot.getBytes("UTF-8"));
@@ -176,13 +176,63 @@ public final class TweaksRuntime {
                             StringBuilder outcome = new StringBuilder();
                             if (c.checked("driver")) heat(outcome, "Driver seat", "com.hkmc.micom.usm", "com.hkmc.usm.IUSMService", 213, HeaterPolicy.seatRequest(c.number("driverLevel")));
                             if (c.checked("wheel")) heat(outcome, "Steering wheel", "com.hkmc.vr", "com.hkmc.vr.IVRService", 16, 1);
-                            if (c.checked("passenger")) heat(outcome, "Passenger seat", "com.hkmc.micom.usm", "com.hkmc.usm.IUSMService", 214, HeaterPolicy.seatRequest(c.number("passengerLevel")));
-                            Platform.status("heaters", outcome.length() == 0 ? "Skipped: no heaters selected." : outcome.toString());
+                            heaterOutcome = outcome.toString();
+                            // The passenger seat heats only for a buckled front passenger: now, or
+                            // whenever they buckle up later in this drive.
+                            if (c.checked("passenger")) {
+                                Files.write(new File(Platform.STATE, PASSENGER_FILE), (Platform.boot() + " " + heaterOutcome).getBytes("UTF-8"));
+                                handler.post(passengerWatch);
+                            } else Platform.status("heaters", outcome.length() == 0 ? "Skipped: no heaters selected." : outcome.toString());
                         }
                     });
                 } catch (Exception e) { Platform.status("heaters", "Skipped this boot: " + e.getMessage()); }
             }
         }, 3000);
+    }
+    /** Present while the passenger seat waits for a buckled passenger: "<boot id> <driver/wheel outcome>". */
+    private static final String PASSENGER_FILE = "heaters-passenger";
+    private String heaterOutcome = "";
+    /** The car has been on during the wait, so ignition off now means the drive ended (ACC at boot reads off too). */
+    private boolean passengerIgnitionSeen;
+    private String passengerStatus;
+    private final Runnable passengerWatch = new Runnable() { @Override public void run() { watchPassenger(); } };
+    /** A wait left by this boot, after a restart of this service. */
+    private void resumePassenger() {
+        try {
+            String[] saved = new String(Files.read(new File(Platform.STATE, PASSENGER_FILE)), "UTF-8").split(" ", 2);
+            if (!saved[0].equals(Platform.boot())) { new File(Platform.STATE, PASSENGER_FILE).delete(); return; }
+            heaterOutcome = saved.length > 1 ? saved[1] : "";
+            handler.post(passengerWatch);
+        } catch (Exception ignored) { }
+    }
+    private void watchPassenger() {
+        try {
+            locked(new Action() {
+                @Override public void run() throws Exception {
+                    File pending = new File(Platform.STATE, PASSENGER_FILE);
+                    if (!pending.isFile()) return;
+                    Config c = TweaksCommand.load();
+                    String stop = null;
+                    if (!c.enabled("heaters") || !c.checked("passenger")) stop = "Passenger seat: not heated (turned off in Tweaks).";
+                    else if (ClimateController.ignitionOn()) {
+                        passengerIgnitionSeen = true;
+                        if (ClimateController.passengerBuckled()) {
+                            StringBuilder outcome = new StringBuilder(heaterOutcome);
+                            heat(outcome, "Passenger seat (front passenger buckled up)", "com.hkmc.micom.usm", "com.hkmc.usm.IUSMService", 214, HeaterPolicy.seatRequest(c.number("passengerLevel")));
+                            Platform.status("heaters", outcome.toString().trim());
+                            pending.delete(); return;
+                        }
+                    } else if (passengerIgnitionSeen) stop = "Passenger seat: not heated (no one buckled up before the car was turned off).";
+                    if (stop != null) { Platform.status("heaters", (heaterOutcome + stop).trim()); pending.delete(); return; }
+                    String waiting = (heaterOutcome + "Passenger seat: waiting for the front passenger to buckle up.").trim();
+                    if (!waiting.equals(passengerStatus)) { passengerStatus = waiting; Platform.status("heaters", waiting); }
+                    handler.postDelayed(passengerWatch, 1000);
+                }
+            });
+        } catch (Exception e) {
+            // The belt or ignition couldn't be read yet (services starting): keep watching.
+            handler.postDelayed(passengerWatch, 5000);
+        }
     }
     private static void heat(StringBuilder out, String label, String service, String descriptor, int code, int value) {
         try { Platform.command(service, descriptor, code, value); out.append(label).append(": request accepted. "); }

@@ -183,7 +183,7 @@ public final class TweaksActivity extends Activity {
                 temp.addView(button("+", "Raise temperature threshold", new View.OnClickListener() { @Override public void onClick(View v) { adjustThreshold(1); } }), new LinearLayout.LayoutParams(dp(62), dp(64)));
                 controls.addView(temp); divider(controls);
                 choice("units", new String[]{"F", "C"}, new String[]{"Fahrenheit (°F)", "Celsius (°C)"});
-                heater("driver", "Driver seat", "driverLevel"); heater("wheel", "Steering wheel", null); heater("passenger", "Passenger seat", "passengerLevel");
+                heater("driver", "Driver seat", "driverLevel"); heater("wheel", "Steering wheel", null); heater("passenger", "Passenger seat (only with a passenger)", "passengerLevel");
             }
         }
         helpScroll = scroller("Feature explanation"); LinearLayout help = column(); helpScroll.addView(help);
@@ -212,6 +212,7 @@ public final class TweaksActivity extends Activity {
     }
     private void heater(String key, String label, String level) {
         Config config = new Config(values); checkbox(controls, label, key, config.checked(key), ready && !busy);
+        if (key.equals("passenger")) note(TweakInfo.PASSENGER_HEAT, false);
         if (level != null && config.checked(key)) choice(level, new String[]{"1", "2", "3"}, new String[]{"1 Low", "2 Medium", "3 High"});
     }
     private void choice(final String key, final String[] keys, String[] labels) {

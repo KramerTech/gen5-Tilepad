@@ -128,7 +128,7 @@ final class ClimateController {
     private void pollCar() {
         if (!auto) return;
         try {
-            boolean on = Platform.integer(BCM, BCM_IFACE, BCM_IGN_STATUS) != 0;
+            boolean on = ignitionOn();
             if (!on && !Boolean.FALSE.equals(ignition)) {
                 // The drive is over: the next car start is a new one, even across a restart of this service.
                 stage = ClimatePolicy.STAGE_NEW; belted = false; saveStage();
@@ -138,7 +138,7 @@ final class ClimateController {
                 schedule(0);
             }
             ignition = on;
-            if (on && !belted && Platform.integer(HSCAN, HSCAN_IFACE, HSCAN_PASSENGER_BELT) == 1) {
+            if (on && !belted && passengerBuckled()) {
                 belted = true;
                 Platform.status("driveronly", "The passenger seat belt was buckled, so this is switching to Sync for the rest of the drive.");
                 schedule(0);
@@ -148,6 +148,10 @@ final class ClimateController {
         }
         handler.postDelayed(poll, POLL_MS);
     }
+    /** Ignition from the BCM (ACC reads off). Also used by Automatic Heaters' passenger seat. */
+    static boolean ignitionOn() throws Exception { return Platform.integer(BCM, BCM_IFACE, BCM_IGN_STATUS) != 0; }
+    /** The front passenger's seat belt switch; occupancy reads 0 on this car, so this is the presence signal. */
+    static boolean passengerBuckled() throws Exception { return Platform.integer(HSCAN, HSCAN_IFACE, HSCAN_PASSENGER_BELT) == 1; }
     private void saveStage() {
         try { Files.write(autoFile, (Platform.boot() + " " + stage).getBytes("UTF-8")); } catch (Exception ignored) { }
     }

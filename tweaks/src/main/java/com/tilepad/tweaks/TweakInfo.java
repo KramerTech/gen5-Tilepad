@@ -34,6 +34,9 @@ final class TweakInfo {
             "The nav handle will be hidden after the next head-unit restart. Until then, it still shows.",
             "The nav handle comes back after the next head-unit restart. Until then, it stays hidden.");
 
+    /** Under the Automatic Heaters passenger-seat checkbox, whether it's on or off. */
+    static final String PASSENGER_HEAT = "Heats only when someone is in the passenger seat: it waits for the front passenger's seat belt to be buckled, even if that's later in the drive. Safe to leave on if you usually drive alone.";
+
     /** Charge-Away's line while it's on with no Home saved yet. */
     static final String CHARGE_AWAY_NO_HOME = "Set your current location as Home to begin. Until then, Scheduled Charging is left as it is.";
 
@@ -53,6 +56,7 @@ final class TweakInfo {
             "This turns off after the next head-unit restart. Until then, the safety brief is still skipped."),
         new TweakInfo("heaters", "Automatic Heaters", "At a cold head-unit boot, switches on only the heaters you select.", true, false,
             "Once per head-unit boot, reads the outdoor temperature and, only when it is strictly below your threshold, sends one request to each selected heater. Choose the driver seat, steering wheel and passenger seat independently. Each seat has its own level: 1 Low, 2 Medium, 3 High. Only enable equipment your vehicle has.\n\n"
+            + "The passenger seat only heats when someone is sitting there. If it's cold enough at boot, it waits for the front passenger's seat belt to be buckled and heats the seat then, whether that's right away or later in the drive. If nobody buckles up before the car is turned off, it stays off. So it's safe to leave the passenger seat selected even if you usually drive alone. (The car doesn't report seat weight to the head unit, so the seat belt is the only sign of a passenger.)\n\n"
             + "The controls in the middle pane set the threshold in °F or °C, select heaters and set seat intensity. Unit selection changes how the threshold is displayed, not how the vehicle sensor is interpreted. No valid temperature means no heat command: it waits for up to two minutes, rejects unavailable/uninitialized sensor values, and then skips that boot. At the exact threshold it does nothing.\n\n"
             + "Enabling or changing settings applies at the next head-unit boot, not immediately. Restarting Tilepad’s service does not repeat the requests. Turning the car off/on may not reboot the head unit, so this does not necessarily run on every drive. It never keeps forcing a level after you change the controls. Disabling stops future automation and leaves current heater settings for you to adjust. An accepted request still needs the normal vehicle conditions for heating to work."),
         new TweakInfo("tracks", "Swap Steering-Wheel Track Buttons", "Up selects the next track; down selects the previous track.", false, true,
