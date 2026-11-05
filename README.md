@@ -70,8 +70,10 @@ reboot, since Android reads features at boot. Until then, the tile reads *Reboot
   installed first without it, Leafia's uninstall restores its snapshot and removes the client
   again, and the tile offers it again.
 - There's one Wi-Fi radio. While it's on a network, wireless CarPlay/Android Auto may not connect.
-- Uninstalling Tilepad leaves the client on (the uninstall log says so). To turn it off, delete
-  that file and reboot.
+- Uninstalling Tilepad turns the client back off (after the reboot) if Tilepad turned it on:
+  it removes the file, if it's still exactly what Tilepad wrote, and puts `persist.wifi.state`
+  back. It leaves the client alone while HMG Leafia Plus is installed, since Leafia's option
+  uses the same file.
 
 **ADB over Wi-Fi.** The ADB tile turns ADB over Wi-Fi on and off. Tapping it when it's off asks
 to confirm, because of what "on" means:
@@ -140,7 +142,8 @@ The package lives in `/data/nemesis/apps/tilepad/`. The installer places
 `/system/app/Tilepad.apk` and `/system/app/TilepadTweaks.apk`; NEMESIS still runs just
 `tilepad/longstar`. Enabled tweak listeners share that process. Explicitly enabled static
 tweaks change exact supported system files with verified stock backups; disabling restores
-them, and uninstall restores owned tweaks before removing the APKs. Turning on the Wi-Fi
+them, and uninstall restores owned tweaks before removing the APKs, then deletes Tilepad's
+saved tweak settings (including the Charge-Away Home location). Turning on the Wi-Fi
 client remains a separate confirmed action (see above).
 
 The first Tweaks draft targets the captured IONIQ 5 firmware. Feature behavior,
