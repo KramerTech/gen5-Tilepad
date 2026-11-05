@@ -1,10 +1,8 @@
 package com.tilepad;
 
 /**
- * ADB-over-Wi-Fi toggle. "On" means the relay daemon is fronting the ADB port and letting
- * every computer connect without approving a key; "off" means nothing listens for ADB at all.
- * "Keys only" is adbd listening without the relay (turned on by something else). All state
- * comes from the daemon's status file, read by MainActivity.
+ * ADB-over-Wi-Fi toggle. "On" means adbd listens over TCP (any computer on the network can
+ * connect); "off" means it doesn't. MainActivity reads the state from adbd's properties.
  */
 final class AdbTile extends StatusTile {
     AdbTile(Ui ui, TileSpec spec, EditListener edits) {
@@ -18,25 +16,14 @@ final class AdbTile extends StatusTile {
                 glyph.setColor(Ui.ACCENT);
                 spinner.setColor(Ui.ACCENT);
                 spinner.setSpinning(false);
-                setPill("Allow all", Ui.GREEN);
+                setPill("On", Ui.GREEN);
                 show(headline, "On");
                 headline.setTextColor(Ui.ACCENT);
-                show(detail, s.port > 0 ? "Port " + s.port : "");
-                show(meta, s.clients + " connected");
+                show(detail, "Port " + s.port);
+                show(meta, "Tap to turn off");
                 setContentDescription("ADB on, any computer on the network can connect on port " + s.port);
                 break;
             }
-            case KEYS:
-                glyph.setColor(Ui.AMBER);
-                spinner.setColor(Ui.AMBER);
-                spinner.setSpinning(false);
-                setPill("Keys only", Ui.AMBER);
-                show(headline, "On");
-                headline.setTextColor(Ui.TEXT);
-                show(detail, s.port > 0 ? "Port " + s.port : "");
-                show(meta, "Approved computers only");
-                setContentDescription("ADB on for approved computers only, port " + s.port);
-                break;
             case STARTING:
                 busy("Starting", "Opening ADB", Ui.AMBER);
                 break;

@@ -3,6 +3,8 @@ package com.tilepad;
 import android.animation.ValueAnimator;
 import android.content.Context;
 import android.graphics.Rect;
+import android.graphics.Canvas;
+import android.graphics.Paint;
 import android.os.SystemClock;
 import android.view.MotionEvent;
 import android.view.View;
@@ -28,7 +30,9 @@ final class TileGrid extends ViewGroup {
     private final List<TileView> order = new ArrayList<>();
     private final int gap, minTile, maxTile, slop, edge;
     private Listener listener;
-    private GridMath math;
+    private GroupedGridMath math;
+    private int fixedCount, pinnedScroll;
+    private final Paint separator = new Paint();
     private int viewportHeight, knobIndex = -1;
     private boolean editing, backgroundDown;
     private TileView dragging, pressedInEdit;
@@ -44,6 +48,9 @@ final class TileGrid extends ViewGroup {
         slop = ViewConfiguration.get(context).getScaledTouchSlop();
         setClipChildren(false);
         setChildrenDrawingOrderEnabled(true);
+        setWillNotDraw(false);
+        separator.setColor(Ui.LINE);
+        separator.setStrokeWidth(ui.dp(1));
     }
 
     void setListener(Listener value) { listener = value; }
@@ -51,8 +58,13 @@ final class TileGrid extends ViewGroup {
     void setTiles(List<TileView> tiles) {
         removeAllViews();
         order.clear();
-        order.addAll(tiles);
-        for (TileView tile : tiles) {
+        // Keep the status square predictable while preserving the relative order
+        // of every other saved tile and shortcut.
+        for (TileSpec.Kind kind : new TileSpec.Kind[]{TileSpec.Kind.WIFI, TileSpec.Kind.ADB, TileSpec.Kind.TWEAKS, TileSpec.Kind.PRECONDITION})
+            for (TileView tile : tiles) if (tile.spec.kind == kind) order.add(tile);
+        fixedCount = order.size();
+        for (TileView tile : tiles) if (!tile.spec.isStatus()) order.add(tile);
+        for (TileView tile : order) {
             addView(tile);
             tile.setEditing(editing);
         }
@@ -83,6 +95,7 @@ final class TileGrid extends ViewGroup {
     /** Long-press entry point: enter edit mode and pick the tile up under the finger. */
     void beginDrag(TileView tile) {
         setEditing(true);
+        if (tile.spec.isStatus()) return;
         if (dragging == null) startDrag(tile);
     }
 
@@ -91,7 +104,7 @@ final class TileGrid extends ViewGroup {
     @Override protected void onMeasure(int widthSpec, int heightSpec) {
         int width = MeasureSpec.getSize(widthSpec);
         int height = viewportHeight > 0 ? viewportHeight : MeasureSpec.getSize(heightSpec);
-        math = GridMath.compute(width, height, gap, minTile, maxTile);
+        math = GroupedGridMath.compute(width, height, gap, minTile, maxTile, fixedCount);
         int exact = MeasureSpec.makeMeasureSpec(math.tile, MeasureSpec.EXACTLY);
         for (int i = 0; i < getChildCount(); i++) getChildAt(i).measure(exact, exact);
         setMeasuredDimension(width, Math.max(height, math.contentHeight(order.size())));
@@ -104,6 +117,20 @@ final class TileGrid extends ViewGroup {
     private void place(View view, int index) {
         int left = math.left(index), top = math.top(index);
         view.layout(left, top, left + math.tile, top + math.tile);
+        if (index < fixedCount) view.setTranslationY(math.grouped ? pinnedScroll : 0);
+    }
+
+    void setPinnedScroll(int scrollY) {
+        pinnedScroll = scrollY;
+        if (math != null) for (int i = 0; i < fixedCount; i++) order.get(i).setTranslationY(math.grouped ? scrollY : 0);
+        invalidate();
+    }
+
+    @Override protected void onDraw(Canvas canvas) {
+        super.onDraw(canvas);
+        if (math != null && math.grouped && order.size() > fixedCount)
+            canvas.drawLine(math.dividerX(), pinnedScroll + gap / 2f,
+                math.dividerX(), pinnedScroll + 2 * math.tile + gap / 2f, separator);
     }
 
     @Override protected int getChildDrawingOrder(int count, int i) {
@@ -132,6 +159,7 @@ final class TileGrid extends ViewGroup {
             case MotionEvent.ACTION_DOWN:
                 downX = touchX; downY = touchY;
                 pressedInEdit = tileAt(touchX, touchY);
+                if (pressedInEdit != null && pressedInEdit.spec.isStatus()) pressedInEdit = null;
                 // In edit mode a touch on a tile is a drag, not a scroll.
                 if (pressedInEdit != null) disallowParentIntercept();
                 break;
@@ -282,7 +310,7 @@ final class TileGrid extends ViewGroup {
                 double t = SystemClock.uptimeMillis() / 1000.0 * Math.PI * 2 * 3.2;
                 for (int i = 0; i < order.size(); i++) {
                     TileView tile = order.get(i);
-                    tile.setRotation(tile == dragging ? 0f : (float) (1.1 * Math.sin(t + i * 1.9)));
+                    tile.setRotation(tile == dragging || tile.spec.isStatus() ? 0f : (float) (1.1 * Math.sin(t + i * 1.9)));
                 }
             }
         });
@@ -310,7 +338,7 @@ final class TileGrid extends ViewGroup {
     void setKnobIndex(int index) {
         knobIndex = index;
         applyKnob();
-        if (index >= 0 && index < order.size()) {
+        if (index >= 0 && index < order.size() && !(math != null && math.grouped && index < fixedCount)) {
             TileView tile = order.get(index);
             tile.requestRectangleOnScreen(new Rect(0, 0, tile.getWidth(), tile.getHeight()), false);
         }
@@ -338,6 +366,11 @@ final class TileGrid extends ViewGroup {
         @Override protected void onMeasure(int widthSpec, int heightSpec) {
             grid.setViewportHeight(MeasureSpec.getSize(heightSpec) - getPaddingTop() - getPaddingBottom());
             super.onMeasure(widthSpec, heightSpec);
+        }
+
+        @Override protected void onScrollChanged(int x, int y, int oldX, int oldY) {
+            super.onScrollChanged(x, y, oldX, oldY);
+            grid.setPinnedScroll(y);
         }
 
         @Override public boolean onTouchEvent(MotionEvent ev) {

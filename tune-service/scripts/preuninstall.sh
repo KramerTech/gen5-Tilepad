@@ -14,34 +14,25 @@ if [ -f "$STAGE/NEMESIS.data" ]; then
     exit 0
 fi
 
-# ADB tile: a real uninstall turns ADB off if the tile had it on -- remove exactly the keys the
-# relay added and stop adbd, as the tile's own off does (AdbGate.turnOff). The services are
-# already stopped, so do it here directly. ADB that something else turned on is left alone.
-# (An update returned above, so the relay stays on across updates.)
-if [ -f /data/misc/adb/tilepad_added ]; then
-    "$NEMESIS" root 1000 -c "sh $HERE/bin/adb-keys.sh clear" >/dev/null 2>&1
+# Restore owned system patches and DST before deleting the only recovery runtime.
+# Failure deliberately retains the package and all verified backups.
+if [ -d "$TWEAKS_STATE" ]; then
+    sh "$HERE/bin/tweaks.sh" restore || {
+        log "preuninstall: FAILED: tweak restoration refused; keeping recovery files and APKs"
+        exit 1
+    }
 fi
-if [ -f "$ADB_SNAP/relay.on" ]; then
-    log "preuninstall: turning ADB off (the ADB tile had it on)"
+
+# ADB tile: a real uninstall turns ADB over TCP off if the tile turned it on, as the tile's own
+# off does (bin/adb-tile.sh). ADB that something else turned on is left alone. (An update
+# returned above, so ADB stays on across updates.)
+if [ -f "$ADB_MARK" ]; then
+    log "preuninstall: turning ADB over TCP off (the ADB tile had it on)"
     setprop persist.service.adb.tcp.enable 0
     setprop service.adb.tcp.port -1
     setprop ctl.stop adbd
-    # The relay's firewall chain (AdbGate.firewallOn); gone at the next boot anyway.
-    while iptables -D INPUT -j tilepad_adb 2>/dev/null; do :; done
-    iptables -F tilepad_adb 2>/dev/null
-    iptables -X tilepad_adb 2>/dev/null
+    rm -f "$ADB_MARK"
 fi
-# ...and turn the Wi-Fi client off if ADB turned it on (svc needs the framework environment).
-if [ -f "$ADB_SNAP/wifi.adb" ]; then
-    if [ -z "$BOOTCLASSPATH" ] && [ -r /init.environ.rc ]; then
-        while read CMD NAME VALUE; do
-            [ "$CMD" = export ] && export "$NAME=$VALUE"
-        done < /init.environ.rc
-    fi
-    log "preuninstall: turning the Wi-Fi client off (ADB had turned it on)"
-    svc wifi disable >/dev/null 2>&1
-fi
-rm -rf "$ADB_SNAP"
 
 if [ -f /data/nemesis/backup/tilepad/wifi-client ]; then
     # Other apps may rely on the client by now, and HMG Leafia Plus may have adopted it.
@@ -50,16 +41,16 @@ if [ -f /data/nemesis/backup/tilepad/wifi-client ]; then
     rm -rf /data/nemesis/backup/tilepad
 fi
 
-[ -f "$SYSAPK" ] || { log "preuninstall: $SYSAPK not present"; exit 0; }
+[ -f "$SYSAPK" ] || [ -f "$TWEAKS_SYSAPK" ] || { log "preuninstall: APKs not present"; exit 0; }
 stop_app
 if ! system_rw; then
     log "preuninstall: FAILED: nemesis remount rw failed; $SYSAPK left in place"
     exit 1
 fi
-rm -f "$SYSAPK"
+rm -f "$SYSAPK" "$TWEAKS_SYSAPK"
 sync
 system_restore
-if [ -f "$SYSAPK" ]; then
+if [ -f "$SYSAPK" ] || [ -f "$TWEAKS_SYSAPK" ]; then
     log "preuninstall: FAILED: could not remove $SYSAPK"
     exit 1
 fi

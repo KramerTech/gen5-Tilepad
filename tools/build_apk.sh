@@ -20,26 +20,36 @@ fi
 : "${TILEPAD_KEY_PASSWORD:=$TILEPAD_STORE_PASSWORD}"
 : "${TILEPAD_KEY_ALIAS:=tilepad}"
 export TILEPAD_STORE_PASSWORD TILEPAD_KEY_PASSWORD
-./gradlew :app:testDebugUnitTest :app:lintRelease :app:assembleRelease
+if [ "${1:-}" = --sdk-only ]; then
+    python3 tools/tweaks/build_sdk.py
+else
+    ./gradlew :app:testDebugUnitTest :app:lintRelease :app:assembleRelease \
+        :tweaks:testDebugUnitTest :tweaks:lintRelease :tweaks:assembleRelease
+fi
+sh tools/tweaks/test-host.sh
 mkdir -p dist
-python3 tools/kitkat_repackage.py app/build/outputs/apk/release/app-release-unsigned.apk dist/Tilepad-signing.apk
 # Explicit v1 SHA1 signing: what Android 4.4's PackageManager verifies.
 JARSIGNER=jarsigner
 [ -z "${JAVA_HOME:-}" ] || JARSIGNER="$JAVA_HOME/bin/jarsigner"
+for APP in Tilepad Tweaks; do
+MODULE=app
+[ "$APP" = Tweaks ] && MODULE=tweaks
+python3 tools/kitkat_repackage.py "$MODULE/build/outputs/apk/release/$MODULE-release-unsigned.apk" "dist/$APP-signing.apk"
 "$JARSIGNER" -keystore "$TILEPAD_KEYSTORE" -storepass:env TILEPAD_STORE_PASSWORD \
     -keypass:env TILEPAD_KEY_PASSWORD -digestalg SHA1 -sigalg SHA1withRSA \
-    dist/Tilepad-signing.apk "$TILEPAD_KEY_ALIAS"
-"$BT/zipalign" -f 4 dist/Tilepad-signing.apk dist/Tilepad.apk
-rm -f dist/Tilepad-signing.apk
-"$BT/apksigner" verify --min-sdk-version 19 --verbose --print-certs dist/Tilepad.apk > dist/.verify
+    "dist/$APP-signing.apk" "$TILEPAD_KEY_ALIAS"
+"$BT/zipalign" -f 4 "dist/$APP-signing.apk" "dist/$APP.apk"
+rm -f "dist/$APP-signing.apk"
+"$BT/apksigner" verify --min-sdk-version 19 --verbose --print-certs "dist/$APP.apk" > dist/.verify
 cat dist/.verify
 PIN=${TILEPAD_CERT_PIN_FILE:-tools/signing-cert.sha256}
 if [ -f "$PIN" ]; then
     want=$(tr -d ' \n' < "$PIN")
     grep -qi "certificate SHA-256 digest: $want\$" dist/.verify || {
-        rm -f dist/.verify dist/Tilepad.apk
+        rm -f dist/.verify "dist/$APP.apk"
         echo "Signed with the wrong key: expected certificate SHA-256 $want ($PIN)." >&2
         exit 1
     }
 fi
 rm -f dist/.verify
+done

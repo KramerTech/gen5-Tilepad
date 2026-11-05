@@ -1,0 +1,7 @@
+<resources>
+    <style name="TweaksTheme" parent="android:style/Theme.Holo.NoActionBar">
+        <item name="android:windowBackground">#111111</item>
+        <item name="android:colorBackground">#111111</item>
+        <item name="android:fontFamily">sans</item>
+    </style>
+</resources>

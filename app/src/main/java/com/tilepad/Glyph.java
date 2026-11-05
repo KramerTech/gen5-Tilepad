@@ -13,7 +13,7 @@ import android.graphics.drawable.Drawable;
 final class Glyph extends Drawable {
     enum Kind {
         WIFI, WIFI_OFF, BATTERY_HEAT, TERMINAL, BUG, CAR, REBOOT, PLUS, MINUS, PENCIL, SEARCH, BACK,
-        BACKSPACE, CHECK, CLOSE, ALERT, CHEVRON_DOWN, SHIFT, APPS
+        BACKSPACE, CHECK, CLOSE, ALERT, CHEVRON_DOWN, SHIFT, APPS, TWEAKS
     }
 
     private Kind kind;
@@ -64,6 +64,14 @@ final class Glyph extends Drawable {
         stroke.setColor(color);
         fill.setColor(color);
         switch (kind) {
+            case TWEAKS:
+                for (int i = 0; i < 3; i++) {
+                    float x = 5f + 7f * i, y = i == 1 ? 8f : 16f;
+                    canvas.drawLine(x, 3f, x, y - 2.5f, stroke);
+                    canvas.drawLine(x, y + 2.5f, x, 21f, stroke);
+                    canvas.drawCircle(x, y, 2.5f, stroke);
+                }
+                break;
             case WIFI: wifi(canvas, false); break;
             case WIFI_OFF: wifi(canvas, true); break;
             case BATTERY_HEAT:

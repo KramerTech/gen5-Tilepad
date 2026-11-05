@@ -4,29 +4,48 @@ export LD_LIBRARY_PATH=/vendor/lib:/system/lib
 umask 022
 HERE=/data/nemesis/apps/tilepad
 NEMESIS=/system/xbin/nemesis
-# The signed Tilepad APK. The knob daemon uses it as its dex container
+# The signed Tilepad APK. The longstar daemon uses it as its dex container
 # (CLASSPATH under app_process), and postinstall places a copy in /system/app so
 # PackageManager registers the visible app.
 DEX=$HERE/app/Tilepad.apk
 # dalvik-cache entry app_process may create for that dex (named after its path).
 DEXCACHE=/data/dalvik-cache/data@nemesis@apps@tilepad@app@Tilepad.apk@classes.dex
-# The ONLY file under /system this package ever writes or removes.
+# Default system installs: the launcher and the standalone Tweaks settings APK.
+# Explicitly enabled static tweaks also own verified files through PatchManager.
 SYSAPK=/system/app/Tilepad.apk
+TWEAKSDEX=$HERE/app/Tweaks.apk
+TWEAKS_SYSAPK=/system/app/TilepadTweaks.apk
+TWEAKS_STATE=/data/nemesis/backup/tilepad-tweaks
 # Everything else (staging, verification copies, rollback backup) lives here.
-WORK=/data/local/tmp/tilepad
+# NEMESIS's root shell has SETUID/SETGID but no DAC override on the car.
+# /data/local/tmp is shell-owned 0771, so uid 0 cannot create a staging directory
+# there. Use NEMESIS's writable backup parent; keep failed rollback copies durable.
+WORK=/data/nemesis/backup/tilepad-install
 # NEMESIS extracts an incoming package here before running the old package's
 # uninstall hooks, so its presence during preuninstall means "update".
 STAGE=/data/local/tmp/nemesis/stage/tilepad
 APP_PACKAGE=com.tilepad
-# State dir for the ADB relay (svc/adbgated.sh, bin/adb-tile.sh): the on flag, the off request,
-# the daemon's status file and its list of every key that has connected (keys). It lives outside the package dir, so the relay stays on across an
-# update; a real uninstall turns it off. (The keys the relay adds, and its ledger of them,
-# live in /data/misc/adb next to adb_keys, where uid 1000 can write them.)
-ADB_SNAP=/data/nemesis/backup/tilepad/adb
+# Exists while ADB over TCP is on because the ADB tile turned it on (bin/adb-tile.sh), so a real
+# uninstall turns it back off. Outside the package dir, so it survives updates.
+ADB_MARK=/data/nemesis/backup/tilepad/adb.on
 
 log() { echo "$(date '+%Y-%m-%d %H:%M:%S') tilepad $*"; }
 
 android_up() { [ "$(getprop sys.boot_completed)" = 1 ]; }
+
+# Hyundai's on-screen toast, for hooks run from NEMESIS Manager's Package Store, where nobody
+# reads the log. am needs the framework environment, which hooks may start without.
+toast() {
+    android_up || return 0
+    if [ -z "$BOOTCLASSPATH" ] && [ -r /init.environ.rc ]; then
+        while read CMD NAME VALUE; do
+            [ "$CMD" = export ] && export "$NAME=$VALUE"
+        done < /init.environ.rc
+    fi
+    am broadcast -a com.hkmc.intent.action.TOAST -e com.hkmc.intent.extra.TOAST_MESSAGE "$1" \
+        --ez com.hkmc.intent.extra.TOAST_POPUPSHOWING true >/dev/null 2>&1
+    return 0
+}
 
 # 0 if two files have identical contents. The head unit's toolbox cmp has no -s; it prints
 # differences to stdout and exits 1 (2 on errors), so silence it and use the exit status.
@@ -92,8 +111,8 @@ pkg_registered() {
     }
 }
 
-# The original Launchpad has its own TUNE-hold service, so Tilepad refuses to install next
-# to it. Prints one line per trace still on the car; prints nothing if it is gone.
+# Tilepad replaces the original Launchpad (its TUNE-hold service and preconditioning backend),
+# so it refuses to install next to it. Prints one line per trace still on the car; prints nothing if it is gone.
 LAUNCHPAD_ID=paytondev.launchpad
 launchpad_traces() {
     pkg_registered "$LAUNCHPAD_ID" && echo "NEMESIS package $LAUNCHPAD_ID"
@@ -109,5 +128,6 @@ launchpad_traces() {
 
 stop_app() {
     android_up && am force-stop "$APP_PACKAGE" >/dev/null 2>&1
+    android_up && am force-stop com.tilepad.tweaks >/dev/null 2>&1
     return 0
 }

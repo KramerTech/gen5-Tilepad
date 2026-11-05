@@ -1,24 +1,32 @@
 #!/system/bin/sh
-# The ADB tile's root-side control, run by Tilepad through `nemesis root -c`. It only flips the
-# relay daemon's on flag (or files an off request) and reports its status; the daemon (AdbGate,
-# svc/adbgated.sh) polls for them and does the actual work (moving or stopping adbd, capturing
-# keys). Off is a request rather than just the missing flag so that the daemon stops adbd only
-# when asked, never because it started up without the flag.
+# The ADB tile's root side, run by Tilepad through `nemesis root -c`.
 #
-#   sh /data/nemesis/apps/tilepad/bin/adb-tile.sh on|off|status
+#   sh /data/nemesis/apps/tilepad/bin/adb-tile.sh on|off
 #
-# status prints the daemon's status file (key=value lines Tilepad parses), or state=off before
-# the daemon has ever run.
+# on   sets persist.service.adb.tcp.enable=1. This firmware's init.daudio.rc reacts to that by
+#      setting service.adb.tcp.port=5555 and restarting adbd, now and at every boot. It's set
+#      to 0 first so the trigger fires even if the property was already 1.
+# off  clears it and stops adbd (nothing in the firmware reacts to 0), with a negative live
+#      port so adbd won't listen over TCP if something starts it again before a reboot.
+#
+# Wi-Fi is Tilepad's side (WifiRadio): it turns the client on after `on`.
 . /data/nemesis/apps/tilepad/scripts/common.sh
 
-FLAG=$ADB_SNAP/relay.on
-OFF=$ADB_SNAP/relay.off
-STATUS=$ADB_SNAP/status
-
 case "$1" in
-    on) mkdir -p "$ADB_SNAP" && rm -f "$OFF" && : > "$FLAG" && echo "state=starting" ;;
-    off) rm -f "$FLAG"; mkdir -p "$ADB_SNAP" && : > "$OFF" && echo "state=stopping" ;;
-    status) if [ -f "$STATUS" ]; then cat "$STATUS"; else echo "state=off"; fi ;;
-    *) echo "state=error"; echo "detail=usage: adb-tile.sh on|off|status"; exit 1 ;;
+    on)
+        setprop persist.service.adb.tcp.enable 0
+        setprop persist.service.adb.tcp.enable 1
+        [ "$(getprop persist.service.adb.tcp.enable)" = 1 ] || { echo "Couldn't set persist.service.adb.tcp.enable."; exit 1; }
+        mkdir -p "${ADB_MARK%/*}" && : > "$ADB_MARK"
+        log "adb-tile: on"
+        ;;
+    off)
+        setprop persist.service.adb.tcp.enable 0
+        setprop service.adb.tcp.port -1
+        setprop ctl.stop adbd
+        rm -f "$ADB_MARK"
+        log "adb-tile: off"
+        ;;
+    *) echo "usage: adb-tile.sh on|off"; exit 1 ;;
 esac
 exit 0

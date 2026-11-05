@@ -3,7 +3,7 @@ package com.tilepad;
 /** One square on the grid. Core tiles are fixed features; shortcuts point at an activity. */
 final class TileSpec {
     enum Kind {
-        WIFI("core:wifi"), ADB("core:adb"), PRECONDITION("core:precondition"), NEMESIS("core:nemesis"),
+        WIFI("core:wifi"), ADB("core:adb"), PRECONDITION("core:precondition"), TWEAKS("core:tweaks"), NEMESIS("core:nemesis"),
         CAR_HOME("core:car_home"), REBOOT("core:reboot"), ADD("core:add"), SHORTCUT(null);
 
         final String coreId;
@@ -11,7 +11,7 @@ final class TileSpec {
     }
 
     /** Default order for a fresh install; also the order missing core tiles are restored in. */
-    static final Kind[] CORE = {Kind.WIFI, Kind.ADB, Kind.PRECONDITION, Kind.NEMESIS, Kind.CAR_HOME, Kind.REBOOT, Kind.ADD};
+    static final Kind[] CORE = {Kind.WIFI, Kind.ADB, Kind.PRECONDITION, Kind.TWEAKS, Kind.NEMESIS, Kind.CAR_HOME, Kind.REBOOT, Kind.ADD};
 
     final String id;
     final Kind kind;
@@ -37,6 +37,10 @@ final class TileSpec {
     }
 
     boolean isCore() { return kind != Kind.SHORTCUT; }
+
+    boolean isStatus() {
+        return kind == Kind.WIFI || kind == Kind.ADB || kind == Kind.PRECONDITION || kind == Kind.TWEAKS;
+    }
 
     TileSpec withLabel(String value) {
         return new TileSpec(id, kind, component, launcher, emptyToNull(value));

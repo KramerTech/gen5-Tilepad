@@ -37,29 +37,31 @@ refuse_if_launchpad() {
     finish 1
 }
 
-knobd_state() {
-    "$NEMESIS" service status "$PKG_ID/knobd" 2>/dev/null | {
+longstar_state() {
+    "$NEMESIS" service status "$PKG_ID/longstar" 2>/dev/null | {
         IFS='|' read QNAME MODE STATE PID
         echo "$STATE"
     }
 }
 
-# Package registered, /system/app copy matches the package's APK, knobd running.
+# Package registered, /system/app copy matches the package's APK, longstar running.
 verify_installed() {
     OK=0
     if pkg_installed; then say "ok: package $PKG_ID registered"
     else say "FAIL: package $PKG_ID not registered"; OK=1; fi
     if [ -f "$SYSAPK" ] && same_file "$DEX" "$SYSAPK"; then say "ok: $SYSAPK matches the package APK"
     else say "FAIL: $SYSAPK missing or does not match $DEX"; OK=1; fi
+    if [ -f "$TWEAKS_SYSAPK" ] && same_file "$TWEAKSDEX" "$TWEAKS_SYSAPK"; then say "ok: bundled Tweaks APK matches"
+    else say "FAIL: bundled Tweaks APK missing or does not match"; OK=1; fi
     N=0
-    STATE=$(knobd_state)
+    STATE=$(longstar_state)
     while [ "$STATE" != running ] && [ $N -lt 10 ]; do
         sleep 1
         N=$((N + 1))
-        STATE=$(knobd_state)
+        STATE=$(longstar_state)
     done
-    if [ "$STATE" = running ]; then say "ok: service $PKG_ID/knobd running"
-    else say "FAIL: service $PKG_ID/knobd is '${STATE:-unknown}'"; OK=1; fi
+    if [ "$STATE" = running ]; then say "ok: service $PKG_ID/longstar running"
+    else say "FAIL: service $PKG_ID/longstar is '${STATE:-unknown}'"; OK=1; fi
     return $OK
 }
 

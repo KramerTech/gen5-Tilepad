@@ -1,6 +1,6 @@
 name: release
 
-# Push a tag v<version> matching versionName in app/build.gradle.kts and version= in
+# Push a tag v<version> matching versionName in app/build.gradle.kts and package-version= in
 # tune-service/NEMESIS.data (e.g. v1.0.1) to build, sign and publish a release.
 # An annotated tag's message becomes the release's "Changes" section.
 on:
@@ -21,9 +21,9 @@ jobs:
         run: |
           tag=${GITHUB_REF_NAME#v}
           app=$(sed -n 's/^ *versionName *= *"\(.*\)".*/\1/p' app/build.gradle.kts)
-          pkg=$(sed -n 's/^version=//p' tune-service/NEMESIS.data)
+          pkg=$(sed -n 's/^package-version=//p' tune-service/NEMESIS.data)
           [ "$tag" = "$app" ] && [ "$tag" = "$pkg" ] || {
-            echo "::error::tag $tag, versionName $app and NEMESIS.data version $pkg must all match"; exit 1; }
+            echo "::error::tag $tag, versionName $app and NEMESIS.data package-version $pkg must all match"; exit 1; }
           [ -f tools/signing-cert.sha256 ] || {
             echo "::error::tools/signing-cert.sha256 is missing; releases must pin the signing certificate"; exit 1; }
           # Annotated tag message, if any (a lightweight tag has none).

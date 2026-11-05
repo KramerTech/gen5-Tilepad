@@ -37,13 +37,13 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-/** Minimal grid launcher: square tiles, long-press to rearrange, TUNE-hold to open or close. */
+/** Minimal grid launcher: square tiles, long-press to rearrange, steering-wheel star hold to open or close. */
 public final class MainActivity extends Activity implements TileGrid.Listener, TileView.EditListener, Sheet.Listener {
     static final String EXTRA_FROM_KNOB = "from_knob";
     private static final String NEMESIS_COMPONENT = "com.nemesis.manager/.MainActivity";
     /** Root-side half of "turn on the Wi-Fi client", shipped in the NEMESIS package. */
     private static final String WIFI_CLIENT_SCRIPT = "/data/nemesis/apps/tilepad/bin/wifi-client.sh";
-    /** Reads the ADB relay daemon's status and flips its on/off flag; shipped in the package. */
+    /** Turns ADB over TCP on or off (the firmware property, as root); shipped in the package. */
     private static final String ADB_TILE_SCRIPT = "/data/nemesis/apps/tilepad/bin/adb-tile.sh";
     private static final String WIFI_CLIENT_XML = "/system/etc/permissions/android.hardware.wifi.xml";
     private static final int KEY_TUNE_UP = keyCode("KEYCODE_TUNE_UP", 223);
@@ -63,13 +63,17 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
     private WifiTile wifiTile;
     private PreconTile preconTile;
     private AdbTile adbTile;
+    private TweaksTile tweaksTile;
+    private TweaksSnapshot tweaks = TweaksSnapshot.checking();
+    private boolean tweaksReading;
+    private int tweaksEpoch;
     private boolean preview, resumed, started, receiverRegistered, connectionReading, enterDown, enterLong;
     private long resumedAt, enterAt;
     private int connectionEpoch, adbEpoch, sheetKnob = -1;
     private ConnectionSnapshot connection = ConnectionSnapshot.unknown();
 
     private AdbSnapshot adb = AdbSnapshot.checking();
-    private boolean adbReading, adbPendingOn;
+    private boolean adbPendingOn;
     /** While a toggle is in flight, holds the Starting/Stopping display until the daemon catches up. */
     private long adbPendingSince;
     /** The ADB popup, while it is the sheet on screen. */
@@ -196,12 +200,14 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
         refreshAvailability();
         if (support.precondition) preconTick.run();
         adbTick.run();
+        refreshTweaks();
     }
 
     @Override protected void onPause() {
         resumed = false;
         connectionEpoch++;
         adbEpoch++;
+        tweaksEpoch++;
         main.removeCallbacks(connectionTick);
         main.removeCallbacks(preconTick);
         main.removeCallbacks(adbTick);
@@ -217,7 +223,7 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
     @Override protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
-        // Holding TUNE again while Tilepad is showing closes it. Android pauses a resumed
+        // Holding the star again while Tilepad is showing closes it. Android pauses a resumed
         // activity before onNewIntent, so "started" is the visibility guard here.
         if (intent.getBooleanExtra(EXTRA_FROM_KNOB, false) && started
             && SystemClock.uptimeMillis() - resumedAt > 700) finish();
@@ -236,6 +242,7 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
         wifiTile = null;
         preconTile = null;
         adbTile = null;
+        tweaksTile = null;
         List<TileView> views = new ArrayList<>();
         // Unsupported core tiles stay in the saved order, just not on the grid.
         for (TileSpec spec : specs) if (support.shows(spec.kind)) views.add(createTile(spec));
@@ -258,6 +265,10 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
             case PRECONDITION:
                 tile = preconTile = new PreconTile(ui, spec, this);
                 preconTile.bind(preconditioning);
+                break;
+            case TWEAKS:
+                tile = tweaksTile = new TweaksTile(ui, spec, this);
+                tweaksTile.bind(tweaks);
                 break;
             case NEMESIS:
                 tile = TileView.simple(ui, spec, this, TileView.chip(ui, Glyph.Kind.TERMINAL, Ui.PURPLE), 80, "NEMESIS");
@@ -323,6 +334,7 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
 
     private Intent intentFor(TileSpec spec) {
         switch (spec.kind) {
+            case TWEAKS: return new Intent(Intent.ACTION_MAIN).setComponent(new ComponentName("com.tilepad.tweaks", "com.tilepad.tweaks.TweaksActivity"));
             case WIFI: return new Intent("android.settings.WIFI_SETTINGS");
             case NEMESIS: return new Intent(Intent.ACTION_MAIN).setComponent(ComponentName.unflattenFromString(NEMESIS_COMPONENT));
             case CAR_HOME: return new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME);
@@ -339,6 +351,7 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
 
     private String titleOf(TileView tile) {
         switch (tile.spec.kind) {
+            case TWEAKS: return "Tweaks";
             case WIFI: return "Wi-Fi settings";
             case NEMESIS: return "NEMESIS Manager";
             case CAR_HOME: return "Car Home";
@@ -826,44 +839,75 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
         if (wifiTile != null) wifiTile.bind(value);
     }
 
+    // ---- Tweaks summary ----
+
+    private void refreshTweaks() {
+        if (tweaksTile == null || tweaksReading) return;
+        if (preview) { tweaks = PreviewData.tweaks(); tweaksTile.bind(tweaks); return; }
+        if (!RootShell.available()) {
+            tweaks = TweaksSnapshot.unavailable("NEMESIS is not installed"); tweaksTile.bind(tweaks); return;
+        }
+        tweaksReading = true;
+        final int epoch = tweaksEpoch;
+        new Thread(new Runnable() {
+            @Override public void run() {
+                RootShell.Result result = RootShell.run("sh /data/nemesis/apps/tilepad/bin/tweaks.sh summary");
+                final TweaksSnapshot snapshot = result.code == 0 ? TweaksSnapshot.parse(result.output)
+                    : TweaksSnapshot.unavailable(result.output);
+                main.post(new Runnable() {
+                    @Override public void run() {
+                        tweaksReading = false;
+                        if (!resumed || isFinishing()) return;
+                        if (epoch != tweaksEpoch) { refreshTweaks(); return; }
+                        tweaks = snapshot;
+                        if (tweaksTile != null) tweaksTile.bind(tweaks);
+                    }
+                });
+            }
+        }, "tilepad-tweaks-summary").start();
+    }
+
     // ---- ADB ----
 
     private void refreshAdb() {
-        if (adbTile == null || adbReading) return;
+        if (adbTile == null) return;
         if (preview) { onAdb(PreviewData.adb()); return; }
-        if (!RootShell.available()) { onAdb(AdbSnapshot.of(AdbSnapshot.State.OFF, 0, 0, 0, "Needs NEMESIS")); return; }
-        adbReading = true;
-        final int epoch = adbEpoch;
-        new Thread(new Runnable() {
-            @Override public void run() {
-                RootShell.Result r = RootShell.run("sh " + ADB_TILE_SCRIPT + " status");
-                final AdbSnapshot value = r.code == 0 ? AdbSnapshot.parse(r.output)
-                    : AdbSnapshot.of(AdbSnapshot.State.OFF, 0, 0, 0, "");
-                main.post(new Runnable() { @Override public void run() {
-                    adbReading = false;
-                    if (!isFinishing() && resumed && epoch == adbEpoch) onAdb(value);
-                } });
-            }
-        }, "tilepad-adb").start();
+        if (!RootShell.available()) { onAdb(AdbSnapshot.of(AdbSnapshot.State.OFF, 0)); return; }
+        onAdb(AdbSnapshot.read(prop("init.svc.adbd"), prop("service.adb.tcp.port"), prop("persist.adb.tcp.port")));
+    }
+
+    /** android.os.SystemProperties.get (hidden API); "" if it can't be read. */
+    private static String prop(String name) {
+        try {
+            return (String) Class.forName("android.os.SystemProperties").getMethod("get", String.class).invoke(null, name);
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            return "";
+        }
     }
 
     private void onAdb(AdbSnapshot value) {
-        // Keep the optimistic Starting/Stopping display until the daemon settles, so a stale
-        // read during a toggle doesn't flicker the tile back.
+        // Keep the optimistic Starting/Stopping display until adbd settles (it restarts on the
+        // way on), so a read in between doesn't flicker the tile back.
+        boolean done = false;
         if (adbPendingSince > 0) {
             boolean settled = adbPendingOn ? value.state == AdbSnapshot.State.ON
                                            : value.state == AdbSnapshot.State.OFF;
-            if (value.state == AdbSnapshot.State.ERROR || settled) adbPendingSince = 0;
-            else if (SystemClock.uptimeMillis() - adbPendingSince < 12000) {
-                value = AdbSnapshot.of(adbPendingOn ? AdbSnapshot.State.STARTING : AdbSnapshot.State.STOPPING,
-                    value.port, value.clients, value.allowed, value.detail);
+            if (value.state == AdbSnapshot.State.ERROR || settled) {
+                adbPendingSince = 0;
+                done = settled;
+            } else if (SystemClock.uptimeMillis() - adbPendingSince < 12000) {
+                value = AdbSnapshot.of(adbPendingOn ? AdbSnapshot.State.STARTING : AdbSnapshot.State.STOPPING, value.port);
             } else {
-                adbPendingSince = 0; // give up waiting; show whatever the daemon reports
+                adbPendingSince = 0; // give up waiting; show what adbd reports
             }
         }
         adb = value;
         if (adbTile != null) adbTile.bind(value);
-        if (adbCard != null) renderAdbCard();
+        // A finished toggle closes the popup rather than offering to undo it; errors stay up.
+        if (adbCard != null) {
+            if (done) sheet.dismiss();
+            else renderAdbCard();
+        }
     }
 
     private void onAdbTap() {
@@ -882,39 +926,25 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
         StatusCard.Action close = new StatusCard.Action("Close", Ui.SURFACE, dismiss());
         List<View> buttons;
         switch (s.state) {
-            case ON: {
-                String computers = s.allowed == 1 ? "1 computer has connected" : s.allowed + " computers have connected";
+            case ON:
                 card.set(Glyph.Kind.BUG, Ui.GREEN, false, "ADB is on",
                     "Any computer on this Wi-Fi network can connect with “adb connect " + adbAddress(s.port)
-                        + "” and gets a shell — no key approval. Wi-Fi stays on, so wireless CarPlay and "
-                        + "Android Auto are off. Turn it off when you're done.",
-                    s.allowed > 0 ? computers : null);
+                        + "” and gets a shell. Wireless CarPlay and Android Auto are off while Wi-Fi is on. "
+                        + "Turn it off when you're done.", null);
                 buttons = card.setActions(close,
                     new StatusCard.Action("Turn off", Ui.RED, new Runnable() { @Override public void run() { toggleAdb(false); } }));
                 break;
-            }
-            case KEYS:
-                card.set(Glyph.Kind.BUG, Ui.AMBER, false, "ADB is on, approved computers only",
-                    "Something other than this tile turned on ADB over Wi-Fi (“adb connect " + adbAddress(s.port)
-                        + "”). Only computers whose keys were approved before can connect.",
-                    "Allow all lets every computer in and keeps Wi-Fi on (wireless CarPlay off).");
-                buttons = card.setActions(close,
-                    new StatusCard.Action("Turn off", Ui.RED, new Runnable() { @Override public void run() { toggleAdb(false); } }),
-                    new StatusCard.Action("Allow all", Ui.ACCENT, new Runnable() { @Override public void run() { toggleAdb(true); } }));
-                break;
             case STARTING:
-                card.set(null, Ui.AMBER, true, "Turning on ADB",
-                    "Opening the ADB port to every computer and turning on Wi-Fi.", null);
+                card.set(null, Ui.AMBER, true, "Turning on ADB", "Starting ADB over Wi-Fi and turning on Wi-Fi.", null);
                 buttons = card.setActions(close);
                 break;
             case STOPPING:
-                card.set(null, Ui.MUTED, true, "Turning off ADB",
-                    "Stopping ADB, removing the keys it added, and turning Wi-Fi back off if ADB turned it on.", null);
+                card.set(null, Ui.MUTED, true, "Turning off ADB", "Stopping ADB over Wi-Fi.", null);
                 buttons = card.setActions(close);
                 break;
             case ERROR:
                 card.set(Glyph.Kind.ALERT, Ui.RED, false, "ADB error",
-                    s.detail.isEmpty() ? "The relay reported a problem." : s.detail, null);
+                    s.detail.isEmpty() ? "Something went wrong." : s.detail, null);
                 buttons = card.setActions(close, adbTurnOn());
                 break;
             case CHECKING:
@@ -928,11 +958,10 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
                     buttons = card.setActions(close);
                 } else {
                     card.set(Glyph.Kind.BUG, Ui.AMBER, false, "Turn on ADB?",
-                        "This opens ADB over Wi-Fi and lets every computer on the network connect without approving a key "
-                            + "— anyone on the same network gets a root-capable shell. It also turns on Wi-Fi and keeps it "
-                            + "on, at every boot too, which shuts off the hotspot wireless CarPlay and Android Auto use. "
-                            + "Turn it off when you're done.",
-                        wifiClientPending() ? "Off closes ADB completely and turns off the Wi-Fi it turned on."
+                        "This turns on ADB over Wi-Fi, and Wi-Fi itself, now and at every boot until you turn it off. "
+                            + "Any computer on the same network can connect without approving a key and gets a "
+                            + "root-capable shell. Wi-Fi shuts off the hotspot wireless CarPlay and Android Auto use.",
+                        wifiClientPending() ? null
                             : "This head unit's Wi-Fi only runs the CarPlay hotspot: turn on Wi-Fi from the Wi-Fi tile first.");
                     buttons = card.setActions(close, adbTurnOn());
                 }
@@ -952,19 +981,21 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
     private void toggleAdb(final boolean on) {
         adbPendingSince = SystemClock.uptimeMillis();
         adbPendingOn = on;
-        adb = AdbSnapshot.of(on ? AdbSnapshot.State.STARTING : AdbSnapshot.State.STOPPING,
-            adb.port, adb.clients, adb.allowed, "");
+        adb = AdbSnapshot.of(on ? AdbSnapshot.State.STARTING : AdbSnapshot.State.STOPPING, adb.port);
         if (adbTile != null) adbTile.bind(adb);
         if (adbCard != null) renderAdbCard();
         final int epoch = adbEpoch;
         new Thread(new Runnable() {
             @Override public void run() {
-                final RootShell.Result r = RootShell.run("sh " + ADB_TILE_SCRIPT + " " + (on ? "on" : "off"));
+                RootShell.Result r = RootShell.run("sh " + ADB_TILE_SCRIPT + " " + (on ? "on" : "off"));
+                String problem = r.code != 0 ? (r.output.isEmpty() ? "nemesis exited with code " + r.code : r.output)
+                    : on ? WifiRadio.ensureClientOn() : null;
+                final String error = problem;
                 main.post(new Runnable() { @Override public void run() {
                     if (isFinishing() || !resumed || epoch != adbEpoch) return;
-                    if (r.code != 0) {
+                    if (error != null) {
                         adbPendingSince = 0;
-                        onAdb(AdbSnapshot.error(r.output.isEmpty() ? "nemesis exited with code " + r.code : r.output));
+                        onAdb(AdbSnapshot.error(error));
                     } else {
                         refreshAdb();
                     }
@@ -988,7 +1019,7 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
             return true;
         }
         if (code == KEY_TUNE_ENTER || code == KeyEvent.KEYCODE_DPAD_CENTER || code == KeyEvent.KEYCODE_ENTER) {
-            // Short press only: a TUNE hold belongs to the knob service (open/close).
+            // Short press only: a TUNE hold is left to the stock long-press handling.
             if (down) {
                 if (event.getRepeatCount() == 0) { enterDown = true; enterLong = false; enterAt = SystemClock.uptimeMillis(); }
                 else enterLong = true;

@@ -9,6 +9,7 @@ final class PreviewData {
         return ConnectionSnapshot.read(true, true, "Home Wi-Fi", 0x2a0200c0);
     }
     static AdbSnapshot adb() {
-        return AdbSnapshot.of(AdbSnapshot.State.ON, 5555, 1, 2, "");
+        return AdbSnapshot.of(AdbSnapshot.State.ON, 5555);
     }
+    static TweaksSnapshot tweaks() { return TweaksSnapshot.of(4, 8); }
 }

@@ -9,5 +9,6 @@ Tilepad @VERSION@, a minimal grid launcher for Hyundai gen5W head units, install
 | `Tilepad-uninstall-usb.zip` | remove Tilepad |
 | `tilepad.zip` | the NEMESIS package itself, for `nemesis install` over ADB (don't extract it onto a drive) |
 | `Tilepad.apk` | the signed APK, for reference |
+| `Tweaks.apk` | bundled settings app; runtime and patches are in the Tilepad package |
 
 Check downloads against `SHA256SUMS`. Built and signed by GitHub Actions from this tag.

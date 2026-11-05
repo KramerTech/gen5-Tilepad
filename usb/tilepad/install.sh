@@ -1,5 +1,5 @@
 #!/system/bin/sh
-# NEMESIS type=execute: first-time install of the Tilepad package (TUNE service
+# NEMESIS type=execute: first-time install of the Tilepad package (key-hold service
 # + /system/app/Tilepad.apk).
 . "${0%/*}/lib.sh"
 

@@ -5,3 +5,4 @@ dependencyResolutionManagement {
 }
 rootProject.name = "Tilepad"
 include(":app")
+include(":tweaks")

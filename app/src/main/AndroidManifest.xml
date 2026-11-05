@@ -1,9 +1,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Wi-Fi tile: network name, address and signal. -->
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <!-- ADB tile: turns the CarPlay hotspot off and the Wi-Fi client on (WifiRadio). -->
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
     <!-- Hyundai's ActivityManager checks GET_TASKS inside finishActivity() on some paths, so an app
          without it can crash on a plain finish() (seen with NEMESIS Manager's dialogs). Tilepad
-         finishes on Back and on a second TUNE hold. -->
+         finishes on Back and on a second star hold. -->
     <uses-permission android:name="android.permission.GET_TASKS" />
     <application
         android:allowBackup="false"
@@ -12,6 +14,12 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
         <service android:name=".PreconditioningService" android:exported="false" />
+        <!-- Drops stock's star-hold action (Button Settings); see StarHoldReceiver. -->
+        <receiver android:name=".StarHoldReceiver" android:exported="true">
+            <intent-filter android:priority="1000">
+                <action android:name="com.mobis.intent.action.SWRC_CUSTOM_SHORTCUT" />
+            </intent-filter>
+        </receiver>
         <!-- MAIN/LAUNCHER only (no HOME category): Hyundai's launcher remains the home screen. -->
         <activity
             android:name=".MainActivity"

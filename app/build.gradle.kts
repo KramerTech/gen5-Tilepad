@@ -1,6 +1,7 @@
 plugins { id("com.android.application") }
 android {
     namespace = "com.tilepad"
+    sourceSets["main"].java.srcDir("../tweaks-core/src/main/java")
     compileSdk = 36
     defaultConfig {
         applicationId = "com.tilepad"

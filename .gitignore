@@ -17,3 +17,4 @@ keystore/
 # Generated APKs and vehicle diagnostics
 *.apk
 verification/
+__pycache__/

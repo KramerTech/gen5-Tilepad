@@ -1,8 +1,14 @@
 [nemesis]
-version=1.0.0
+version=1.1
 id=tilepad
 name=Tilepad
-types=application,service
+type=application,service
+package-version=1.0.0
+short-desc=Star-hold launcher with Wi-Fi, ADB, preconditioning and Tweaks
+detailed-desc=Hold the steering-wheel star for a grid of tiles and bundled Tweaks: automatic DST, startup-brief bypass, cold-boot heaters, track-button swap, right-panel controls and climate sync. No store or extra service. Reboot after installing.
+depends=!paytondev.launchpad
+os=any
+models=any
 preinstall=scripts/preinstall.sh
 postinstall=scripts/postinstall.sh
 preuninstall=scripts/preuninstall.sh
@@ -13,15 +19,8 @@ path=bin/open.sh
 uid=root
 
 [service.0]
-name=knobd
+name=longstar
 kind=sh
-path=svc/knobd.sh
-uid=root
-mode=restart
-
-[service.1]
-name=adbgated
-kind=sh
-path=svc/adbgated.sh
+path=svc/longstar.sh
 uid=root
 mode=restart

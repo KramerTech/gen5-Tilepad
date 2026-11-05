@@ -43,7 +43,14 @@ final class TileOrder {
         for (int i = 0; i < TileSpec.CORE.length; i++) {
             TileSpec.Kind kind = TileSpec.CORE[i];
             if (seen.contains(kind.coreId)) continue;
-            tiles.add(Math.min(i, tiles.size()), TileSpec.core(kind));
+            int at = Math.min(i, tiles.size());
+            if (kind == TileSpec.Kind.TWEAKS) {
+                // Migrate custom layouts next to Precondition without moving their shortcuts.
+                for (int j = 0; j < tiles.size(); j++) {
+                    if (tiles.get(j).kind == TileSpec.Kind.PRECONDITION) { at = j + 1; break; }
+                }
+            }
+            tiles.add(at, TileSpec.core(kind));
             seen.add(kind.coreId);
         }
         return tiles;
