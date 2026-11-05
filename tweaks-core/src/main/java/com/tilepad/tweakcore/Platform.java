@@ -45,7 +45,7 @@ public final class Platform {
             return binder;
         } finally { data.recycle(); reply.recycle(); }
     }
-    private static IBinder service(String name, String descriptor) throws Exception {
+    static IBinder service(String name, String descriptor) throws Exception {
         requireVehicle();
         IBinder binder = (IBinder) Class.forName("android.os.ServiceManager").getMethod("getService", String.class).invoke(null, name);
         if (binder == null || !binder.isBinderAlive() || !descriptor.equals(binder.getInterfaceDescriptor())) throw new IOException("OEM service unavailable: " + name);

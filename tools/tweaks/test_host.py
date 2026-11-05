@@ -19,8 +19,8 @@ def main():
     classes = ROOT / "build/tweaks-host-tests"
     classes.mkdir(parents=True, exist_ok=True)
     core = ROOT / "tweaks-core/src/main/java/com/tilepad/tweakcore"
-    sources = [core / (n + ".java") for n in ("Config", "Files", "DstRules", "HeaterPolicy", "PatchManager", "ClimatePolicy", "Transaction")]
-    pure_names = ("AdbSnapshot", "TweaksSnapshot", "ConnectionSnapshot", "TileSpec", "TileOrder", "TileSupport", "GridMath", "GroupedGridMath", "SearchFilter", "PreconPresenter", "PreconditioningProfile", "PreconditioningSnapshot", "PreconditioningController", "VehiclePort")
+    sources = [core / (n + ".java") for n in ("Config", "Files", "DstRules", "HeaterPolicy", "PatchManager", "ClimatePolicy", "VehicleLocation", "ChargeAwayPolicy", "ProjectionPolicy", "Transaction")]
+    pure_names = ("AdbSnapshot", "TweaksSnapshot", "ConnectionSnapshot", "TileSpec", "TileOrder", "TileSupport", "GridMath", "GroupedGridMath", "SearchFilter", "PreconPresenter", "BatteryTemperature", "PreconditioningProfile", "PreconditioningSnapshot", "PreconditioningController", "VehiclePort")
     sources += [ROOT / "app/src/main/java/com/tilepad" / (n + ".java") for n in pure_names]
     sources += [ROOT / "app/src/main/java/com/tilepad/longstar" / (n + ".java") for n in ("Evdev", "HoldDetector")]
     tests = sorted((ROOT / "app/src/test/java").rglob("*Test.java")) + sorted((ROOT / "tweaks/src/test/java").rglob("*Test.java"))
@@ -34,6 +34,9 @@ def main():
         names.append(relative[:-5].replace("/", "."))
     subprocess.run(["java", "-cp", str(classes) + os.pathsep + classpath, "org.junit.runner.JUnitCore", *names], check=True, cwd=ROOT)
     subprocess.run([sys.executable, str(ROOT / "tools/tweaks/test_install.py")], check=True, cwd=ROOT)
+    subprocess.run([sys.executable, str(ROOT / "tools/tweaks/test_travel_runtime.py")], check=True, cwd=ROOT)
+    for fixture in ("test_temperature_binder.py", "test_service_rebind.py"):
+        subprocess.run([sys.executable, str(ROOT / "tools/preconditioning" / fixture)], check=True, cwd=ROOT)
 
 
 if __name__ == "__main__":

@@ -4,14 +4,19 @@ import java.util.Locale;
 
 /** Immutable UI state. A pending request and the vehicle indicator are independent. */
 final class PreconditioningSnapshot {
-    enum State { CHECKING, UNAVAILABLE, IDLE, WAITING, ACTIVE, STOPPING, ENDED, UNKNOWN, ERROR }
+    enum State { CHECKING, UNAVAILABLE, IDLE, WAITING, ACTIVE, STOPPING, ENDED, UNKNOWN, ERROR, WARM, TIMED_OUT }
     final State state;
     final boolean requested, canStart, canStop;
     final int indicator, failureRaw;
-    final long elapsedMs;
+    final long elapsedMs, warmRemainingSeconds;
     final String detail;
     PreconditioningSnapshot(State state, boolean requested, boolean canStart, boolean canStop,
                             int indicator, int failureRaw, long elapsedMs, String detail) {
+        this(state, requested, canStart, canStop, indicator, failureRaw, elapsedMs, detail, 0);
+    }
+    PreconditioningSnapshot(State state, boolean requested, boolean canStart, boolean canStop,
+                            int indicator, int failureRaw, long elapsedMs, String detail, long warmRemainingSeconds) {
+        this.warmRemainingSeconds = warmRemainingSeconds;
         this.state = state; this.requested = requested; this.canStart = canStart;
         this.canStop = canStop; this.indicator = indicator; this.failureRaw = failureRaw;
         this.elapsedMs = elapsedMs; this.detail = detail;
@@ -29,6 +34,8 @@ final class PreconditioningSnapshot {
             case ACTIVE: return "Active";
             case STOPPING: return "Stop requested";
             case ENDED: return "Session ended";
+            case WARM: return "Battery warm";
+            case TIMED_OUT: return "No activation";
             case UNKNOWN: return "Status unknown";
             default: return "Request error";
         }

@@ -14,12 +14,14 @@ import android.os.SystemClock;
 /** APK-contained ownership. There is no boot receiver and no automatic Start. */
 public final class PreconditioningService extends Service {
     static final String START = "com.tilepad.PRECONDITION_START";
+    static final String START_ANYWAY = "com.tilepad.PRECONDITION_START_ANYWAY";
     static final String STOP = "com.tilepad.PRECONDITION_STOP";
     private static final int NOTIFICATION = 1203;
     private final LocalBinder binder = new LocalBinder();
     private HandlerThread thread;
     private Handler worker;
     private PreconditioningController controller;
+    private VehiclePort vehicle;
     private SharedPreferences journal;
     private volatile PreconditioningSnapshot snapshot = PreconditioningSnapshot.checking();
     private boolean bound, foreground;
@@ -39,7 +41,8 @@ public final class PreconditioningService extends Service {
         thread = new HandlerThread("tilepad-vehicle"); thread.start();
         worker = new Handler(thread.getLooper());
         worker.post(new Runnable() { @Override public void run() {
-            controller = new PreconditioningController(VehicleClientFactory.create(),
+            vehicle = VehicleClientFactory.create();
+            controller = new PreconditioningController(vehicle,
                 new PreconditioningController.Journal() {
                     @Override public void requested(boolean value) {
                         if (!journal.edit().putBoolean("requested", value).commit())
@@ -52,27 +55,37 @@ public final class PreconditioningService extends Service {
             publish();
         } });
     }
-    @Override public IBinder onBind(Intent intent) {
-        worker.post(new Runnable() { @Override public void run() {
-            bound = true; worker.removeCallbacks(tick); tick.run();
-        } });
-        return binder;
-    }
+    private final Runnable attach = new Runnable() { @Override public void run() {
+        bound = true; worker.removeCallbacks(tick); tick.run();
+    } };
+    @Override public IBinder onBind(Intent intent) { worker.post(attach); return binder; }
+    @Override public void onRebind(Intent intent) { worker.post(attach); }
     @Override public boolean onUnbind(Intent intent) {
         worker.post(new Runnable() { @Override public void run() {
             bound = false;
             if (!snapshot.requested) { worker.removeCallbacks(tick); stopSelf(); }
         } });
-        return false;
+        return true; // Android reuses the Binder while a requested session keeps this service alive.
     }
     @Override public int onStartCommand(final Intent intent, int flags, int startId) {
         worker.post(new Runnable() { @Override public void run() {
             if (intent == null) return;
             if (START.equals(intent.getAction())) {
                 controller.refresh(SystemClock.elapsedRealtime());
-                if (controller.snapshot(SystemClock.elapsedRealtime()).canStart) {
-                    promote("Sending request");
-                    controller.start(SystemClock.elapsedRealtime());
+                if (controller.snapshot(SystemClock.elapsedRealtime()).canStart
+                    && controller.snapshot(SystemClock.elapsedRealtime()).state != PreconditioningSnapshot.State.WARM) {
+                    promote("Checking battery temperature");
+                    Integer minimum = vehicle.readMinimumBatteryTemperatureC();
+                    // The optional bounded read may take time; recheck eligibility before Start.
+                    controller.refresh(SystemClock.elapsedRealtime());
+                    controller.start(SystemClock.elapsedRealtime(), minimum);
+                }
+            }
+            else if (START_ANYWAY.equals(intent.getAction())) {
+                controller.refresh(SystemClock.elapsedRealtime());
+                if (controller.snapshot(SystemClock.elapsedRealtime()).state == PreconditioningSnapshot.State.WARM) {
+                    promote("Sending manual request");
+                    controller.startAnyway(SystemClock.elapsedRealtime());
                 }
             }
             else if (STOP.equals(intent.getAction())) controller.stop(SystemClock.elapsedRealtime());

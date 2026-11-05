@@ -89,7 +89,21 @@ final class TweakInfo {
             "The 'Driver Only' climate setting will be selected by default each time the car turns on, unless or until the front-passenger seatbelt is buckled.",
             "The climate starts each drive in whatever mode it was last left in.",
             null,
-            null)
+            null),
+        new TweakInfo("projection", "Auto-Open Phone Projection", "Opens Android Auto or CarPlay when it becomes available.", false, false,
+            "When Android Auto or Apple CarPlay becomes available, opens its Phone Projection screen using the same OEM launch action as the stock connection pop-over. It reads the underlying connection services, so it works even when Disable Right-Hand Pop-Over is enabled.\n\n"
+            + "It opens once per connection, including a connection already available when enabled. It does not keep bringing projection forward after you leave it. Repeated connection notices and a restart of Tilepad's key service do not reopen an unchanged connection. A newly connected session can open it again. If the projected app is already on screen, it is left there. If a camera screen is on top, automatic opening waits for it to close.\n\n"
+            + "It does not pair phones, enable Wi-Fi, change projection settings, or bypass the OEM's launch restrictions. Wired and wireless sessions use the same ready-state checks. This first version requires the exact captured IONIQ 5 projection interfaces. Turning it off stops automatic opening and leaves the current screen alone.").states(
+            "Android Auto or CarPlay opens automatically when a connection becomes available.",
+            "Phone Projection opens only when you or the stock system choose it.", null, null),
+        new TweakInfo("chargeaway", "Charge-Away", "Scheduled Charging at Home; unrestricted charging when away.", true, false,
+            "Save your current location as Home using the button in the middle pane. Its latitude and longitude are saved on the head unit and shown here. Mark Home while parked at the location you want to use. You can replace it with the same button later; turning this tweak off keeps Home.\n\n"
+            + "While enabled with Home set, checks the vehicle's existing GPS fix every ten seconds. Beyond 1.5 miles (2.41 km), turns Scheduled Charging off. Within 1 mile (1.61 km), turns it back on. Between those distances, keeps the last Home/Away state to prevent repeated changes near a boundary. That state survives a restart. Before either boundary has been established, it leaves scheduling unchanged.\n\n"
+            + "It changes only the Scheduled Charging master mode. Your Charge ONLY during Off-peak choice, charging times and departure/climate settings are not edited. On returning Home it reads the stock saved off-peak choice, so it restores the mode you selected. Configure off-peak times and select Charge ONLY during Off-peak yourself in EV Settings if you want strict time-of-use charging. It cannot guarantee a charge completion time or electricity rate.\n\n"
+            + "Missing, stale (over 60 seconds), or inaccurate (over 150 metres) GPS pauses changes. The entire accuracy circle must cross a boundary before switching. While enabled, a manual change to Scheduled Charging is corrected at the next valid check if it conflicts with the current Home/Away state. It sends a request only when needed, checks vehicle feedback, and stops retrying after three unconfirmed requests until the state or configuration changes, or the runtime restarts.\n\n"
+            + "Turning this tweak off stops the location checks and leaves Scheduled Charging in its current state; it does not restore an earlier setting. The saved location stays local in Tilepad's protected configuration. This first version requires the exact captured IONIQ 5 EV Settings interface.").states(
+            "Scheduled Charging follows your saved Home location. Set Home below before the first use.",
+            "Scheduled Charging is left as it is. Your saved Home location is kept.", null, null)
     };
     /** The left pane: every tweak except companions, which show inside their partner's entry. */
     static final TweakInfo[] RAIL = rail();

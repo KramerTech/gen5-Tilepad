@@ -18,10 +18,14 @@ public final class TweaksRuntime {
     private int dstFailures;
     private Config lastDstConfig;
     private ClimateController climate;
+    private ProjectionController projection;
+    private ChargeAwayController chargeAway;
     private final Runnable configReload = new Runnable() { @Override public void run() {
         try {
             Config c = TweaksCommand.load();
             applyClimate(c);
+            if (projection != null) projection.configure(c.enabled("projection"));
+            if (chargeAway != null) chargeAway.configure(c);
             if (!c.dstChanged(lastDstConfig)) return;
         }
         catch (Exception e) { Platform.status("runtime", "Could not reload tweaks: " + e.getMessage()); return; }
@@ -82,6 +86,15 @@ public final class TweaksRuntime {
         beginHeaters();
         climate = new ClimateController(handler);
         applyClimate(TweaksCommand.load());
+        projection = new ProjectionController(context, handler);
+        chargeAway = new ChargeAwayController(context);
+        IntentFilter projectionEvents = new IntentFilter();
+        for (String event : ProjectionController.EVENTS) projectionEvents.addAction(event);
+        registerRootReceiver(new BroadcastReceiver() {
+            @Override public void onReceive(Context c, Intent i) { projection.event(); }
+        }, projectionEvents);
+        Config config = TweaksCommand.load();
+        projection.configure(config.enabled("projection")); chargeAway.configure(config);
         Looper.loop();
     }
     private void registerRootReceiver(BroadcastReceiver receiver, IntentFilter filter) throws Exception {

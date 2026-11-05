@@ -13,13 +13,24 @@ import java.util.Locale;
 final class OemVehicleClient implements VehiclePort, PreconditioningProfile.Commands {
     private static final String HEV = "com.hkmc.hev.IHEVService", BCM = "com.hkmc.bcm.IBCMService";
     private IBinder hev, bcm;
-    private boolean firmwareChecked;
+    private volatile boolean firmwareChecked;
     private void connect(boolean requireIndicator) throws Exception {
-        if (Build.VERSION.SDK_INT != 19 || !PreconditioningProfile.DEVICE.equals(Build.DEVICE))
+        if (!PreconditioningProfile.supportsDevice(Build.VERSION.SDK_INT, Build.DEVICE))
             throw new IllegalStateException("Unsupported head-unit firmware");
         if (!firmwareChecked) {
-            if (!PreconditioningProfile.FRAMEWORK_SHA256.equals(hash("/system/framework/automotive.odex"))
-                || !PreconditioningProfile.SERVICE_SHA256.equals(hash("/system/framework/automotive-service.odex")))
+            // Build.PRODUCT is ro.product.name, not the collected ro.build.product.
+            String software = "";
+            if (PreconditioningProfile.EV6_DEVICE.equals(Build.DEVICE)
+                || PreconditioningProfile.IONIQ5_NEEV_US_DEVICE.equals(Build.DEVICE)
+                || PreconditioningProfile.IONIQ6_CEEV_US_DEVICE.equals(Build.DEVICE)
+                || PreconditioningProfile.IONIQ5_NEEV_KR_DEVICE.equals(Build.DEVICE)
+                || PreconditioningProfile.EV6_CVEV_KR_DEVICE.equals(Build.DEVICE)
+                || PreconditioningProfile.IONIQ5_NEEV23_US_DEVICE.equals(Build.DEVICE)) {
+                Method property = Class.forName("android.os.SystemProperties").getMethod("get", String.class);
+                software = (String) property.invoke(null, "ro.build.product");
+            }
+            if (!PreconditioningProfile.matchesFirmware(Build.VERSION.SDK_INT, Build.DEVICE, software,
+                hash("/system/framework/automotive.odex"), hash("/system/framework/automotive-service.odex")))
                 throw new IllegalStateException("Vehicle interface version differs from the inspected firmware");
             firmwareChecked = true;
         }
@@ -31,6 +42,12 @@ final class OemVehicleClient implements VehiclePort, PreconditioningProfile.Comm
             throw new IllegalStateException("Vehicle services unavailable or incompatible");
     }
     @Override public String unavailableReason() { return ""; }
+    @Override public Integer readMinimumBatteryTemperatureC() {
+        // Every supported profile reads the cluster minimum, but only after read()
+        // has passed the exact firmware hashes.
+        if (!firmwareChecked) return null;
+        return ClusterBatteryTemperatureReader.read();
+    }
     @Override public Reading read() throws Exception {
         connect(true);
         int enabled = getter(hev, HEV, 3, 94);
@@ -53,6 +70,8 @@ final class OemVehicleClient implements VehiclePort, PreconditioningProfile.Comm
     @Override public void maintainManual() throws Exception { connect(true); PreconditioningProfile.maintain(this); }
     @Override public void stopAndRelease() throws Exception { connect(false); PreconditioningProfile.cancel(this); }
     @Override public long maintenanceIntervalMs() { return PreconditioningProfile.REFRESH_MS; }
+    @Override public long activationTimeoutMs() { return PreconditioningProfile.activationTimeoutMs(Build.DEVICE); }
+    @Override public int warmThresholdC() { return PreconditioningProfile.warmThresholdC(Build.DEVICE); }
     @Override public void pause(long milliseconds) { SystemClock.sleep(milliseconds); }
     @Override public void write(int transaction, int... values) throws Exception {
         if (!((transaction == 62 && values.length == 2) ||
@@ -67,7 +86,7 @@ final class OemVehicleClient implements VehiclePort, PreconditioningProfile.Comm
             if (reply.dataAvail() != 0) throw new IllegalStateException("Unexpected vehicle command reply");
         } finally { data.recycle(); reply.recycle(); }
     }
-    private static String hash(String path) throws Exception {
+    static String hash(String path) throws Exception {
         MessageDigest digest = MessageDigest.getInstance("SHA-256");
         try (FileInputStream in = new FileInputStream(path)) {
             byte[] bytes = new byte[16384]; int count;

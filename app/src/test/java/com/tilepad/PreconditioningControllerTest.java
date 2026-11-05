@@ -9,7 +9,10 @@ public class PreconditioningControllerTest {
         String unavailable = "";
         int starts, stops, maintenance;
         boolean readFails, startFails, stopFails;
-        long interval;
+        long interval, timeout = PreconditioningController.ACTIVATION_TIMEOUT_MS;
+        int warmThreshold = BatteryTemperature.EXPECTED_HEATING_THRESHOLD_C;
+        @Override public long activationTimeoutMs() { return timeout; }
+        @Override public int warmThresholdC() { return warmThreshold; }
         @Override public String unavailableReason() { return unavailable; }
         @Override public Reading read() throws Exception {
             if (readFails) throw new Exception("Disconnected");
@@ -28,16 +31,16 @@ public class PreconditioningControllerTest {
         PreconditioningController controller = new PreconditioningController(car, journal);
         controller.refresh(1000); return controller;
     }
-    @Test public void waitingThroughSixtyAndOneTwentySecondsDoesNotRestartOrClaimActive() {
+    @Test public void waitingBeforeDeadlineDoesNotRestartOrClaimActive() {
         FakeVehicle car = new FakeVehicle(); Journal journal = new Journal();
         PreconditioningController c = ready(car, journal); assertTrue(c.start(1000));
-        for (long now : new long[]{61000, 121000, 601000}) {
+        for (long now : new long[]{61000, 121000, 300999}) {
             c.refresh(now);
             assertEquals(PreconditioningSnapshot.State.WAITING, c.snapshot(now).state);
             assertTrue(c.snapshot(now).canStop); assertTrue(journal.pending);
         }
         assertEquals(1, car.starts); assertEquals(0, car.maintenance);
-        assertTrue(c.snapshot(601000).detail.contains("unconfirmed"));
+        assertTrue(c.snapshot(300999).detail.contains("Cancels after 5 minutes"));
     }
     @Test public void activeRequiresTheCarsIndicatorAndItsEndReleasesOwnership() {
         FakeVehicle car = new FakeVehicle(); Journal journal = new Journal();
@@ -121,4 +124,120 @@ public class PreconditioningControllerTest {
         car.reading = new VehiclePort.Reading(2, 0, 0, -1); c.refresh(2000); assertFalse(c.start(2000));
         assertEquals(0, car.starts);
     }
+    @Test public void ioniqTwoMinuteTimeoutCancelsAtItsOwnDeadline() {
+        FakeVehicle car = new FakeVehicle(); car.interval = 5000;
+        car.timeout = PreconditioningProfile.IONIQ5_ACTIVATION_TIMEOUT_MS; Journal journal = new Journal();
+        PreconditioningController c = ready(car, journal); assertTrue(c.start(1000));
+        c.refresh(120999);
+        assertEquals(PreconditioningSnapshot.State.WAITING, c.snapshot(120999).state);
+        assertEquals(0, car.stops);
+        assertTrue(c.snapshot(120999).detail.contains("Cancels after 2 minutes"));
+        c.refresh(121000);
+        assertEquals(1, car.stops); assertTrue(journal.pending);
+        assertTrue(c.snapshot(121000).detail.contains("within 2 minutes"));
+        c.refresh(122000);
+        assertEquals(PreconditioningSnapshot.State.TIMED_OUT, c.snapshot(122000).state);
+        assertFalse(journal.pending);
+    }
+    @Test public void ioniqActivationBeforeTwoMinutesIsNotCancelled() {
+        FakeVehicle car = new FakeVehicle(); car.interval = 5000;
+        car.timeout = PreconditioningProfile.IONIQ5_ACTIVATION_TIMEOUT_MS; Journal journal = new Journal();
+        PreconditioningController c = ready(car, journal); assertTrue(c.start(1000));
+        c.refresh(66000); car.reading = new VehiclePort.Reading(2, 1, 1, -1); c.refresh(71000);
+        c.refresh(600000);
+        assertEquals(PreconditioningSnapshot.State.ACTIVE, c.snapshot(600000).state);
+        assertEquals(0, car.stops);
+    }
+    @Test public void eachProfileHasItsOwnActivationTimeout() {
+        // Keyed on device: EV6 260507 and EV6 251120 share the EV6 device and its five minutes.
+        // NEEV US 260507 and NEEV US 240822 share the NEEV US device and its two minutes.
+        assertEquals(5 * 60 * 1000L, PreconditioningProfile.activationTimeoutMs(PreconditioningProfile.EV6_DEVICE));
+        assertEquals(2 * 60 * 1000L, PreconditioningProfile.activationTimeoutMs(PreconditioningProfile.IONIQ5_NEEV23_US_DEVICE));
+        assertEquals(2 * 60 * 1000L, PreconditioningProfile.activationTimeoutMs(PreconditioningProfile.IONIQ5_NEEV_US_DEVICE));
+        assertEquals(2 * 60 * 1000L, PreconditioningProfile.activationTimeoutMs(PreconditioningProfile.IONIQ6_CEEV_US_DEVICE));
+        assertEquals(2 * 60 * 1000L, PreconditioningProfile.activationTimeoutMs(PreconditioningProfile.IONIQ5_NEEV_KR_DEVICE));
+        // The EV6 CVEV KR is its own device, so it gets the two minutes every new port uses.
+        assertEquals(2 * 60 * 1000L, PreconditioningProfile.activationTimeoutMs(PreconditioningProfile.EV6_CVEV_KR_DEVICE));
+    }
+    @Test public void eachProfileHasItsOwnWarmThreshold() {
+        // EV6 251120 shares the EV6 device, so it gets the same 20°C.
+        // NEEV US 240822 shares the NEEV US device, so it gets the same 21°C.
+        assertEquals(20, PreconditioningProfile.warmThresholdC(PreconditioningProfile.EV6_DEVICE));
+        assertEquals(21, PreconditioningProfile.warmThresholdC(PreconditioningProfile.IONIQ5_NEEV23_US_DEVICE));
+        assertEquals(21, PreconditioningProfile.warmThresholdC(PreconditioningProfile.IONIQ5_NEEV_US_DEVICE));
+        assertEquals(20, PreconditioningProfile.warmThresholdC(PreconditioningProfile.IONIQ6_CEEV_US_DEVICE));
+        assertEquals(21, PreconditioningProfile.warmThresholdC(PreconditioningProfile.IONIQ5_NEEV_KR_DEVICE));
+        // The EV6 CVEV KR is its own device, outside the EV6 20°C branch, so it gets 21°C.
+        assertEquals(21, PreconditioningProfile.warmThresholdC(PreconditioningProfile.EV6_CVEV_KR_DEVICE));
+        assertEquals(70, Math.round(PreconditioningProfile.IONIQ5_WARM_THRESHOLD_C * 9f / 5f + 32f));
+    }
+    @Test public void timeoutCancelsOnceAndRestoresStartOnlyAfterFreshOff() {
+        FakeVehicle car = new FakeVehicle(); car.interval = 5000; Journal journal = new Journal();
+        PreconditioningController c = ready(car,journal); c.start(1000);
+        c.refresh(301000);
+        assertEquals(1,car.stops); assertEquals(0,car.maintenance); assertTrue(journal.pending);
+        assertEquals(PreconditioningSnapshot.State.STOPPING,c.snapshot(301000).state);
+        assertFalse(c.snapshot(301000).canStart);
+        c.refresh(302000);
+        assertEquals(PreconditioningSnapshot.State.TIMED_OUT,c.snapshot(302000).state);
+        assertTrue(c.snapshot(302000).canStart); assertFalse(journal.pending);
+        assertEquals("No activation",c.snapshot(302000).title());
+        c.refresh(999000); assertEquals(1,car.stops); assertEquals(1,car.starts);
+        assertEquals(302000-1000,c.snapshot(999000).elapsedMs);
+    }
+    @Test public void activeAtDeadlineOrBeforeIsNotTimedOut() {
+        for(long activatedAt:new long[]{300999,301000}) {
+            FakeVehicle car=new FakeVehicle(); PreconditioningController c=ready(car,new Journal());
+            c.start(1000); car.reading=new VehiclePort.Reading(2,1,1,-1); c.refresh(activatedAt);
+            c.refresh(1201000);
+            assertEquals(PreconditioningSnapshot.State.ACTIVE,c.snapshot(1201000).state);
+            assertEquals(0,car.stops);
+        }
+    }
+    @Test public void timeoutStillCancelsWhenReadsFailButDoesNotClaimOff() {
+        FakeVehicle car=new FakeVehicle(); Journal journal=new Journal();
+        PreconditioningController c=ready(car,journal); c.start(1000); car.readFails=true;
+        c.refresh(301000); c.refresh(302000);
+        assertEquals(1,car.stops); assertTrue(journal.pending); assertFalse(c.snapshot(302000).canStart);
+        car.readFails=false; c.refresh(303000);
+        assertEquals(PreconditioningSnapshot.State.TIMED_OUT,c.snapshot(303000).state);
+        assertFalse(journal.pending);
+    }
+    @Test public void timeoutStillCancelsWithReservedIndicator() {
+        FakeVehicle car=new FakeVehicle(); Journal journal=new Journal();
+        PreconditioningController c=ready(car,journal); c.start(1000);
+        car.reading=new VehiclePort.Reading(2,2,1,-1); c.refresh(301000); c.refresh(302000);
+        assertEquals(1,car.stops); assertTrue(journal.pending); assertFalse(c.snapshot(302000).canStart);
+    }
+    @Test public void timeoutCancellationFailureKeepsStopAndJournalUntilManualRetry() {
+        FakeVehicle car=new FakeVehicle(); Journal journal=new Journal();
+        PreconditioningController c=ready(car,journal); c.start(1000); car.stopFails=true;
+        c.refresh(301000); c.refresh(401000);
+        assertEquals(1,car.stops); assertTrue(journal.pending); assertTrue(c.snapshot(401000).canStop);
+        assertFalse(c.snapshot(401000).canStart);
+        car.stopFails=false; c.stop(402000); c.refresh(403000);
+        assertEquals(2,car.stops); assertFalse(journal.pending); assertTrue(c.snapshot(403000).canStart);
+    }
+    @Test public void lateActivationAfterCancellationCannotRestoreStartUntilOff() {
+        FakeVehicle car=new FakeVehicle(); Journal journal=new Journal();
+        PreconditioningController c=ready(car,journal); c.start(1000); c.refresh(301000);
+        car.reading=new VehiclePort.Reading(2,1,1,-1); c.refresh(302000);
+        assertTrue(journal.pending); assertFalse(c.snapshot(302000).canStart);
+        car.reading=new VehiclePort.Reading(2,0,1,-1); c.refresh(303000);
+        assertFalse(journal.pending); assertTrue(c.snapshot(303000).canStart);
+    }
+    @Test public void newAttemptAfterTimeoutGetsItsOwnDeadline() {
+        FakeVehicle car=new FakeVehicle(); PreconditioningController c=ready(car,new Journal());
+        c.start(1000); c.refresh(301000); c.refresh(302000); assertTrue(c.start(400000));
+        c.refresh(699999); assertEquals(1,car.stops);
+        c.refresh(700000); assertEquals(2,car.stops);
+        assertEquals(2,car.starts);
+    }
+    @Test public void manualStopBeforeDeadlineDoesNotBecomeATimeout() {
+        FakeVehicle car=new FakeVehicle(); PreconditioningController c=ready(car,new Journal());
+        c.start(1000); c.stop(300000); c.refresh(301000);
+        assertEquals(PreconditioningSnapshot.State.ENDED,c.snapshot(301000).state);
+        assertEquals(1,car.stops);
+    }
+
 }

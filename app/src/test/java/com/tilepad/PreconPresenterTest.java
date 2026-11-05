@@ -45,4 +45,16 @@ public class PreconPresenterTest {
             PreconPresenter.withoutPrefix("Waiting for BMS — activation may take about 1–2 minutes.", "Waiting for BMS — "));
         assertEquals("Other text", PreconPresenter.withoutPrefix("Other text", "Waiting for BMS — "));
     }
+    @Test public void warmWarningNeedsAnExplicitPopupOverride() {
+        PreconditioningSnapshot s = new PreconditioningSnapshot(PreconditioningSnapshot.State.WARM, false, true, false, 0, -1, 0, "Warm advisory", 10);
+        assertEquals(PreconPresenter.Tap.STATUS, PreconPresenter.tap(s));
+        assertEquals("Battery warm", PreconPresenter.headline(s));
+    }
+    @Test public void confirmedTimeoutKeepsTheExistingTapToStartFlow() {
+        PreconditioningSnapshot s = new PreconditioningSnapshot(PreconditioningSnapshot.State.TIMED_OUT, false, true, false, 0, -1, 120000, "Cancelled; car reports Off");
+        assertEquals(PreconPresenter.Tap.START, PreconPresenter.tap(s));
+        assertEquals("No activation", PreconPresenter.headline(s));
+        assertEquals(PreconPresenter.Tone.WARN, PreconPresenter.tone(s));
+    }
+
 }

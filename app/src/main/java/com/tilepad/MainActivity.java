@@ -644,13 +644,14 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
         if (card == null) return;
         StatusCard.Action close = new StatusCard.Action("Close", Ui.SURFACE, dismiss());
         StatusCard.Action cancel = new StatusCard.Action("Cancel request", Ui.RED, stopAction());
-        String elapsed = s.requested || s.state == PreconditioningSnapshot.State.ENDED
+        String elapsed = s.requested || s.state == PreconditioningSnapshot.State.ENDED || s.state == PreconditioningSnapshot.State.TIMED_OUT
             ? "Elapsed " + s.elapsed() + "  ·  " + s.indicatorLabel() : s.indicatorLabel();
         boolean autoClose = false;
 
         // The service answers asynchronously, so the first snapshots after a tap can be stale.
         if (awaitingStartAt > 0) {
-            if (s.requested || s.state == PreconditioningSnapshot.State.ERROR) awaitingStartAt = 0;
+            if (s.requested || s.state == PreconditioningSnapshot.State.ERROR
+                || s.state == PreconditioningSnapshot.State.WARM || s.state == PreconditioningSnapshot.State.TIMED_OUT) awaitingStartAt = 0;
             else if (SystemClock.uptimeMillis() - awaitingStartAt > 5000) { awaitingStartAt = 0; startFailed = true; }
         }
         if (s.requested) startFailed = false;
@@ -683,6 +684,21 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
                 card.set(Glyph.Kind.CHECK, Ui.GREEN, false, "Preconditioning active", s.detail, elapsed);
                 buttons = card.setActions(close, new StatusCard.Action("Turn off", Ui.RED, stopAction()));
                 autoClose = preconAutoClose;
+                break;
+            case WARM:
+                card.set(Glyph.Kind.ALERT, Ui.AMBER, false, "Battery warm", s.detail, s.indicatorLabel());
+                buttons = card.setActions(close, new StatusCard.Action("Start anyway", Ui.ACCENT, new Runnable() {
+                    @Override public void run() {
+                        main.removeCallbacks(closePrecon);
+                        send(PreconditioningService.START_ANYWAY);
+                        awaitingStartAt = SystemClock.uptimeMillis(); startFailed = false; stopIssued = false;
+                        preconAutoClose = true; renderPreconCard();
+                    }
+                }));
+                break;
+            case TIMED_OUT:
+                card.set(Glyph.Kind.ALERT, Ui.AMBER, false, "No activation", s.detail, s.indicatorLabel());
+                buttons = s.canStart ? card.setActions(close, startAction()) : card.setActions(close);
                 break;
             case UNAVAILABLE:
                 card.set(Glyph.Kind.ALERT, Ui.AMBER, false, "Unavailable", s.detail, s.indicatorLabel());

@@ -36,15 +36,23 @@ public final class TweaksCommand {
                     printStatus(transaction().updateHeaterOptions(pairs), false);
                     return;
                 }
+                if (args.length == 1 && args[0].equals("home")) {
+                    VehicleLocation fix = VehicleLocationSource.current();
+                    c.set("homeLat", Double.toString(fix.latitude)); c.set("homeLon", Double.toString(fix.longitude));
+                    transaction().commit(c); printStatus(c, false); return;
+                }
                 if (args.length == 1 && args[0].equals("restore")) {
                     for (String id : Config.IDS) c.set(id, "false");
                 } else if (args.length >= 3 && args.length % 2 == 1 && (args[0].equals("set") || args[0].equals("update"))) {
                     for (int i = 1; i < args.length; i += 2) c.set(args[i], args[i + 1]);
                     // With the right-hand pop-over disabled the nav handle opens nothing, so it is always hidden.
                     if (c.enabled("popover")) c.set("nav", "true");
+                    c.validateHome();
+                    if (c.enabled("projection") && c.changedFrom(previous, "projection")) ProjectionController.requireSupported();
+                    if (c.enabled("chargeaway") && c.changedFrom(previous, "chargeaway")) ScheduledCharging.requireSupported();
                     if (c.needsVehicleCheck(previous)) Platform.requireVehicle();
                     if (c.enabled("dst") && c.dstChanged(previous)) DstRules.baseOffsetMinutes(Platform.property("persist.sys.timezone"));
-                } else throw new IllegalArgumentException("Usage: settings | summary | status | restore | set/update/options KEY VALUE [KEY VALUE…]");
+                } else throw new IllegalArgumentException("Usage: settings | summary | status | home | restore | set/update/options KEY VALUE [KEY VALUE…]");
                 // Intent survives termination between a /system write and config commit.
                 if (restoring) transaction().commitFull(c); else transaction().commit(c);
                 if (args[0].equals("update")) { printStatus(c, false); return; }
@@ -67,7 +75,7 @@ public final class TweaksCommand {
     }
     private static void printStatus(Config c, boolean verify) throws Exception {
         Properties out = (Properties) c.values.clone();
-        for (String key : new String[]{"region", "threshold", "driver", "wheel", "passenger", "driverLevel", "passengerLevel", "units"}) out.setProperty(key, c.get(key));
+        for (String key : new String[]{"region", "threshold", "driver", "wheel", "passenger", "driverLevel", "passengerLevel", "units", "homeLat", "homeLon"}) out.setProperty(key, c.get(key));
         String vehicleError = null;
         if (verify) try { Platform.requireVehicle(); } catch (Exception e) { vehicleError = e.getMessage(); }
         for (String id : Config.IDS) {
@@ -79,7 +87,9 @@ public final class TweaksCommand {
                         if (vehicleError != null) throw new IOException(vehicleError);
                     }
                     if (id.equals("dst")) DstRules.baseOffsetMinutes(Platform.property("persist.sys.timezone"));
-                    if (!id.equals("dst") && !id.equals("heaters") && !id.equals("sync") && !id.equals("driveronly")) Platform.patches().check(id, c);
+                    if (id.equals("projection")) ProjectionController.requireSupported();
+                    else if (id.equals("chargeaway")) ScheduledCharging.requireSupported();
+                    else if (!id.equals("dst") && !id.equals("heaters") && !id.equals("sync") && !id.equals("driveronly")) Platform.patches().check(id, c);
                 }
             } catch (Exception e) { reason = e.getMessage(); }
             out.setProperty("unavailable." + id, reason);

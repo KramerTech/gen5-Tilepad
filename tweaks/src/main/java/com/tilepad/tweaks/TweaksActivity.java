@@ -23,6 +23,7 @@ public final class TweaksActivity extends Activity {
     private ScrollView railScroll, controlScroll, helpScroll;
     private boolean preview, busy = true, ready;
     private String error;
+    private boolean capturingHome;
     private final SettingsEdits edits = new SettingsEdits();
     private final Runnable saveFlush = new Runnable() { @Override public void run() { flushEdits(); } };
     private int selected, bg, ink, muted, line, accent = 0xff00b5de;
@@ -80,7 +81,7 @@ public final class TweaksActivity extends Activity {
         FrameLayout header = new FrameLayout(this);
         TextView title = text("Tweaks", 28, ink); title.setTypeface(null, Typeface.BOLD); title.setGravity(Gravity.CENTER);
         header.addView(title, new FrameLayout.LayoutParams(-1, -1));
-        String notice = preview ? "Preview" : edits.hasWork() ? "Saving…" : busy ? "Reading settings…" : "true".equals(values.getProperty("restart")) ? "Restart required" : "";
+        String notice = preview ? "Preview" : edits.hasWork() ? "Saving…" : busy ? (capturingHome ? "Saving Home…" : "Reading settings…") : "true".equals(values.getProperty("restart")) ? "Restart required" : "";
         TextView state = text(notice, 16, ink); state.setPadding(dp(12), 0, dp(22), 0); state.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
         header.addView(state, new FrameLayout.LayoutParams(-1, -1));
         root.addView(header, new LinearLayout.LayoutParams(-1, dp(60))); divider(root);
@@ -130,7 +131,15 @@ public final class TweaksActivity extends Activity {
             if (!secondUnavailable.isEmpty() && !enabled) note("Unavailable: " + secondUnavailable, true);
         }
         if (!values.getProperty("runtime", "").isEmpty()) note(values.getProperty("runtime"), true);
-        if (enabled && item.options) {
+        if (item.id.equals("chargeaway")) {
+            Config config = new Config(values);
+            note(config.hasHome() ? String.format(Locale.US, "Home\nLat: %.6f\nLon: %.6f", Double.parseDouble(config.get("homeLat")), Double.parseDouble(config.get("homeLon"))) : "No Home location saved.", false);
+            Button mark = button("Set Current Location as Home", "Save current GPS location as Home", new View.OnClickListener() {
+                @Override public void onClick(View v) { captureHome(); }
+            });
+            mark.setTextSize(22); mark.setEnabled(ready && !busy && !edits.hasWork());
+            controls.addView(mark, new LinearLayout.LayoutParams(-1, dp(72))); divider(controls);
+        } else if (enabled && item.options) {
             if (item.id.equals("dst")) {
                 note("Daylight-saving schedule", false);
                 choice("region", new String[]{"us", "eu", "none"}, new String[]{"US / Canada", "Europe", "No daylight saving"});
@@ -243,6 +252,26 @@ public final class TweaksActivity extends Activity {
                 } });
                 if (read == null) break;
             }
+        } });
+    }
+    private void captureHome() {
+        if (!ready || busy || edits.hasWork()) return;
+        busy = true; capturingHome = true; error = null; render();
+        worker.execute(new Runnable() { @Override public void run() {
+            Properties read = null; String failure = null;
+            try {
+                if (preview) {
+                    read = edits.confirmed(); new Config(read).set("homeLat", "37.0"); new Config(read).set("homeLon", "-122.0");
+                    java.io.StringWriter stored = new java.io.StringWriter(); read.store(stored, "Preview");
+                    getPreferences(0).edit().putString("preview", stored.toString()).apply();
+                } else read = Backend.run("home");
+            } catch (Exception e) { failure = e.getMessage(); }
+            final Properties result = read; final String problem = failure;
+            main.post(new Runnable() { @Override public void run() {
+                if (isFinishing() || isDestroyed()) return;
+                if (result != null) edits.reset(result);
+                busy = false; capturingHome = false; error = problem; render();
+            } });
         } });
     }
     private Button button(String label, String description, View.OnClickListener click) {

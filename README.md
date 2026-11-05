@@ -2,7 +2,7 @@
 
 A minimal grid launcher for Hyundai's gen5W head unit (Android 4.4), installed through
 [NEMESIS](https://github.com/xwtk/hmg_nemesis). It's a rebuilt UI on top of
-[Launchpad](https://github.com/paytondevs/ioniq5-preconditioning)'s preconditioning backend and hold-to-open service.
+[Launchpad](https://github.com/paytondevs/gen5w-preconditioning)'s preconditioning backend and hold-to-open service.
 It's developed and tested on an IONIQ 5 (NEEV23 US).
 
 Hold the steering wheel's **★** (custom) button for about a second to open it. Hold again to close it.
@@ -17,7 +17,9 @@ A short ★ press still runs whatever Hyundai's Button settings assign to it.
   heaters, track-button swap, independent right-handle/pop-over suppression, and
   climate tweaks: Maintain Climate Sync (passenger and driver temperatures move together) and
   Automatic Driver Only (Driver Only at start, Sync once the passenger buckles up).
-  A permanent Tweaks tile follows Precondition. All tweaks start off.
+  Auto-Open Phone Projection opens AA/CarPlay when available; Charge-Away switches
+  Scheduled Charging off away from Home and back on at Home, preserving off-peak settings.
+  A permanent Tweaks tile sits beside Precondition. All ten tweaks start off.
 - **ADB toggle**: turn ADB over Wi-Fi on and off. While it's on, any computer on the network can connect without approving a key. Turning it on also turns on Wi-Fi (so wireless CarPlay/Android Auto are off).
 - **NEMESIS Manager** shortcut.
 - **Car Home**: back to Hyundai's home screen.
@@ -28,9 +30,10 @@ A short ★ press still runs whatever Hyundai's Button settings assign to it.
 "If available" comes from the car itself. Hyundai's firmware declares each car's options as
 system features. The Wi-Fi tile needs `com.hkmc.software.wifi.module`, and the preconditioning
 tile needs `com.hkmc.hardware.ev`. On a gas car or a unit without Wi-Fi, those tiles just don't
-appear, and Tilepad never contacts the vehicle service. On an EV whose firmware differs from the
-inspected IONIQ 5 build, the preconditioning tile still appears. It shows *Unavailable* and sends
-nothing, because of Launchpad's firmware gate.
+appear, and Tilepad never contacts the vehicle service. Preconditioning supports ten exact
+upstream firmware profiles across US/Korean IONIQ 5 and EV6 units and the US IONIQ 6.
+Other firmware cannot start preconditioning or send commands: Android version, device, software
+identity and both OEM framework hashes must match a supported profile.
 
 ## Tiles
 
@@ -215,7 +218,7 @@ The debug build simulates the vehicle on an emulator (`ranchu`/`goldfish`). Laun
 | `AddShortcutPage`, `KeyPad` | screen picker and built-in keyboard |
 | `Sheet`, `StatusCard` | popup layer |
 | `TileOrder`, `TileSpec`, `TileSupport`, `GridMath`, `PreconPresenter`, `SearchFilter` | pure, unit-tested logic (`TileSupport` decides which core tiles the car can back) |
-| `Preconditioning*`, `OemVehicleClient`, `VehiclePort` | Launchpad's backend, unchanged except for package names |
+| `Preconditioning*`, `OemVehicleClient`, `VehiclePort` | Launchpad backend updates adapted to Tilepad's existing service and tile flow |
 | `longstar/*` | the steering-wheel ★ hold service (passive evdev reader, hold timing) |
 | `RootShell` | `nemesis root -c` (what NEMESIS Manager uses) |
 | `tune-service/bin/wifi-client.sh` | root side of *turn on Wi-Fi* (run through `RootShell`) |
@@ -224,7 +227,9 @@ The debug build simulates the vehicle on an emulator (`ranchu`/`goldfish`). Laun
 | `tune-service/tweaks/patches/` | tiny, exact-file-gated recipes; no OEM APK/ODEX shipped |
 
 Preconditioning compatibility and safety notes are in Launchpad's
-[COMPATIBILITY.md](https://github.com/paytondevs/ioniq5-preconditioning/blob/main/COMPATIBILITY.md). The firmware gate is unchanged.
+[COMPATIBILITY.md](https://github.com/paytondevs/gen5w-preconditioning/blob/main/COMPATIBILITY.md).
+The pinned profiles, imported fixes and validation are recorded in
+[the upstream integration notes](docs/PRECONDITIONING-UPSTREAM.md).
 
 Credits: [NEMESIS](https://github.com/xwtk/hmg_nemesis), Launchpad by paytondev,
 [Ioniq5_CAN](https://github.com/tylerharvey/Ioniq5_CAN),

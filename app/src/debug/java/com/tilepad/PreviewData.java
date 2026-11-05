@@ -11,5 +11,5 @@ final class PreviewData {
     static AdbSnapshot adb() {
         return AdbSnapshot.of(AdbSnapshot.State.ON, 5555);
     }
-    static TweaksSnapshot tweaks() { return TweaksSnapshot.of(4, 8); }
+    static TweaksSnapshot tweaks() { return TweaksSnapshot.of(4, com.tilepad.tweakcore.Config.IDS.length); }
 }

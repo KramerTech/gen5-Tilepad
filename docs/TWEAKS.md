@@ -14,7 +14,7 @@ The count is read when the launcher resumes through the lightweight root
 the launcher is closed, or claim that unknown settings are off. Counts refer to
 enabled selections, including any file changes waiting for a restart.
 
-All eight tweaks start **off**. Under each checkbox a sentence or two describes the current state;
+All ten tweaks start **off**. Under each checkbox a sentence or two describes the current state;
 file tweaks say when a change still waits for a head-unit restart (the runtime records
 which file tweaks were configured when the boot began, `applied.<id>`, and `settings`
 reports `pending.<id>`). The app follows the stock EV Settings layout: a
@@ -63,6 +63,8 @@ The older heater-only `options` command remains supported for compatibility.
 | Disable Right-Hand Pop-Over | Blocks the shared right-side OSD request path and renderer | None | Yes |
 | Maintain Climate Sync | A passenger temperature change moves the driver temperature to match, then turns Sync back on | None | No |
 | Automatic Driver Only | Driver Only every time the car is turned on; Sync once the passenger belt is buckled (one way, until the next car start) | None | No |
+| Auto-Open Phone Projection | Opens AA/CarPlay once when a session becomes available, independently of the right pop-over | None | No |
+| Charge-Away | Scheduled Charging off beyond 1.5 miles of Home, on within 1 mile; retains state between boundaries and preserves the off-peak-only choice | Save current GPS location as Home; latitude/longitude shown | No |
 
 The broad pop-over switch hides other notices using that same OSD panel as well.
 The stock **Display → Media change notifications** preference is insufficient for
@@ -93,6 +95,15 @@ service, boot receiver, alarm receiver, or store/broker dependency.
   Driver Only reads them with in-process Binder getters once a second (the belt only
   while the car is on and not yet buckled). One `dumpsys com.hkmc.micom.datc` read
   seeds the climate state at connect.
+- Auto-Open Phone Projection reuses the runtime receiver for native connection events,
+  debounces them, and reads the underlying AA/CarPlay Binder state. No periodic
+  connection poll runs. Seen connections are persisted per boot to avoid reopening
+  after a service restart; camera screens defer opening.
+- Charge-Away uses the GPS fix already maintained by the head unit, checked every
+  ten seconds only while enabled with Home set. A lazily created worker thread in
+  the same process isolates fresh charging-feedback waits from climate/DST and
+  settings saves. No new Android or NEMESIS service or GPS listener is registered.
+  See [projection and Charge-Away implementation](PROJECTION-CHARGE-AWAY.md).
 - The steering-wheel ★ hold: Tilepad's manifest `StarHoldReceiver` (priority 1000)
   aborts stock's long-press broadcast and forwards it only to NEMESIS Manager. A
   receiver registered by the longstar daemon can't do this: Android skips ordered

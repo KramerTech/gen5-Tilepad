@@ -90,6 +90,32 @@ transfer did not rewrite the active panel code or require a reboot.
   Connectivity). A hold must not open Button Settings; NEMESIS Manager's own
   press trigger must still work.
 
+## Projection and Charge-Away: final physical checks
+
+Read-only car checks passed on 2026-11-04: exact projection/EV interfaces,
+fresh 12-field charging callback, saved off-peak-only preference, fresh GPS fix.
+The mapped-fixture tests exercise writes without changing the real vehicle.
+The following still require a phone or an actual trip:
+
+- [ ] **Auto-Open Phone Projection:** enable; connect each available wired/wireless
+  AA/CarPlay session. Projection opens once. Leave it manually and verify repeated
+  notices do not bring it forward. Disconnect/reconnect to open again. Test with
+  the right pop-over disabled, with projection already open, after a longstar
+  restart, and while the rear camera is displayed (opening waits for it to close).
+  Disable and verify stock behavior returns.
+- [ ] **Charge-Away:** configure off-peak times and the desired off-peak-only choice
+  in EV Settings first. At Home, save current location; verify displayed coordinates
+  survive reopening. Enable and inspect Scheduled Charging. Travel beyond 1.5 miles
+  and verify it switches off after a valid poll; return within 1 mile and verify it
+  switches on. Between boundaries it retains the previous state. GPS accuracy may
+  delay a change close to a boundary. Compare time fields and off-peak-only choice
+  before/after. A stale/missing GPS fix must leave the setting unchanged.
+- [ ] While Charge-Away is enabled, a manual master-state change is corrected on the
+  next valid poll. Disable the tweak to manage it manually; disabling retains Home
+  and leaves Scheduled Charging in its current state. Replacing Home immediately
+  evaluates the new location; disabling during feedback waits prevents a queued
+  request. Confirm the rest of the settings remain responsive.
+
 ## Restore and update
 
 - [ ] Update while enabled: switches, original backups and resulting behavior
