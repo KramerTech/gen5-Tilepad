@@ -107,6 +107,9 @@ public class ClimatePolicyTest {
         AlwaysSync a = new AlwaysSync();
         feed(a, sync(22.0f, 22.0f), 0);
         assertEquals(NONE, feed(a, unsynced(22.0f, 22.0f), 5000));  // SYNC pressed off on the screen
+        assertFalse(a.paused());                                     // not yet: a passenger change may follow
+        assertEquals(5000 + AlwaysSync.PAUSE_CONFIRM_MS, a.wakeAt());
+        assertEquals(NONE, feed(a, unsynced(22.0f, 22.0f), 5000 + AlwaysSync.PAUSE_CONFIRM_MS));
         assertTrue(a.paused());
         assertEquals(NONE, feed(a, unsynced(22.0f, 24.0f), 6000));  // passenger set apart on purpose
         assertEquals(NONE, feed(a, unsynced(23.0f, 24.0f), 7000));
@@ -119,6 +122,18 @@ public class ClimatePolicyTest {
         feed(a, sync(22.0f, 22.0f), 0);
         feed(a, sync(22.0f, 22.5f), 5000);
         assertEquals(DRIVER_UP, feed(a, unsynced(22.0f, 22.5f), 5010));
+        assertFalse(a.paused());
+    }
+    @Test public void aSyncDropReportedBeforeThePassengerTemperatureIsStillFollowed() {
+        // On the car: driver adjusted in sync, then a passenger press whose Sync drop came first.
+        AlwaysSync a = new AlwaysSync();
+        feed(a, sync(22.0f, 22.0f), 0);
+        feed(a, sync(22.5f, 22.0f), 1000); feed(a, sync(22.5f, 22.5f), 1010);  // the system moves the passenger
+        assertEquals(NONE, feed(a, unsynced(22.5f, 22.5f), 5000));               // Sync drop, old temperature
+        assertEquals(DRIVER_DOWN, feed(a, unsynced(22.5f, 22.0f), 5030));         // then the passenger's new one
+        assertFalse(a.paused());
+        a.sent(DRIVER_DOWN, 5030);
+        assertEquals(SYNC, feed(a, unsynced(22.0f, 22.0f), 5030 + AlwaysSync.SYNC_QUIET_MS));
         assertFalse(a.paused());
     }
     @Test public void driverOnlyAndClimateOffAreLeftAlone() {

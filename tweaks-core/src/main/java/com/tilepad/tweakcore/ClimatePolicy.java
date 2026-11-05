@@ -42,7 +42,13 @@ public final class ClimatePolicy {
         public static final long SYNC_QUIET_MS = 700;
         /** One driver step in flight at a time; a step not seen by then is taken as lost. */
         public static final long STEP_WAIT_MS = 1000;
-        private long sentAt;
+        /**
+         * A Sync drop with matched temperatures is only taken as Sync turned off by hand once
+         * this long passes with no passenger change: the car can report a passenger press's
+         * Sync drop before its new temperature.
+         */
+        public static final long PAUSE_CONFIRM_MS = 500;
+        private long sentAt, pauseCandidateAt = -1;
         private Float settledPassenger, lastDriver, lastPassenger;
         private long passengerChangedAt = Long.MIN_VALUE / 2;
         // Our driver steps not yet seen, per direction: after a reversal both can be in flight.
@@ -56,11 +62,15 @@ public final class ClimatePolicy {
             if (!c.on) { lastDriver = lastPassenger = null; lastOn = false; return; }
             boolean passengerSteady = lastPassenger != null && Math.abs(c.passenger - lastPassenger) < 0.01f
                 && now - passengerChangedAt >= SYNC_QUIET_MS;
+            boolean passengerMoved = lastPassenger != null && Math.abs(c.passenger - lastPassenger) >= 0.01f;
             if (c.sync) paused = false;
-            else if (lastOn && lastSync && c.unsynced() && c.matched() && passengerSteady && !following
-                && pendingUp + pendingDown == 0) paused = true;
+            if (!c.unsynced()) pauseCandidateAt = -1;
+            else if (lastOn && lastSync && c.matched() && passengerSteady && !following
+                && pendingUp + pendingDown == 0) pauseCandidateAt = now;
+            // The passenger set point moved after all: that drop was a passenger press.
+            if (pauseCandidateAt >= 0 && passengerMoved) pauseCandidateAt = -1;
             lastOn = true; lastSync = c.sync;
-            if (lastPassenger != null && Math.abs(c.passenger - lastPassenger) >= 0.01f) passengerChangedAt = now;
+            if (passengerMoved) passengerChangedAt = now;
             lastPassenger = c.passenger;
             if (lastDriver != null && Math.abs(c.driver - lastDriver) >= 0.01f) {
                 boolean up = c.driver > lastDriver;
@@ -83,12 +93,20 @@ public final class ClimatePolicy {
             return false;
         }
         /** When to look again while next() is waiting: the step's deadline (its reply wakes us sooner), else the sync quiet period. */
-        public long wakeAt() { return pendingUp + pendingDown > 0 ? sentAt + STEP_WAIT_MS : syncDueAt(); }
+        public long wakeAt() {
+            if (pauseCandidateAt >= 0) return pauseCandidateAt + PAUSE_CONFIRM_MS;
+            return pendingUp + pendingDown > 0 ? sentAt + STEP_WAIT_MS : syncDueAt();
+        }
         /** When a held-back sync becomes due (the passenger side quiet long enough). */
         public long syncDueAt() { return passengerChangedAt + SYNC_QUIET_MS; }
         /** Sync was turned off by hand: nothing is changed until it is on again. */
         public boolean paused() { return paused; }
         public int next(Climate c, long now) {
+            if (pauseCandidateAt >= 0) {
+                // Still waiting to see whether a passenger change follows the drop.
+                if (now - pauseCandidateAt < PAUSE_CONFIRM_MS) return NONE;
+                paused = true; pauseCandidateAt = -1;
+            }
             if (!c.on || paused) return NONE;
             if (c.sync || c.driverOnly) {
                 driverLead = false; following = false; pendingUp = pendingDown = 0;

@@ -155,16 +155,29 @@ final class ClimateController {
     private void onClimate(ClimatePolicy.Climate c) {
         // Once temperature callbacks have arrived they are the current set points.
         if (driverC != null) c = new ClimatePolicy.Climate(c.on, c.sync, c.driverOnly, driverC, passengerC);
+        trace("status", c);
         update(c);
     }
     private void onTemperatures(float driver, float passenger) {
         driverC = driver; passengerC = passenger;
-        if (climate != null) update(new ClimatePolicy.Climate(climate.on, climate.sync, climate.driverOnly, driver, passenger));
+        if (climate == null) return;
+        ClimatePolicy.Climate c = new ClimatePolicy.Climate(climate.on, climate.sync, climate.driverOnly, driver, passenger);
+        trace("temps", c);
+        update(c);
+    }
+    private String traced;
+    /** Each changed reading and where it came from, in the service log, so the order the car reports things in can be checked. */
+    private void trace(String source, ClimatePolicy.Climate c) {
+        String text = c.toString();
+        if (text.equals(traced)) return;
+        traced = text;
+        System.out.println("climate " + SystemClock.uptimeMillis() + " " + source + " " + text);
     }
     private boolean pauseShown;
     private void reportPause() {
         if (always.paused() == pauseShown) return;
         pauseShown = always.paused();
+        System.out.println("climate " + SystemClock.uptimeMillis() + (pauseShown ? " paused" : " resumed") + " on " + climate);
         Platform.status("sync", pauseShown ? "'Sync' was turned off in the climate settings, so this is paused for now. It resumes when 'Sync' is pressed again or the head unit restarts." : "");
     }
     private void update(ClimatePolicy.Climate c) {
@@ -185,6 +198,7 @@ final class ClimateController {
                 ClimatePolicy.Climate now = ClimatePolicy.parseDump(Platform.exec("dumpsys", DATC));
                 if (now != null) {
                     driverC = now.driver; passengerC = now.passenger;
+                    trace("dump", now);
                     if (climate == null || !climate.toString().equals(now.toString())) unchanged = 0;
                     climate = now;
                     if (sync) { always.observe(now, SystemClock.uptimeMillis()); reportPause(); }
@@ -206,6 +220,7 @@ final class ClimateController {
         }
         // Maintain Climate Sync also tracks the settled passenger set point while Automatic Driver Only acts.
         int lock = sync ? always.next(climate, SystemClock.uptimeMillis()) : ClimatePolicy.NONE;
+        if (sync) reportPause();  // a pause is confirmed here, once no passenger change followed the drop
         if (action == ClimatePolicy.NONE) action = lock;
         if (action == ClimatePolicy.NONE) {
             unchanged = 0; steps = 0; lastSent = null;
@@ -223,6 +238,7 @@ final class ClimateController {
         } else steps = 0;
         lastSent = request;
         try {
+            System.out.println("climate " + SystemClock.uptimeMillis() + " send " + action + " on " + climate);
             for (int[] command : ClimatePolicy.commands(climate, action)) Platform.command(DATC, DATC_IFACE, DATC_SET_FRONT, command[0], command[1]);
             if (sync) always.sent(action, SystemClock.uptimeMillis());
             if (action == ClimatePolicy.SYNC && lock == ClimatePolicy.SYNC) Platform.status("sync", "");
