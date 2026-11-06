@@ -12,14 +12,16 @@ ROOT = Path(__file__).resolve().parents[2]
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("firmware", type=Path, help="Captured system directory")
+    parser.add_argument("--release", default="v015", help="Which release the capture is (default v015, the IONIQ 5 capture)")
     parser.add_argument("--baksmali", type=Path, default=Path.home() / ".local/share/smali/baksmali-2.5.2.jar")
     args = parser.parse_args()
     recipes = ROOT / "tune-service/tweaks/patches"
     with tempfile.TemporaryDirectory(prefix="tilepad-recipes-") as directory:
         generated = Path(directory)
-        subprocess.run([sys.executable, str(ROOT / "tools/tweaks/firmware_patches.py"), str(args.firmware), "--out", str(generated)], check=True)
-        for path in recipes.glob("*.properties"):
-            if path.read_bytes() != (generated / path.name).read_bytes():
+        subprocess.run([sys.executable, str(ROOT / "tools/tweaks/firmware_patches.py"), str(args.firmware), args.release, "--out", str(generated)], check=True)
+        # This capture reproduces its own release's recipes; other releases came from their logs.
+        for path in generated.glob("*.properties"):
+            if path.read_bytes() != (recipes / path.name).read_bytes():
                 raise SystemExit("Non-reproducible recipe: " + path.name)
     classes = ROOT / "build/tweaks-host-tests"
     subprocess.run(["javac", "--release", "8", "-cp", str(classes), "-d", str(classes), str(ROOT / "tools/tweaks/CaptureCheck.java")], check=True)

@@ -30,9 +30,8 @@ final class ProjectionController {
     static void requireSupported() throws Exception {
         if (checked) return;
         Platform.requireVehicle();
-        if (!"ebff68c02c0d82dbd22fd8ec7cc6f71d96ef653f8d8843c2f1748e80b230d0c8".equals(Files.hash(new File("/system/framework/framework.odex")))
-            || !"00d62f627875e9bc2ada061761c70e2dda7ef15a0c1913c085563474d2ffa3e6".equals(Files.hash(new File("/system/framework/framework2.odex"))))
-            throw new IOException("Projection interfaces differ from the captured firmware. Capture and submit a log to help add compatibility.");
+        if (!Firmware.projection(Files.hash(new File("/system/framework/framework.odex")), Files.hash(new File("/system/framework/framework2.odex"))))
+            throw new IOException("This firmware's projection interfaces aren't supported yet. Capture and submit a log to help add compatibility.");
         checked = true;
     }
     void configure(boolean next) {

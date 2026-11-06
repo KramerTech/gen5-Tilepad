@@ -174,7 +174,7 @@ public class TravelRuntimeTest {
  }
 }''')
 production=ROOT/'tweaks-core/src/main/java/com/tilepad/tweakcore'
-names=['Config','Files','VehicleLocation','VehicleLocationSource','ChargeAwayPolicy','ChargeAwayController','ScheduledCharging','ProjectionPolicy','ProjectionController','GpmConnectionEvents']
+names=['Config','Files','Firmware','VehicleLocation','VehicleLocationSource','ChargeAwayPolicy','ChargeAwayController','ScheduledCharging','ProjectionPolicy','ProjectionController','GpmConnectionEvents']
 classes=work/'classes';classes.mkdir()
 subprocess.run(['javac','--release','8','-d',str(classes),*[str(p) for p in (work/'src').rglob('*.java')],*[str(production/(n+'.java')) for n in names]],check=True)
 r=subprocess.run(['java','-Dfixture.state='+str(work/'state'),'-cp',str(classes),'com.tilepad.tweakcore.TravelRuntimeTest'],check=True,capture_output=True,text=True,timeout=30)

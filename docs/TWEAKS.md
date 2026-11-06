@@ -195,12 +195,29 @@ The ★ hold: at ~800 ms the MICOM marks the press long (`flags=0x80`) and
 
 ## Compatibility and ownership
 
-Support is keyed to firmware files, not the car's name. One `/system` image serves every
-model of a release (the captured one is `ECOHMC.USA.0000.V015.012.260507`; the unit sets
-`ro.product.device`, here `wp_daudioplus_neev23_us`, at boot), so a car on the same release has
-byte-identical files whatever model it is. Vehicle writes require API 19 and the exact captured
-SHA-256 of both `automotive.odex` and `automotive-service.odex`. Interface descriptors and reply
-shapes are checked before accepting a result. No OEM framework is bundled.
+Support is keyed to firmware files, not the car's name. One `/system` image serves every model of a
+release (the unit sets `ro.product.device`, e.g. `wp_daudioplus_neev23_us`, at boot), so a car on a
+supported release has byte-identical files whatever model it is. Supported releases (USA):
+
+| Release | First seen | How it was checked |
+|---|---|---|
+| V015.012.260507 | the IONIQ 5 capture | captured `/system`, all patches verified on the car |
+| V016.010.260903 | a compatibility log | every interface Tilepad calls compared with V015's (below) |
+
+`Firmware.java` lists each release's `automotive.odex`/`automotive-service.odex` (vehicle tweaks),
+`framework.odex`/`framework2.odex` (projection) and `HKMC_TAppEV3.apk` (Charge-Away) hashes; a pair
+must come from one release. Interface descriptors and reply shapes are still checked before
+accepting a result. No OEM framework is bundled.
+
+Adding a release from its log: deodex both releases and compare the binder stubs and proxies of
+every interface Tilepad calls (IUSMService, IVRService, IDATCService/IDATCListener/DatcStatus,
+IBCMService, ITM_HSCANService, ITimePolicyService, IHEVService/IHEVListener, IGpmInterfaces/
+IGpmListener, IDiPOManager, `com.hkmc.Feature`), the service implementations behind them, and the EV
+Settings app's schedule path (it is obfuscated, so compare with renamed members masked). For V016:
+all stubs were identical except HSCAN, which only gained 0xe3-0xe8; DATCService only fixed a string;
+HEVService only changed `setTargetSOC` (0x29, unused); EV Settings differed only by renames. Then run
+`tools/tweaks/firmware_patches.py <log>/system <release> --compat-log <log>/tilepad-compat.txt` for
+the file patches, and check the patched methods match the previous release's with members masked.
 
 Features a trim or model can lack are checked on the car itself:
 
@@ -230,7 +247,9 @@ No GPS position, Home or personal text is included. The owner attaches the zip t
 on the plugged-in drive, the tweak shows where it was saved and how to submit it instead of the
 reason and the button.
 
-Static patches require exact stock file hashes and exact paired APK hashes:
+Static patches require exact stock file hashes and exact paired APK hashes. Each release has its own
+recipe per file (`consent-v015`, `right-v016`, …); Tilepad uses the one whose stock hash matches the
+file, or its stock backup once patched. A file no recipe matches is reported as unsupported:
 
 - Consent: `SystemUI.odex`; the startup call and the later `T(I)` construction
   entry use `dc()`, which sets the normal agreement properties and broadcast.

@@ -58,6 +58,25 @@ public class TransactionPatchTest {
         assertTrue(result.contains("key 97 CHANNEL_UP")); assertTrue(result.contains("key 17 TUNE"));
         manager.apply(config(), "boot-1"); assertArrayEquals(KEYS, Files.read(ops.file(KEY)));
     }
+    @Test public void eachFirmwareReleaseUsesTheRecipeMadeForItsStockFile() throws Exception {
+        // Another release's RightScreenHome: different bytes outside the patched instructions.
+        byte[] other = original.clone(); other[120] = 0;
+        java.util.zip.Adler32 sum = new java.util.zip.Adler32(); sum.update(other, 52, 108);
+        for (int i = 0; i < 4; i++) other[48 + i] = (byte) (sum.getValue() >>> (8 * i));
+        Properties second = (Properties) right.clone(); second.setProperty("stockSha256", Files.hash(other));
+        Files.store(new File(recipes, "right-v2.properties"), second);
+        Files.write(ops.file(right.getProperty("path")), other);
+        manager.apply(config("nav"), "boot-1");
+        assertArrayEquals(PatchManager.transform(second, other, config("nav")), Files.read(ops.file(right.getProperty("path"))));
+        // The backup decides from then on, and disabling restores that release's stock.
+        manager.apply(config(), "boot-1");
+        assertArrayEquals(other, Files.read(ops.file(right.getProperty("path"))));
+    }
+    @Test public void aFileNoReleaseMatchesIsReportedAsUnsupported() throws Exception {
+        Files.write(ops.file(right.getProperty("path")), new byte[]{1, 2, 3});
+        try { manager.check("nav", config()); fail(); }
+        catch (IOException expected) { assertTrue(expected.getMessage().contains("help add compatibility")); }
+    }
     @Test public void trackSwapFollowsTheLoadedLayoutAndStillRestoresOnesItPatched() throws Exception {
         ops.layouts.remove(KEY2);
         manager.apply(config("tracks"), "boot-1");

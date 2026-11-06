@@ -10,16 +10,15 @@ import java.util.concurrent.TimeUnit;
 import org.json.JSONObject;
 import org.xmlpull.v1.XmlPullParser;
 
-/** Exact captured EV3 interface. Only the scheduling mode changes; all eight time fields survive. */
+/** EV Settings of a supported release. Only the scheduling mode changes; all eight time fields survive. */
 final class ScheduledCharging {
     private static final String PACKAGE = "com.hkmc.daudio.app.ev3", HEV = "com.hkmc.hev.IHEVService";
-    private static final String APK_SHA = "106158a5281616aaeafc4bf84a0f043c71ed72f570d1a47f036cb188f99ea925";
     private static boolean checked;
     static void requireSupported() throws Exception {
         if (checked) return;
         Platform.requireVehicle();
-        if (!APK_SHA.equals(Files.hash(new File("/system/app/HKMC_TAppEV3.apk"))))
-            throw new IOException("The EV Settings interface differs from the captured firmware. Capture and submit a log to help add compatibility.");
+        if (!Firmware.evSettings(Files.hash(new File("/system/app/HKMC_TAppEV3.apk"))))
+            throw new IOException("This firmware's EV Settings app isn't supported yet. Capture and submit a log to help add compatibility.");
         checked = true;
     }
     static int[] read() throws Exception {

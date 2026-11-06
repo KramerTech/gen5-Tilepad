@@ -14,18 +14,15 @@ public final class Platform {
     public static final String HOME = "/data/nemesis/apps/tilepad";
     /** A readable copy of each tweak's status, for the Tweaks screen to refresh live (STATE is root-only). */
     public static final File LIVE = new File("/data/nemesis/backup/tilepad/status");
-    public static final String FRAMEWORK = "dd72e04bce0a2b4bda1506308ac21f91002c1436553b8156c345cc4313661338";
-    public static final String SERVICE = "3cf40fb00854c63afa49abea1dad18a0afcbc0dd68b17de9ed7ea3f5aeab4222";
     private static boolean checked;
     private Platform() { }
     public static void requireVehicle() throws Exception {
         if (checked) return;
         // One firmware image serves every model of a release; the car's name is set at boot. Identical
         // vehicle framework files mean identical vehicle interfaces, whichever car the unit is in.
-        if (Build.VERSION.SDK_INT != 19
-            || !Files.hash(new File("/system/framework/automotive.odex")).equals(FRAMEWORK)
-            || !Files.hash(new File("/system/framework/automotive-service.odex")).equals(SERVICE))
-            throw new IOException("Vehicle interface differs from the captured IONIQ 5 firmware. Capture and submit a log to help add compatibility.");
+        if (Build.VERSION.SDK_INT != 19 || !Firmware.vehicle(Files.hash(new File("/system/framework/automotive.odex")),
+                Files.hash(new File("/system/framework/automotive-service.odex"))))
+            throw new IOException("This firmware's vehicle interface isn't supported yet. Capture and submit a log to help add compatibility.");
         checked = true;
     }
     /** Climate Sync and Driver Only assume dual-zone climate, verified so far only on the IONIQ 5. */

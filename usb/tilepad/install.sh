@@ -5,6 +5,7 @@
 
 [ -f "$PKGZIP" ] || { say "FAIL: missing $PKGZIP"; finish 1; }
 refuse_if_launchpad
+refuse_if_hmgapi
 if pkg_installed; then
     say "FAIL: $PKG_ID is already installed. Use the update bundle instead."
     finish 1

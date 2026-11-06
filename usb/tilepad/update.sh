@@ -6,6 +6,7 @@
 
 [ -f "$PKGZIP" ] || { say "FAIL: missing $PKGZIP"; finish 1; }
 refuse_if_launchpad
+refuse_if_hmgapi
 if pkg_installed; then
     run "$NEMESIS" install --update "$PKGZIP" || finish 1
 else

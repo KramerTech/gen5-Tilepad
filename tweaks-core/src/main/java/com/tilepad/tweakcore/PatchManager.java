@@ -24,16 +24,31 @@ public final class PatchManager {
         File[] files = recipes.listFiles();
         if (files == null) throw new IOException("Tilepad's tweak patch recipes are missing. Reinstall the complete Tilepad bundle.");
         Arrays.sort(files);
-        List<Properties> result = new ArrayList<>();
+        // One recipe per firmware release for each patched file; the car uses the one for its stock.
+        Map<String, List<Properties>> byPath = new LinkedHashMap<>();
         Properties tracks = null;
         for (File f : files) {
             if (!f.getName().endsWith(".properties")) continue;
             Properties p = Files.properties(f);
-            if ("tracks".equals(p.getProperty("kind"))) tracks = p; else result.add(p);
+            if ("tracks".equals(p.getProperty("kind"))) { tracks = p; continue; }
+            List<Properties> same = byPath.get(p.getProperty("path"));
+            if (same == null) byPath.put(p.getProperty("path"), same = new ArrayList<>());
+            same.add(p);
         }
-        if (result.size() != 2 || tracks == null) throw new IOException("Incomplete patch recipes");
+        if (byPath.size() != 2 || tracks == null) throw new IOException("Incomplete patch recipes");
+        List<Properties> result = new ArrayList<>();
+        for (Map.Entry<String, List<Properties>> e : byPath.entrySet()) result.add(matching(e.getKey(), e.getValue()));
         result.addAll(trackRecipes(tracks));
         return result;
+    }
+    /** The recipe made for this file's stock (Tilepad's backup, or the untouched file). */
+    private Properties matching(String path, List<Properties> candidates) throws IOException {
+        if (candidates.size() == 1) return candidates.get(0);
+        File backup = new File(state, "files/" + new File(path).getName() + "/stock");
+        File source = backup.isFile() ? backup : system.file(path);
+        String stock = source.isFile() ? Files.hash(Files.read(source)) : "";
+        for (Properties p : candidates) if (stock.equals(p.getProperty("stockSha256"))) return p;
+        return candidates.get(0);  // none fits: its stock check reports the file as unsupported
     }
     /**
      * The track swap edits two text lines, identical in every model's layout, so it isn't tied to
@@ -62,6 +77,8 @@ public final class PatchManager {
         }
         return result;
     }
+    private static final String UNSUPPORTED = "This firmware's file isn't supported yet, or another mod changed it (if so, disable that mod first). "
+        + "Capture and submit a log to help add compatibility.";
     static final Pattern LAYOUT = Pattern.compile("/system/usr/keylayout/daudio_[A-Za-z0-9_]+_base\\.kl");
     /** KeyLayoutFile of each daudio_* input device in {@code dumpsys input}. */
     public static List<String> loadedLayouts(String dumpsysInput) {
@@ -86,8 +103,7 @@ public final class PatchManager {
             File target = system.file(path);
             byte[] current = Files.read(target);
             byte[] stock = backup.isFile() ? Files.read(backup) : current;
-            require(Files.hash(stock).equals(p.getProperty("stockSha256")),
-                "Unsupported or modified " + path + ". Disable the equivalent Cabinwright/other tweak first; no file was changed.");
+            require(Files.hash(stock).equals(p.getProperty("stockSha256")), UNSUPPORTED);
             Properties j = Files.properties(journal);
             String have = Files.hash(current);
             require(have.equals(p.getProperty("stockSha256")) || have.equals(j.getProperty("current")) || have.equals(j.getProperty("next")),
@@ -130,7 +146,7 @@ public final class PatchManager {
             if (!(p.containsKey(id) || (id.equals("tracks") && "tracks".equals(p.getProperty("kind"))))) continue;
             File stockFile = new File(state, "files/" + new File(p.getProperty("path")).getName() + "/stock");
             byte[] stock = Files.read(stockFile.isFile() ? stockFile : system.file(p.getProperty("path")));
-            require(Files.hash(stock).equals(p.getProperty("stockSha256")), "Unsupported file or another mod owns it. Disable that mod first.");
+            require(Files.hash(stock).equals(p.getProperty("stockSha256")), UNSUPPORTED);
             Properties journal = Files.properties(new File(stockFile.getParentFile(), "journal.properties"));
             String current = Files.hash(Files.read(system.file(p.getProperty("path"))));
             require(current.equals(p.getProperty("stockSha256")) || current.equals(journal.getProperty("current")) || current.equals(journal.getProperty("next")),

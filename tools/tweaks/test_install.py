@@ -79,6 +79,43 @@ mv() {
         env = dict(os.environ, FIXTURE=str(self.base), **extra)
         return subprocess.run(["sh", str(script)], env=env, capture_output=True, text=True)
 
+    def preinstall(self, registered="", files=()):
+        """The real preinstall and common.sh, with car paths under the fixture and a stand-in NEMESIS."""
+        stage = self.base / "pre"
+        (stage / "scripts").mkdir(parents=True, exist_ok=True)
+        common = (ROOT / "tune-service/scripts/common.sh").read_text()
+        for car in ("/data/hmgapi/", "/system/bin/", "/system/app/", "/data/nemesis/apps/"):
+            common = common.replace(car, str(self.base) + car)
+        common += '\nexport PATH="$HOST_PATH"\nNEMESIS="$FIXTURE/nemesis"\n'
+        (stage / "scripts/common.sh").write_text(common)
+        (stage / "scripts/preinstall.sh").write_text((ROOT / "tune-service/scripts/preinstall.sh").read_text())
+        nemesis = self.base / "nemesis"
+        nemesis.write_text('#!/bin/sh\n[ "$1" = pkg-list ] && for id in $REGISTERED; do echo "$id|Name|0|application|1.0|x"; done\n')
+        nemesis.chmod(0o755)
+        for name in files:
+            self.write(name, b"x")
+        env = dict(os.environ, FIXTURE=str(self.base), HOST_PATH=os.environ["PATH"], REGISTERED=registered)
+        return subprocess.run(["sh", "scripts/preinstall.sh"], cwd=stage, env=env, capture_output=True, text=True)
+
+    def test_preinstall_refuses_hmgapi_installed_with_or_without_nemesis(self):
+        for registered, files in (("hmgapi", ()), ("", ("data/hmgapi/installed.txt",)), ("", ("system/bin/hmgapid",))):
+            with self.subTest(registered=registered, files=files):
+                result = self.preinstall(registered, files)
+                self.assertEqual(1, result.returncode, result.stdout + result.stderr)
+                self.assertIn("Uninstall HMG-API (hmgapi) first", result.stderr)
+                for name in files:
+                    (self.base / name).unlink()
+
+    def test_preinstall_only_warns_about_hmgapi_during_an_update(self):
+        # NEMESIS has already removed the old Tilepad by then; refusing would leave neither.
+        result = self.preinstall("tilepad", ("data/hmgapi/installed.txt",))
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        self.assertIn("WARN: HMG-API (hmgapi) is still installed", result.stdout)
+
+    def test_preinstall_allows_a_car_without_launchpad_or_hmgapi(self):
+        result = self.preinstall()
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+
     def test_install_places_both_apks_and_is_idempotent(self):
         self.assertEqual(0, self.run_hook("postinstall.sh").returncode)
         self.assertEqual(b"new launcher", (self.base / "system/app/Tilepad.apk").read_bytes())

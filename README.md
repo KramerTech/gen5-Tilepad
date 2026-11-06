@@ -122,6 +122,9 @@ The TUNE knob also works: turn it to move the highlight and press it to open the
    replaces it (same preconditioning backend and hold-to-open service). Tilepad refuses to
    install (from USB or NEMESIS Manager) while any trace of Launchpad is left, and its log
    says what it found. Nothing is changed when it refuses.
+   Tilepad also can't be installed alongside [HMG-API](https://github.com/VysseCodes/HMG-API):
+   both change the same system apps and settings (HMG-API's ADB mod, for one, holds ADB over
+   Wi-Fi off). Uninstall HMG-API first; NEMESIS refuses either one while the other is installed.
 2. Download **`Tilepad-install-usb.zip`** from the [latest release](https://github.com/KramerTech/gen5-Tilepad/releases/latest)
    and extract it so its *contents* sit at the root of a FAT32/exFAT drive, with nothing else
    from NEMESIS on it:
@@ -149,7 +152,7 @@ saved tweak settings (including the Charge-Away Home location). Turning on the W
 client remains a separate confirmed action (see above).
 
 Tweaks support is keyed to firmware files rather than the car model, so it covers any car on the
-captured firmware release (the IONIQ 5's `V015.012.260507`); heaters a trim lacks are skipped.
+supported firmware release (USA `V015.012.260507` and `V016.010.260903`); heaters a trim lacks are skipped.
 On other firmware, an unavailable tweak offers a compatibility log to attach to an issue. Feature behavior,
 compatibility, overhead, ownership and recovery are in [docs/TWEAKS.md](docs/TWEAKS.md).
 The [mission/checkpoint](docs/TWEAKS-MISSION.md) records completed host validation and

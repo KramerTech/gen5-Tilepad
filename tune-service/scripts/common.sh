@@ -138,6 +138,19 @@ launchpad_traces() {
     return 0
 }
 
+# HMG-API (github.com/VysseCodes/HMG-API) and its mods change the same kinds of things Tilepad
+# does: its adb mod holds ADB over TCP off, which the ADB tile turns on, and its hooks and mods
+# change system and projection apps. So the two refuse each other (depends=!hmgapi). HMG-API
+# can be installed without NEMESIS too; its own marker is /data/hmgapi/installed.txt. Prints one
+# line per trace still on the car; prints nothing if it is gone.
+HMGAPI_ID=hmgapi
+hmgapi_traces() {
+    pkg_registered "$HMGAPI_ID" && echo "NEMESIS package $HMGAPI_ID"
+    [ -f /data/hmgapi/installed.txt ] && echo /data/hmgapi/installed.txt
+    [ -f /system/bin/hmgapid ] && echo /system/bin/hmgapid
+    return 0
+}
+
 stop_app() {
     android_up && am force-stop "$APP_PACKAGE" >/dev/null 2>&1
     android_up && am force-stop com.tilepad.tweaks >/dev/null 2>&1

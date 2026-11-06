@@ -13,7 +13,11 @@ public final class CaptureCheck {
         // The track recipe names no file; on the car it targets the loaded layout, here the IONIQ 5's.
         final String layout = "/system/usr/keylayout/daudio_wp_daudioplus_neev23_base.kl";
         for (File f : files) if (f.getName().endsWith(".properties")) {
-            Properties p = Files.properties(f); profiles.add(p);
+            Properties p = Files.properties(f);
+            // Another release's recipe for the same file: not this capture's.
+            if (p.getProperty("path") != null && !"tracks".equals(p.getProperty("kind"))
+                && !p.getProperty("stockSha256").equals(Files.hash(Files.read(new File(system, p.getProperty("path").substring("/system/".length())))))) continue;
+            profiles.add(p);
             if ("tracks".equals(p.getProperty("kind"))) {
                 p.setProperty("path", layout);
                 p.setProperty("stockSha256", Files.hash(Files.read(new File(system, layout.substring("/system/".length())))));

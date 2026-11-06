@@ -37,6 +37,16 @@ refuse_if_launchpad() {
     finish 1
 }
 
+# Stop before changing anything if HMG-API is on the car (see hmgapi_traces).
+refuse_if_hmgapi() {
+    TRACES=$(hmgapi_traces)
+    [ -z "$TRACES" ] && return 0
+    say "FAIL: HMG-API (hmgapi) is installed, and Tilepad can't be installed alongside it:"
+    echo "$TRACES" | while read T; do say "  - $T"; done
+    say "Uninstall HMG-API first (NEMESIS Manager > Packages, or HMG-API's own uninstaller), reboot, then run this again. Nothing was changed."
+    finish 1
+}
+
 longstar_state() {
     "$NEMESIS" service status "$PKG_ID/longstar" 2>/dev/null | {
         IFS='|' read QNAME MODE STATE PID
