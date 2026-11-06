@@ -152,13 +152,13 @@ def generate(firmware, out):
     write_recipe(out, "consent.properties", "/system/priv-app/SystemUI.odex", "/system/priv-app/SystemUI.apk",
                  (app / "SystemUI.apk").read_bytes(), stock, {"consent": consent})
 
-    # Only the captured model's layouts. Both variants exist and share identical
-    # bytes; touching neither another model nor the independent 97/98 keys.
-    for model in ("neev23", "neev23se"):
-        path = f"/system/usr/keylayout/daudio_wp_daudioplus_{model}_base.kl"
-        stock = (firmware / path.removeprefix("/system/")).read_bytes()
-        check_md5(stock, "080c50cdd85261db1b2b9a5ff8f61581")
-        (out / f"tracks-{model}.properties").write_text("path=" + path + "\nstockSha256=" + sha(stock) + "\nkind=tracks\n")
+    # The track swap edits the key 34/35 lines every model's layout shares, so its
+    # recipe names no file: the runtime targets the layouts the car loaded.
+    for path in sorted((firmware / "usr/keylayout").glob("daudio_*_base.kl")):
+        text = path.read_text()
+        assert len(re.findall(r"(?m)^key\s+34\s+CHANNEL_UP\b", text)) == 1, path
+        assert len(re.findall(r"(?m)^key\s+35\s+CHANNEL_DOWN\b", text)) == 1, path
+    (out / "tracks.properties").write_text("kind=tracks\n")
 
 
 if __name__ == "__main__":

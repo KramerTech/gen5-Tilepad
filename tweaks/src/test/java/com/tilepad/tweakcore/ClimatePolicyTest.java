@@ -136,6 +136,16 @@ public class ClimatePolicyTest {
         assertEquals(SYNC, feed(a, unsynced(22.0f, 22.0f), 5030 + AlwaysSync.SYNC_QUIET_MS));
         assertFalse(a.paused());
     }
+    @Test public void turningTheClimateOffAndOnAgainIsNotSyncTurnedOffByHand() {
+        // On the car: the climate reports Sync dropped just before off, and comes back on without
+        // Sync (a passenger temperature press wakes it), possibly much later.
+        AlwaysSync a = new AlwaysSync();
+        feed(a, sync(23.0f, 23.0f), 0);
+        assertEquals(NONE, feed(a, unsynced(23.0f, 23.0f), 1700));
+        feed(a, new Climate(false, false, false, 23.0f, 23.0f), 1785);
+        assertEquals(SYNC, feed(a, unsynced(23.0f, 23.0f), 66600));
+        assertFalse(a.paused());
+    }
     @Test public void driverOnlyAndClimateOffAreLeftAlone() {
         AlwaysSync a = new AlwaysSync();
         assertEquals(NONE, feed(a, driverOnly(23.5f, 23.5f)));

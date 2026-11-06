@@ -3,6 +3,18 @@ package com.tilepad.tweakcore;
 import java.util.regex.*;
 
 public final class HeaterPolicy {
+    /**
+     * IUSMService getters for the heaters the car is equipped with (FrontSeatHeat_DrvOption,
+     * FrontSeatHeat_AstOption, SWRC_SteeringwheelHeatingOpt); they read 0 when it isn't fitted.
+     */
+    static int fittedTransaction(String key) {
+        switch (key) {
+            case "driver": return 0x245;
+            case "passenger": return 0x246;
+            case "wheel": return 0x241;
+            default: throw new IllegalArgumentException(key);
+        }
+    }
     /** Only a fresh, valid raw signal authorizes its decoded temperature. No rounding at threshold. */
     public static Double outsideC(String dump) {
         Double c = reading(dump, "C", -40, 60);

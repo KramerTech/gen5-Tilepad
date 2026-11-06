@@ -19,7 +19,7 @@ final class ScheduledCharging {
         if (checked) return;
         Platform.requireVehicle();
         if (!APK_SHA.equals(Files.hash(new File("/system/app/HKMC_TAppEV3.apk"))))
-            throw new IOException("The EV Settings interface differs from the captured firmware. No charging setting was changed.");
+            throw new IOException("The EV Settings interface differs from the captured firmware. Capture and submit a log to help add compatibility.");
         checked = true;
     }
     static int[] read() throws Exception {

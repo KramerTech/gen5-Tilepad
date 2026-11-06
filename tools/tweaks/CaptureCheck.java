@@ -7,12 +7,17 @@ public final class CaptureCheck {
     public static void main(String[] args) throws Exception {
         final File system = new File(args[0]), work = new File(args[1]), recipes = new File(args[2]);
         final File root = new File(work, "system"), state = new File(work, "state");
-        Properties[] profiles = new Properties[4];
+        List<Properties> profiles = new ArrayList<>();
         File[] files = recipes.listFiles(); Arrays.sort(files);
-        int index = 0;
         Map<String, byte[]> stock = new HashMap<>();
+        // The track recipe names no file; on the car it targets the loaded layout, here the IONIQ 5's.
+        final String layout = "/system/usr/keylayout/daudio_wp_daudioplus_neev23_base.kl";
         for (File f : files) if (f.getName().endsWith(".properties")) {
-            Properties p = Files.properties(f); profiles[index++] = p;
+            Properties p = Files.properties(f); profiles.add(p);
+            if ("tracks".equals(p.getProperty("kind"))) {
+                p.setProperty("path", layout);
+                p.setProperty("stockSha256", Files.hash(Files.read(new File(system, layout.substring("/system/".length())))));
+            }
             for (String key : new String[]{"path", "apkPath"}) {
                 String path = p.getProperty(key); if (path == null) continue;
                 byte[] data = Files.read(new File(system, path.substring("/system/".length())));
@@ -24,6 +29,7 @@ public final class CaptureCheck {
             @Override public void writable() { }
             @Override public void finish() { }
             @Override public void replace(File target, byte[] data) throws Exception { Files.write(target, data); }
+            @Override public List<String> layouts() { return Collections.singletonList(layout); }
         });
         String[] ids = {"consent", "nav", "popover", "tracks"};
         for (int mask = 0; mask < 16; mask++) {

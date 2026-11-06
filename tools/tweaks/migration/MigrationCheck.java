@@ -24,6 +24,7 @@ public final class MigrationCheck {
             @Override public File file(String path) { return new File(root, path.substring(1)); }
             @Override public void writable() { throw new AssertionError("Migration attempted a remount"); }
             @Override public void finish() { }
+            @Override public java.util.List<String> layouts() { return java.util.Collections.emptyList(); }
             @Override public void replace(File f, byte[] b) { throw new AssertionError("Migration attempted a system write"); }
         };
         byte[] bad = stock.clone(); bad[50] ^= 1;
@@ -48,6 +49,7 @@ public final class MigrationCheck {
             @Override public File file(String path) { return new File(root, path.substring(1)); }
             @Override public void writable() { }
             @Override public void finish() { }
+            @Override public java.util.List<String> layouts() { return java.util.Collections.emptyList(); }
             @Override public void replace(File f, byte[] b) throws Exception { writes[0]++; Files.write(f, b); }
         });
         manager.check("nav", adopted); manager.check("popover", adopted);

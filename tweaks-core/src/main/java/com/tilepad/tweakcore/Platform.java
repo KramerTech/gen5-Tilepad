@@ -12,17 +12,27 @@ import java.util.*;
 public final class Platform {
     public static final File STATE = new File("/data/nemesis/backup/tilepad-tweaks");
     public static final String HOME = "/data/nemesis/apps/tilepad";
+    /** A readable copy of each tweak's status, for the Tweaks screen to refresh live (STATE is root-only). */
+    public static final File LIVE = new File("/data/nemesis/backup/tilepad/status");
     public static final String FRAMEWORK = "dd72e04bce0a2b4bda1506308ac21f91002c1436553b8156c345cc4313661338";
     public static final String SERVICE = "3cf40fb00854c63afa49abea1dad18a0afcbc0dd68b17de9ed7ea3f5aeab4222";
     private static boolean checked;
     private Platform() { }
     public static void requireVehicle() throws Exception {
         if (checked) return;
-        if (Build.VERSION.SDK_INT != 19 || !Build.DEVICE.equals("wp_daudioplus_neev23_us")
+        // One firmware image serves every model of a release; the car's name is set at boot. Identical
+        // vehicle framework files mean identical vehicle interfaces, whichever car the unit is in.
+        if (Build.VERSION.SDK_INT != 19
             || !Files.hash(new File("/system/framework/automotive.odex")).equals(FRAMEWORK)
             || !Files.hash(new File("/system/framework/automotive-service.odex")).equals(SERVICE))
-            throw new IOException("Vehicle interface differs from the captured IONIQ 5 firmware. No vehicle command was sent.");
+            throw new IOException("Vehicle interface differs from the captured IONIQ 5 firmware. Capture and submit a log to help add compatibility.");
         checked = true;
+    }
+    /** Climate Sync and Driver Only assume dual-zone climate, verified so far only on the IONIQ 5. */
+    public static void requireDualZone() throws Exception {
+        requireVehicle();
+        if (!Build.DEVICE.startsWith("wp_daudioplus_neev"))
+            throw new IOException("Verified only on the IONIQ 5's dual-zone climate so far. Capture and submit a log to help add compatibility.");
     }
     public static String property(String name) throws Exception {
         return (String) Class.forName("android.os.SystemProperties").getMethod("get", String.class).invoke(null, name);
@@ -80,6 +90,11 @@ public final class Platform {
     public static void status(String id, String message) {
         try { Files.write(new File(STATE, "status-" + id), message.getBytes("UTF-8")); }
         catch (IOException e) { System.err.println("tweaks: " + e); }
+        try {
+            File live = new File(LIVE, id);
+            Files.write(live, message.getBytes("UTF-8"));
+            LIVE.setReadable(true, false); LIVE.setExecutable(true, false); live.setReadable(true, false);
+        } catch (IOException e) { System.err.println("tweaks: " + e); }
         System.out.println("tweaks " + id + ": " + message);
     }
     public static PatchManager patches() {
@@ -96,6 +111,7 @@ public final class Platform {
                 }
                 if (remounted) exec("/system/xbin/nemesis", "remount", "rw");
             }
+            @Override public List<String> layouts() throws Exception { return PatchManager.loadedLayouts(exec("dumpsys", "input")); }
             @Override public void finish() throws Exception { if (remounted) exec("/system/xbin/nemesis", "remount", "ro"); }
             @Override public void replace(File target, byte[] bytes) throws Exception {
                 // Write and sync on the same filesystem, establish normal system-file

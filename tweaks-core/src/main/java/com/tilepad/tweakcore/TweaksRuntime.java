@@ -132,6 +132,14 @@ public final class TweaksRuntime {
         }
     }
     private void applyClimate(Config c) {
+        if (c.enabled("sync") || c.enabled("driveronly")) {
+            try { Platform.requireDualZone(); }
+            catch (Exception e) {
+                climate.configure(false, false);
+                for (String id : new String[]{"sync", "driveronly"}) if (c.enabled(id)) Platform.status(id, e.getMessage());
+                return;
+            }
+        }
         climate.configure(c.enabled("sync"), c.enabled("driveronly"));
     }
     private void beginHeaters() throws Exception {
@@ -174,12 +182,14 @@ public final class TweaksRuntime {
                                 Platform.status("heaters", "Skipped this boot: outdoor temperature is at or above your threshold."); return;
                             }
                             StringBuilder outcome = new StringBuilder();
-                            if (c.checked("driver")) heat(outcome, "Driver seat", "com.hkmc.micom.usm", "com.hkmc.usm.IUSMService", 213, HeaterPolicy.seatRequest(c.number("driverLevel")));
-                            if (c.checked("wheel")) heat(outcome, "Steering wheel", "com.hkmc.vr", "com.hkmc.vr.IVRService", 16, 1);
+                            if (c.checked("driver") && fitted(outcome, "Driver seat", "driver"))
+                                heat(outcome, "Driver seat", "com.hkmc.micom.usm", "com.hkmc.usm.IUSMService", 213, HeaterPolicy.seatRequest(c.number("driverLevel")));
+                            if (c.checked("wheel") && fitted(outcome, "Steering wheel", "wheel"))
+                                heat(outcome, "Steering wheel", "com.hkmc.vr", "com.hkmc.vr.IVRService", 16, 1);
                             heaterOutcome = outcome.toString();
                             // The passenger seat heats only for a buckled front passenger: now, or
                             // whenever they buckle up later in this drive.
-                            if (c.checked("passenger")) {
+                            if (c.checked("passenger") && fitted(outcome, "Passenger seat", "passenger")) {
                                 Files.write(new File(Platform.STATE, PASSENGER_FILE), (Platform.boot() + " " + heaterOutcome).getBytes("UTF-8"));
                                 handler.post(passengerWatch);
                             } else Platform.status("heaters", outcome.length() == 0 ? "Skipped: no heaters selected." : outcome.toString());
@@ -233,6 +243,18 @@ public final class TweaksRuntime {
             // The belt or ignition couldn't be read yet (services starting): keep watching.
             handler.postDelayed(passengerWatch, 5000);
         }
+    }
+    /** Whether the car reports this heater at all; trims differ (no heated wheel on some). */
+    private static boolean fitted(StringBuilder out, String label, String key) {
+        Boolean fitted = fitted(key);
+        if (fitted == null) out.append(label).append(": skipped (the car didn't say whether it has one). ");
+        else if (!fitted) out.append(label).append(": skipped (this car doesn't have one). ");
+        return Boolean.TRUE.equals(fitted);
+    }
+    /** The car's equipment signal for driver, passenger or wheel: true/false, or null if unreadable. */
+    static Boolean fitted(String key) {
+        try { return Platform.integer("com.hkmc.micom.usm", "com.hkmc.usm.IUSMService", HeaterPolicy.fittedTransaction(key)) != 0; }
+        catch (Exception e) { return null; }
     }
     private static void heat(StringBuilder out, String label, String service, String descriptor, int code, int value) {
         try { Platform.command(service, descriptor, code, value); out.append(label).append(": request accepted. "); }

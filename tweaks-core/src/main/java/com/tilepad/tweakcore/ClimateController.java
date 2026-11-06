@@ -28,6 +28,7 @@ final class ClimateController {
     private static final long SETTLE_MS = 40, REPLY_SETTLE_MS = 0, REPLY_MS = 1000, POLL_MS = 1000;
     private static final int MAX_UNCHANGED = 3, MAX_STEPS = 40;
     private static final String DRIVER_ONLY_SET = "Driver Only is on for this drive. The passenger seat belt is being watched, and buckling it switches to Sync.";
+    private static final String WAITING_CAR = "Waiting for the car and the climate to be on. Driver Only is set then, and the passenger seat belt is watched.";
     private static final String SYNCED = "The passenger seat belt was buckled, so Sync is on for the rest of this drive. Driver Only will be set again next time the car is turned on.";
 
     private final Handler handler;
@@ -73,11 +74,11 @@ final class ClimateController {
         if (alwaysSync && !sync) {
             always = new ClimatePolicy.AlwaysSync(); pauseShown = false;
             if (climate != null) { always.observe(climate, SystemClock.uptimeMillis()); always.next(climate, SystemClock.uptimeMillis()); }
-            // The app describes the working state itself; this status carries problems only.
-            Platform.status("sync", "");
+            syncProblem = null; syncShown = null;
         }
-        if (!alwaysSync && sync) Platform.status("sync", "");
+        if (!alwaysSync && sync) { Platform.status("sync", ""); syncShown = null; }
         sync = alwaysSync;
+        showSync();
         if (autoDriverOnly && !auto) {
             // The saved stage carries a restart of this service through the same drive; it is
             // reset to new whenever the car is seen off.
@@ -89,7 +90,7 @@ final class ClimateController {
             belted = stage >= ClimatePolicy.STAGE_SYNC;
             Platform.status("driveronly", belted ? SYNCED
                 : stage == ClimatePolicy.STAGE_DRIVER_ONLY ? DRIVER_ONLY_SET
-                : "Waiting for the car and the climate to be on. Then it will switch to Driver Only and watch the passenger seat belt.");
+                : WAITING_CAR);
             handler.removeCallbacks(poll); handler.post(poll);
         }
         if (!autoDriverOnly && auto) { handler.removeCallbacks(poll); Platform.status("driveronly", ""); }
@@ -115,11 +116,11 @@ final class ClimateController {
             // The listener reports changes; take the current state from the service's own dump.
             ClimatePolicy.Climate now = ClimatePolicy.parseDump(Platform.exec("dumpsys", DATC));
             if (now != null && climate == null) onClimate(now);
-            if (sync) Platform.status("sync", "");
+            syncProblem = null; showSync();
         } catch (Exception e) {
             datc = null;
-            String message = "The climate system isn't ready yet, so this is retrying every few seconds. (" + e.getMessage() + ")";
-            if (sync) Platform.status("sync", message);
+            String message = "The climate system isn't ready yet; trying again every few seconds. (" + e.getMessage() + ")";
+            if (sync) { syncProblem = message; showSync(); }
             if (auto) Platform.status("driveronly", message);
             handler.postDelayed(connect, 5000);
         }
@@ -140,7 +141,7 @@ final class ClimateController {
             ignition = on;
             if (on && !belted && passengerBuckled()) {
                 belted = true;
-                Platform.status("driveronly", "The passenger seat belt was buckled, so this is switching to Sync for the rest of the drive.");
+                Platform.status("driveronly", "The passenger seat belt was buckled, so the climate is switching to Sync for the rest of the drive.");
                 schedule(0);
             }
         } catch (Exception e) {
@@ -182,12 +183,27 @@ final class ClimateController {
         if (always.paused() == pauseShown) return;
         pauseShown = always.paused();
         System.out.println("climate " + SystemClock.uptimeMillis() + (pauseShown ? " paused" : " resumed") + " on " + climate);
-        Platform.status("sync", pauseShown ? "'Sync' was turned off in the climate settings, so this is paused for now. It resumes when 'Sync' is pressed again or the head unit restarts." : "");
+        showSync();
+    }
+    private String syncProblem, syncShown;
+    /** Maintain Climate Sync's mode, or the problem it last hit until the climate changes. */
+    private void showSync() {
+        if (!sync) return;
+        String message = syncProblem != null ? syncProblem
+            : climate == null ? "Waiting for the climate system."
+            : !climate.on ? "Waiting for the climate to be turned on."
+            : always.paused() ? "Manual: 'Sync' was turned off in the climate settings, so the two sides are set separately until 'Sync' is pressed again."
+            : climate.driverOnly ? "Paused while Driver Only is on."
+            // Sync off but not paused is momentary: this tweak is turning it back on.
+            : "Auto sync: the passenger temperature follows the driver's.";
+        if (message.equals(syncShown)) return;
+        syncShown = message;
+        Platform.status("sync", message);
     }
     private void update(ClimatePolicy.Climate c) {
-        if (climate == null || !climate.toString().equals(c.toString())) unchanged = 0;
+        if (climate == null || !climate.toString().equals(c.toString())) { unchanged = 0; syncProblem = null; }
         climate = c;
-        if (sync) { always.observe(c, SystemClock.uptimeMillis()); reportPause(); }
+        if (sync) { always.observe(c, SystemClock.uptimeMillis()); reportPause(); showSync(); }
         schedule(awaiting ? REPLY_SETTLE_MS : SETTLE_MS);
         awaiting = false;
     }
@@ -205,7 +221,7 @@ final class ClimateController {
                     trace("dump", now);
                     if (climate == null || !climate.toString().equals(now.toString())) unchanged = 0;
                     climate = now;
-                    if (sync) { always.observe(now, SystemClock.uptimeMillis()); reportPause(); }
+                    if (sync) { always.observe(now, SystemClock.uptimeMillis()); reportPause(); showSync(); }
                 }
             } catch (Exception ignored) { }
         }
@@ -224,7 +240,7 @@ final class ClimateController {
         }
         // Maintain Climate Sync also tracks the settled passenger set point while Automatic Driver Only acts.
         int lock = sync ? always.next(climate, SystemClock.uptimeMillis()) : ClimatePolicy.NONE;
-        if (sync) reportPause();  // a pause is confirmed here, once no passenger change followed the drop
+        if (sync) { reportPause(); showSync(); }  // a pause is confirmed here, once no passenger change followed the drop
         if (action == ClimatePolicy.NONE) action = lock;
         if (action == ClimatePolicy.NONE) {
             unchanged = 0; steps = 0; lastSent = null;
@@ -234,7 +250,7 @@ final class ClimateController {
         }
         String request = action + " " + climate;
         if (request.equals(lastSent) && ++unchanged >= MAX_UNCHANGED) {
-            if (unchanged == MAX_UNCHANGED) report(action, "The climate system didn't respond to the last change, so it will try again after the next climate change. (" + climate + ")");
+            if (unchanged == MAX_UNCHANGED) report(action, "The climate system didn't respond to the last change. Trying again after the next climate change. (" + climate + ")");
             return;
         }
         if (action == ClimatePolicy.DRIVER_UP || action == ClimatePolicy.DRIVER_DOWN) {
@@ -245,7 +261,7 @@ final class ClimateController {
             System.out.println("climate " + SystemClock.uptimeMillis() + " send " + action + " on " + climate);
             for (int[] command : ClimatePolicy.commands(climate, action)) Platform.command(DATC, DATC_IFACE, DATC_SET_FRONT, command[0], command[1]);
             if (sync) always.sent(action, SystemClock.uptimeMillis());
-            if (action == ClimatePolicy.SYNC && lock == ClimatePolicy.SYNC) Platform.status("sync", "");
+            if (action == ClimatePolicy.SYNC && lock == ClimatePolicy.SYNC) { syncProblem = null; showSync(); }
         } catch (Exception e) {
             report(action, "The climate couldn't be changed. (" + e.getMessage() + ")");
         }
@@ -255,7 +271,8 @@ final class ClimateController {
 
     private void report(int action, String message) {
         boolean automatic = action == ClimatePolicy.DRIVER_ONLY || (action == ClimatePolicy.SYNC && auto && belted && stage < ClimatePolicy.STAGE_SYNC);
-        Platform.status(automatic ? "driveronly" : "sync", message);
+        if (automatic) Platform.status("driveronly", message);
+        else { syncProblem = message; showSync(); }
     }
 
     /** com.hkmc.datc.DatcStatus from automotive.jar, the same class the stock climate app reads. */

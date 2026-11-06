@@ -35,6 +35,9 @@ public final class Config {
             || (enabled("tracks") && changedFrom(previous, "tracks")) || (enabled("sync") && changedFrom(previous, "sync"))
             || (enabled("driveronly") && changedFrom(previous, "driveronly"));
     }
+    public boolean needsDualZoneCheck(Config previous) {
+        return (enabled("sync") && changedFrom(previous, "sync")) || (enabled("driveronly") && changedFrom(previous, "driveronly"));
+    }
     public boolean sameSettings(Config other) {
         for (String id : IDS) if (changedFrom(other, id)) return false;
         for (String key : HEATER_OPTIONS) if (changedFrom(other, key)) return false;

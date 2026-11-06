@@ -58,8 +58,9 @@ public final class ClimatePolicy {
         private boolean driverLead, following, paused, lastOn, lastSync;
         /** Every reading, in arrival order, so each driver change is accounted for. */
         public void observe(Climate c, long now) {
-            // With the climate off the set points are placeholders; don't compare across it.
-            if (!c.on) { lastDriver = lastPassenger = null; lastOn = false; return; }
+            // With the climate off the set points are placeholders; don't compare across it. Switching
+            // the climate off drops Sync first, so a pause waiting on that drop is dropped too.
+            if (!c.on) { lastDriver = lastPassenger = null; lastOn = false; pauseCandidateAt = -1; return; }
             boolean passengerSteady = lastPassenger != null && Math.abs(c.passenger - lastPassenger) < 0.01f
                 && now - passengerChangedAt >= SYNC_QUIET_MS;
             boolean passengerMoved = lastPassenger != null && Math.abs(c.passenger - lastPassenger) >= 0.01f;

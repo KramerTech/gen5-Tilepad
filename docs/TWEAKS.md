@@ -195,21 +195,40 @@ The ★ hold: at ~800 ms the MICOM marks the press long (`flags=0x80`) and
 
 ## Compatibility and ownership
 
-First-draft vehicle support is the captured IONIQ 5:
-`wp_daudioplus_neev23_us`, firmware `NEEV23.USA.0000.V015.012.260507`.
-Vehicle writes require API 19, that device ID, and the exact captured SHA-256 of
-both `automotive.odex` and `automotive-service.odex`. Interface descriptors and
-reply shapes are checked before accepting a result. No OEM framework is bundled.
+Support is keyed to firmware files, not the car's name. One `/system` image serves every
+model of a release (the captured one is `ECOHMC.USA.0000.V015.012.260507`; the unit sets
+`ro.product.device`, here `wp_daudioplus_neev23_us`, at boot), so a car on the same release has
+byte-identical files whatever model it is. Vehicle writes require API 19 and the exact captured
+SHA-256 of both `automotive.odex` and `automotive-service.odex`. Interface descriptors and reply
+shapes are checked before accepting a result. No OEM framework is bundled.
 
-On other firmware, an unavailable tweak shows **Save Compatibility Report to USB**. The root
-`report` command writes `tilepad-compat-<ro.build.product>.txt` to the first USB drive
-(`/mnt/media_rw/usbN`, written as media_rw, uid 1023): the build properties, the SHA-256 of
-every gated file (the vehicle and projection frameworks, the EV Settings APK, each patch
-recipe's target and paired APK, Tilepad's stock backup of any file it patched, and every
-`daudio_*_base.kl` key layout), and each tweak's on/off state and unavailable reason. No OEM
-file, GPS position or Home is included. The owner attaches it to a GitHub issue
-(`.github/ISSUE_TEMPLATE/compatibility.md`); matching hashes mean a profile can be added
-directly, differing ones mean the files need reverse engineering first.
+Features a trim or model can lack are checked on the car itself:
+
+- Automatic Heaters reads the car's equipment signals before each heater (IUSMService
+  `FrontSeatHeat_DrvOption` 0x245, `FrontSeatHeat_AstOption` 0x246,
+  `SWRC_SteeringwheelHeatingOpt` 0x241); a heater that reads 0 is skipped and the Tweaks screen
+  says so. An unreadable signal also skips that heater.
+- Maintain Climate Sync and Driver Only assume dual-zone climate, verified only on the IONIQ 5,
+  so they also require an `wp_daudioplus_neev*` device until a log shows another model's climate.
+
+On other firmware, an unavailable tweak shows **Capture Compatibility Log to USB**. The root
+`report` command streams `tilepad-compat-<ro.build.product>.zip` (about 17 MB) to the first USB
+drive (`/mnt/media_rw/usbN`, written as media_rw, uid 1023), with a spinner while it runs. It holds:
+
+- `tilepad-compat.txt`: build and vehicle-option properties, the SHA-256 of every gated file
+  (vehicle and projection frameworks, the EV Settings APK, each patch recipe's target and paired
+  APK, the loaded key layouts, and Tilepad's stock backup of any file it patched), and each
+  tweak's on/off state and unavailable reason.
+- The code behind those gates: every `/system/framework/*.odex` (the full boot class path, needed
+  to deodex any of it), the gated apps' ODEX, the loaded key layouts, `build.prop`, and
+  `tilepad-stock/` backups. APKs are hashed only; their code is in the ODEX.
+- `dumps/`: the USM, BCM and DATC service dumps, numeric lines only (text values can hold
+  digital-key phone names).
+
+No GPS position, Home or personal text is included. The owner attaches the zip to a GitHub issue
+(`.github/ISSUE_TEMPLATE/compatibility.md`), which is enough to add that release. Once the zip is
+on the plugged-in drive, the tweak shows where it was saved and how to submit it instead of the
+reason and the button.
 
 Static patches require exact stock file hashes and exact paired APK hashes:
 
@@ -222,9 +241,12 @@ Static patches require exact stock file hashes and exact paired APK hashes:
   `r.i.handleShow()` return before queuing/rendering the OSD. The rest of the
   split-screen application remains installed and running. This is new work;
   all runtime effects are still subject to the car verification checklist.
-- Track swap: only keys 34/35 in the captured `neev23_base` and
-  `neev23se_base` layouts. Other keys, comments and whitespace are retained.
-  The active hardware layout and the resulting direction need a car check.
+- Track swap: only the `key 34 CHANNEL_UP` / `key 35 CHANNEL_DOWN` lines, which all 105
+  `daudio_*_base.kl` layouts in the captured image share, so the recipe names no file. It edits
+  the layouts the car's `daudio_*` input devices loaded (`KeyLayoutFile` in `dumpsys input`), plus
+  any layout it already backed up so disabling restores it. Each file's stock is its backup or
+  the untouched file; both lines must be present once, unswapped. Other keys, comments and
+  whitespace are retained.
 
 State, original bytes and per-file journals are under the root-only directory
 `/data/nemesis/backup/tilepad-tweaks`, outside the replaceable package directory.

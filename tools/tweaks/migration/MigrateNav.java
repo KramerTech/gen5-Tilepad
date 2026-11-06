@@ -16,6 +16,7 @@ public final class MigrateNav {
                     @Override public File file(String path) { return new File(path); }
                     @Override public void writable() throws IOException { throw new IOException("Migration refuses any /system change"); }
                     @Override public void finish() { }
+            @Override public java.util.List<String> layouts() { return java.util.Collections.emptyList(); }
                     @Override public void replace(File target, byte[] bytes) throws IOException { throw new IOException("Migration refuses any /system change"); }
                 }, Platform.boot());
         }

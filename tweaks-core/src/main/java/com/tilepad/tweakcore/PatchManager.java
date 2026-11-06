@@ -12,6 +12,8 @@ public final class PatchManager {
         void writable() throws Exception;
         void finish() throws Exception;
         void replace(File target, byte[] data) throws Exception;
+        /** The steering-wheel key layouts the car loaded this boot (absolute /system paths). */
+        List<String> layouts() throws Exception;
     }
     private final File state, recipes;
     private final SystemOps system;
@@ -23,9 +25,50 @@ public final class PatchManager {
         if (files == null) throw new IOException("Tilepad's tweak patch recipes are missing. Reinstall the complete Tilepad bundle.");
         Arrays.sort(files);
         List<Properties> result = new ArrayList<>();
-        for (File f : files) if (f.getName().endsWith(".properties")) result.add(Files.properties(f));
-        if (result.size() != 4) throw new IOException("Incomplete patch recipes");
+        Properties tracks = null;
+        for (File f : files) {
+            if (!f.getName().endsWith(".properties")) continue;
+            Properties p = Files.properties(f);
+            if ("tracks".equals(p.getProperty("kind"))) tracks = p; else result.add(p);
+        }
+        if (result.size() != 2 || tracks == null) throw new IOException("Incomplete patch recipes");
+        result.addAll(trackRecipes(tracks));
         return result;
+    }
+    /**
+     * The track swap edits two text lines, identical in every model's layout, so it isn't tied to
+     * one file's hash: it targets the layouts the car loaded plus any it already backed up (to
+     * restore them), each with its own stock (the backup, or the untouched file).
+     */
+    private List<Properties> trackRecipes(Properties template) throws IOException {
+        Set<String> paths = new TreeSet<>();
+        File[] backed = new File(state, "files").listFiles();
+        if (backed != null) for (File dir : backed) {
+            String path = Files.properties(new File(dir, "journal.properties")).getProperty("path", "");
+            if (LAYOUT.matcher(path).matches() && new File(dir, "stock").isFile()) paths.add(path);
+        }
+        List<String> loaded;
+        try { loaded = system.layouts(); } catch (Exception e) { loaded = Collections.emptyList(); }
+        for (String path : loaded) if (LAYOUT.matcher(path).matches()) paths.add(path);
+        List<Properties> result = new ArrayList<>();
+        for (String path : paths) {
+            File backup = new File(state, "files/" + new File(path).getName() + "/stock");
+            File source = backup.isFile() ? backup : system.file(path);
+            if (!source.isFile()) continue;
+            Properties p = (Properties) template.clone();
+            p.setProperty("path", path);
+            p.setProperty("stockSha256", Files.hash(Files.read(source)));
+            result.add(p);
+        }
+        return result;
+    }
+    static final Pattern LAYOUT = Pattern.compile("/system/usr/keylayout/daudio_[A-Za-z0-9_]+_base\\.kl");
+    /** KeyLayoutFile of each daudio_* input device in {@code dumpsys input}. */
+    public static List<String> loadedLayouts(String dumpsysInput) {
+        List<String> out = new ArrayList<>();
+        Matcher m = Pattern.compile("(?m)^\\s+\\d+: (daudio_\\S*)\\s*\\n(?:.*\\n)*?\\s+KeyLayoutFile: (\\S*)").matcher(dumpsysInput);
+        while (m.find()) if (LAYOUT.matcher(m.group(2)).matches() && !out.contains(m.group(2))) out.add(m.group(2));
+        return out;
     }
     public void apply(Config config, String boot) throws Exception { apply(config, null, boot); }
     public void apply(Config config, Config previous, String boot) throws Exception {
@@ -77,7 +120,13 @@ public final class PatchManager {
     }
     public void check(String id, Config config) throws Exception {
         Config trial = new Config((Properties) config.values.clone()); trial.set(id, "true");
-        for (Properties p : profiles()) {
+        List<Properties> profiles = profiles();
+        if (id.equals("tracks")) {
+            boolean any = false;
+            for (Properties p : profiles) any |= "tracks".equals(p.getProperty("kind"));
+            require(any, "The car's steering-wheel key layout wasn't found. Capture and submit a log to help add compatibility.");
+        }
+        for (Properties p : profiles) {
             if (!(p.containsKey(id) || (id.equals("tracks") && "tracks".equals(p.getProperty("kind"))))) continue;
             File stockFile = new File(state, "files/" + new File(p.getProperty("path")).getName() + "/stock");
             byte[] stock = Files.read(stockFile.isFile() ? stockFile : system.file(p.getProperty("path")));

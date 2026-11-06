@@ -61,6 +61,7 @@ public final class TweaksCommand {
                     if (c.enabled("projection") && c.changedFrom(previous, "projection")) ProjectionController.requireSupported();
                     if (c.enabled("chargeaway") && c.changedFrom(previous, "chargeaway")) ScheduledCharging.requireSupported();
                     if (c.needsVehicleCheck(previous)) Platform.requireVehicle();
+                    if (c.needsDualZoneCheck(previous)) Platform.requireDualZone();
                     if (c.enabled("dst") && c.dstChanged(previous)) DstRules.baseOffsetMinutes(Platform.property("persist.sys.timezone"));
                 } else throw new IllegalArgumentException("Usage: settings | summary | status | report | home | restore | set/update/options KEY VALUE [KEY VALUE…]");
                 // Intent survives termination between a /system write and config commit.
@@ -99,6 +100,7 @@ public final class TweaksCommand {
                     if (id.equals("dst") || id.equals("heaters") || id.equals("tracks") || id.equals("sync") || id.equals("driveronly")) {
                         if (vehicleError != null) throw new IOException(vehicleError);
                     }
+                    if (id.equals("sync") || id.equals("driveronly")) Platform.requireDualZone();
                     if (id.equals("dst")) DstRules.baseOffsetMinutes(Platform.property("persist.sys.timezone"));
                     if (id.equals("projection")) ProjectionController.requireSupported();
                     else if (id.equals("chargeaway")) ScheduledCharging.requireSupported();
@@ -109,6 +111,15 @@ public final class TweaksCommand {
             File status = new File(Platform.STATE, "status-" + id);
             if (status.isFile()) out.setProperty("status." + id, new String(Files.read(status), "UTF-8"));
         }
+        // fitted.<heater>: whether the car reports that heater; absent when it can't be read.
+        if (verify && vehicleError == null) for (String key : new String[]{"driver", "passenger", "wheel"}) {
+            Boolean fitted = TweaksRuntime.fitted(key);
+            if (fitted != null) out.setProperty("fitted." + key, fitted.toString());
+        }
+        // report: this firmware's compatibility report already on the USB drive, if anything is unavailable.
+        boolean incompatible = false;
+        for (String id : Config.IDS) incompatible |= !out.getProperty("unavailable." + id).isEmpty();
+        if (verify && incompatible) out.setProperty("report", UsbReport.existing());
         // pending.<id>: a file tweak whose checkbox differs from what this boot started with.
         try {
             Properties live = Files.properties(new File(Platform.STATE, "runtime.properties"));

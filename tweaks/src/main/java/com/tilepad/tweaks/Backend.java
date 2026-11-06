@@ -16,7 +16,8 @@ final class Backend {
             byte[] b = new byte[4096]; for (int n; (n = in.read(b)) != -1;) if (out.size() < 65536) out.write(b, 0, n);
         }
         int code = p.waitFor(); String text = out.toString("UTF-8");
-        if (code != 0) throw new IOException(text.trim().isEmpty() ? "The tweak command failed (" + code + ")." : text.trim());
+        // The command prefixes its errors with "Tweaks: " for the shell; the screen already says Tweaks.
+        if (code != 0) throw new IOException(text.trim().isEmpty() ? "The tweak command failed (" + code + ")." : text.trim().replaceFirst("^Tweaks: ", ""));
         Properties result = new Properties();
         if ((args.length == 1 && (args[0].equals("status") || args[0].equals("settings")))
             || (args[0].equals("options") || args[0].equals("update") || args[0].equals("home") || args[0].equals("report"))) result.load(new StringReader(text));

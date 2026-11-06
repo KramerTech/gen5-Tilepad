@@ -13,7 +13,7 @@ public class TransactionPatchTest {
     private PatchManager manager;
     private FakeSystem ops;
     private final byte[] original = new byte[160];
-    private static final String KEY = "/system/usr/keylayout/keys.kl";
+    private static final String KEY = "/system/usr/keylayout/daudio_test_base.kl", KEY2 = "/system/usr/keylayout/daudio_test2_base.kl";
     private static final byte[] KEYS = ("# keep comments\nkey 17 TUNE\nkey 34    CHANNEL_UP\nkey 35    CHANNEL_DOWN\nkey 97 CHANNEL_UP\n").getBytes(java.nio.charset.StandardCharsets.UTF_8);
     @Before public void setup() throws Exception {
         state = temp.newFolder("state"); root = temp.newFolder("root"); recipes = temp.newFolder("recipes");
@@ -26,10 +26,8 @@ public class TransactionPatchTest {
         right.setProperty("nav", "80,50,01"); right.setProperty("popover", "90,5a,02");
         Files.store(new File(recipes, "right.properties"), right);
         Properties consent = recipe("/system/priv-app/SystemUI.odex"); consent.setProperty("consent", "80,50,03"); Files.store(new File(recipes, "consent.properties"), consent);
-        for (int i = 0; i < 2; i++) {
-            Properties p = new Properties(); p.setProperty("path", i == 0 ? KEY : KEY + "2"); p.setProperty("kind", "tracks"); p.setProperty("stockSha256", Files.hash(KEYS));
-            Files.write(ops.file(p.getProperty("path")), KEYS); Files.store(new File(recipes, "tracks" + i + ".properties"), p);
-        }
+        Properties tracks = new Properties(); tracks.setProperty("kind", "tracks"); Files.store(new File(recipes, "tracks.properties"), tracks);
+        for (String key : new String[]{KEY, KEY2}) { Files.write(ops.file(key), KEYS); ops.layouts.add(key); }
         manager = new PatchManager(state, recipes, ops);
     }
     private Properties recipe(String path) throws Exception {
@@ -59,6 +57,28 @@ public class TransactionPatchTest {
         assertTrue(result.contains("key 34    CHANNEL_DOWN\nkey 35    CHANNEL_UP"));
         assertTrue(result.contains("key 97 CHANNEL_UP")); assertTrue(result.contains("key 17 TUNE"));
         manager.apply(config(), "boot-1"); assertArrayEquals(KEYS, Files.read(ops.file(KEY)));
+    }
+    @Test public void trackSwapFollowsTheLoadedLayoutAndStillRestoresOnesItPatched() throws Exception {
+        ops.layouts.remove(KEY2);
+        manager.apply(config("tracks"), "boot-1");
+        assertArrayEquals(KEYS, Files.read(ops.file(KEY2)));
+        assertFalse(Arrays.equals(KEYS, Files.read(ops.file(KEY))));
+        // A later boot that doesn't report the layout still restores the one Tilepad changed.
+        ops.layouts.clear();
+        manager.apply(config(), config("tracks"), "boot-2");
+        assertArrayEquals(KEYS, Files.read(ops.file(KEY)));
+    }
+    @Test public void trackSwapIsUnavailableWithoutALoadedLayout() throws Exception {
+        ops.layouts.clear();
+        try { manager.check("tracks", config()); fail(); } catch (IOException expected) { assertTrue(expected.getMessage().contains("key layout")); }
+    }
+    @Test public void findsTheLayoutsTheCarsInputDevicesLoaded() {
+        String dump = "Event Hub State:\n  Devices:\n    -1: Virtual\n      KeyLayoutFile: /system/usr/keylayout/Generic.kl\n"
+            + "    2: daudio_wp_daudioplus_neev23_us_knob\n      Classes: 0x00000001\n      KeyLayoutFile: \n"
+            + "    3: daudio_wp_daudioplus_neev23_us_can\n      Classes: 0x00000001\n      KeyLayoutFile: /system/usr/keylayout/daudio_wp_daudioplus_neev23_base.kl\n"
+            + "    4: daudio_wp_daudioplus_neev23_us\n      KeyLayoutFile: /system/usr/keylayout/daudio_wp_daudioplus_neev23_base.kl\n"
+            + "    5: Some BT keyboard\n      KeyLayoutFile: /system/usr/keylayout/daudio_other_base.kl\n";
+        assertEquals(Collections.singletonList("/system/usr/keylayout/daudio_wp_daudioplus_neev23_base.kl"), PatchManager.loadedLayouts(dump));
     }
     @Test public void allAffectedFilesValidateBeforeAnySystemWrite() throws Exception {
         Files.write(ops.file(KEY), new byte[]{9});
@@ -146,6 +166,8 @@ public class TransactionPatchTest {
     private static final class SimulatedDeath extends Error { }
     private final class FakeSystem implements PatchManager.SystemOps {
         int writes, failWrite = -1, crashWrite = -1;
+        final List<String> layouts = new ArrayList<>();
+        @Override public List<String> layouts() { return new ArrayList<>(layouts); }
         @Override public File file(String path) { return new File(root, path.substring(1)); }
         @Override public void writable() { }
         @Override public void finish() { }
