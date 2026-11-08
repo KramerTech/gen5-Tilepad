@@ -136,5 +136,3 @@ ships in a release, and no firmware files are committed.
 | `tweaks-core/` | shared in-process listeners, OEM adapters, config and reversible patch transactions |
 | `tune-service/tweaks/patches/` | tiny, exact-file-gated recipes; no OEM APK/ODEX shipped |
 | `tools/compat/` | compatibility-log checks (development only) |
-
-Other docs: [projection and Charge-Away implementation](PROJECTION-CHARGE-AWAY.md).

@@ -139,15 +139,15 @@ settings (including the Charge-Away Home location).
 
 ## Supported cars
 
-The launcher, shortcuts and most tiles aren't tied to a firmware version. Precondition and the tweaks are.
+Tilepad can work on any gen5W head unit. If something shows an error or a tweak is unavailable on
+yours, submit a compatibility report (below) so support can be added.
 
 The tweaks check the car's exact firmware files, so they work on any car on a supported firmware
 image: USA Hyundai `V015.012.260507` and `V016.010.260903`, and USA Kia `V015.012.260507` (for
-example, the IONIQ 5 and EV6). Heaters a trim lacks are skipped. Disable Right-Hand Pop-Over
-hasn't been verified on a head unit yet. How each tweak works, and what it changes, is in
-[docs/TWEAKS.md](docs/TWEAKS.md).
+example, the IONIQ 5 and EV6). Heaters a trim lacks are skipped. How each tweak works,
+and what it changes, is in [docs/TWEAKS.md](docs/TWEAKS.md).
 
-**Tweaks unavailable on your car?** Help add it: open Tweaks, select an unavailable tweak, plug in
+**Submitting a compatibility report:** open Tweaks, select an unavailable tweak, plug in
 a USB drive and tap **Capture Compatibility Log to USB**. Then attach the
 `tilepad-compat-….zip` from the drive to a
 [compatibility issue](https://github.com/KramerTech/gen5-Tilepad/issues/new?template=compatibility.md).

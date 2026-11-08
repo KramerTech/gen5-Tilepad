@@ -109,7 +109,7 @@ service, boot receiver, alarm receiver, or store/broker dependency.
   ten seconds only while enabled with Home set. A lazily created worker thread in
   the same process isolates fresh charging-feedback waits from climate/DST and
   settings saves. No new Android or NEMESIS service or GPS listener is registered.
-  See [projection and Charge-Away implementation](PROJECTION-CHARGE-AWAY.md).
+  See [Projection and Charge-Away details](#projection-and-charge-away-details).
 - The steering-wheel ★ hold: Tilepad's manifest `StarHoldReceiver` (priority 1000)
   aborts stock's long-press broadcast and forwards it only to NEMESIS Manager. A
   receiver registered by the longstar daemon can't do this: Android skips ordered
@@ -118,9 +118,7 @@ service, boot receiver, alarm receiver, or store/broker dependency.
   runs a short root command through NEMESIS; it exits when done.
 
 This trades a small amount of in-process framework/observer state for avoiding a
-second daemon and minute-by-minute polling. Actual RAM and boot latency have not
-been measured on the car. Android event delivery and root-context initialization
-still need emulator/device execution; the host tests do not establish those.
+second daemon and minute-by-minute polling.
 
 ## Clock and heater details
 
@@ -193,6 +191,85 @@ The ★ hold: at ~800 ms the MICOM marks the press long (`flags=0x80`) and
 `SetupReceiver` (press-count trigger). A short release sends the assigned action
 (here `CONNECTIVITY_SHORTCUT`) instead, which is left alone.
 
+## Projection and Charge-Away details
+
+Setting, updating or clearing Home is a separate explicit action (clearing asks first), shows
+six-decimal latitude/longitude, and saves both coordinates atomically. No map,
+network geocoding, or search dependency is introduced. Home is kept in the existing
+protected root configuration, not written to a shared external-storage file.
+
+Auto-Open Phone Projection uses the native AA connection Binder callback and
+checks the underlying native AA/CarPlay services every two seconds while enabled.
+OEM ordered connection broadcasts cannot reach the standalone root runtime on
+this firmware, so projection does not depend on its dynamically registered receivers. It uses
+the stock pop-over's `GPM_CUSTOM_SHORTCUT` / `DIPO_CUSTOM_SHORTCUT` actions; the
+PhoneProjection APK's launcher is connection settings, not the projected screen.
+Opening is once per availability transition, including an already available
+session when enabled. Duplicate notifications, leaving projection manually, and
+restarting longstar do not repeatedly steal focus. Seen state is persisted per
+kernel boot. Camera screens defer opening; already foreground projection is left
+alone. Native service availability is rechecked without inventing disconnects.
+Launch failures have a six-request bound per availability edge; a new connection
+or toggling the feature permits recovery. Disabling stops checks, removes the
+native callback and leaves the current screen alone.
+
+Charge-Away polls every ten seconds while enabled with Home saved. It reads the
+existing GPS fix from `dumpsys location`; this root UID cannot pass the stock
+LocationManager package-ownership check. It does not register another GPS listener.
+Fixes must be at most 60 seconds old with accuracy at most 150 metres. The `et`
+field is an absolute elapsed timestamp, not an age. Haversine distance uses
+1 statute mile = 1609.344 metres. The complete accuracy radius must be outside
+1.5 miles to select Away, or inside 1 mile to select Home. Between thresholds the
+last region is retained across restarts, keyed to the saved Home. Unknown initial
+regions and stale/missing fixes leave Scheduled Charging unchanged.
+
+Only the Scheduled Charging master state is controlled. The native 12-field
+feedback contains nine writable fields; the first eight are copied exactly and
+only field 8 changes. Off is 0; enabled mode is 2 or 3 according to the stock app's
+saved off-peak-only preference. That preference is read as the owning app UID from
+its XML (or stock UNECE secure JSON path) and is never written. An already enabled
+mode is not rewritten. Missing/unconfigured times prevent enabling; the user must
+set their times and off-peak-only choice in EV Settings. Departure and climate
+schedules are not touched.
+
+The cached economic-charge getter is deliberately not used as write authority.
+Each read registers a short-lived IHEVListener, requests native feedback, waits up
+to 1.5 seconds, and unregisters in all cases. Immediately before writing, another
+fresh response must match all nine previously read writable fields. Feedback
+waits run on a lazy worker thread inside longstar, outside the shared settings
+lock. Only the final command is serialized with config changes and rechecks that
+the same Home and enablement are still selected. There is no new registered
+Android/NEMESIS service, alarm, boot receiver, or external daemon.
+
+Writes occur only when the desired master state differs. Up to three unconfirmed
+requests are allowed before pausing until state, Home, selection, or runtime
+restart changes. A valid later poll enforces the region state even after a manual
+master toggle. Turning the tweak off stops its polling and leaves the current
+Scheduled Charging state alone; Home remains saved. In-app help explains this.
+
+The native AA callback is a `com.hkmc.gpm.IGpmListener` registered with `IGpmInterfaces`
+transaction 9 (remove: 10); callback 1 is `onConnectStatus(int)` and 2 is `onServiceKill(boolean)`.
+Callbacks post back to the runtime handler before querying any native service, avoiding re-entry
+while an OEM callback thread may hold its service lock. OEM ordered broadcasts (`gpm.set`,
+`UPDATE_ANDROIDAUTO`) skip receivers hosted by the root runtime ("process crashing": the receiver
+has no attached app), which is why the callback and the status check are used instead. Status says
+opening was requested, rather than treating a sent broadcast as proof the projected screen is
+visible.
+
+The OEM interfaces involved, as read from the stock EV Settings save method and the IHEVService
+proxy:
+
+| Interface | Verified mapping |
+| --- | --- |
+| `gpm`, `com.hkmc.gpm.IGpmInterfaces` | transaction 1; status >=4 means connected |
+| `dipo`, `android.dipo.IDiPOManager` | transaction 2; status 4 means activated |
+| `com.hkmc.micom.hev`, `com.hkmc.hev.IHEVService` | 1/2 add/remove listener, 14 request feedback, 30 set nine fields |
+| `com.hkmc.hev.IHEVListener` | callback 4 provides 12 economic-charge fields |
+| Stock preference | `economic_only_economic_mode`: 0 prefer, 1 only off-peak |
+
+Firmware without matching vehicle, framework and EV Settings hashes is refused. No OEM binary or
+GPS data is shipped.
+
 ## Compatibility and ownership
 
 Support is keyed to firmware files, not the car's name. One `/system` image serves several models
@@ -243,9 +320,9 @@ Features a trim or model can lack are checked on the car itself:
   `FrontSeatHeat_DrvOption` 0x245, `FrontSeatHeat_AstOption` 0x246,
   `SWRC_SteeringwheelHeatingOpt` 0x241); a heater that reads 0 is skipped and the Tweaks screen
   says so. An unreadable signal also skips that heater.
-- Maintain Climate Sync and Driver Only assume dual-zone climate, verified on the IONIQ 5, so they
-  also require a `wp_daudioplus_neev*` or `wp_daudioplus_cvev*` device (the EV6 reports the same
-  climate variant and options) until a log shows another model's climate. Not yet tried on an EV6.
+- Maintain Climate Sync and Driver Only need dual-zone climate, so they also require a
+  `wp_daudioplus_neev*` (IONIQ 5) or `wp_daudioplus_cvev*` (EV6) device until a log shows another
+  model's climate.
 
 On other firmware, an unavailable tweak shows **Capture Compatibility Log to USB**. The root
 `report` command streams `tilepad-compat-<ro.build.product>.zip` (about 17 MB) to the first USB
@@ -277,8 +354,7 @@ file, or its stock backup once patched. A file no recipe matches is reported as 
   `k.r.f(ZZ)Z`, byte-identical to the existing local patch when enabled alone.
 - Pop-over: `k.r.canShowSSOsd(ZZZ)Z` returns false; shared `r.i.d(IIZ)V` and
   `r.i.handleShow()` return before queuing/rendering the OSD. The rest of the
-  split-screen application remains installed and running. This is new work;
-  all runtime effects are still subject to the car verification checklist.
+  split-screen application remains installed and running.
 - Track swap: only the `key 34 CHANNEL_UP` / `key 35 CHANNEL_DOWN` lines, which all 105
   `daudio_*_base.kl` layouts in the captured image share, so the recipe names no file. It edits
   the layouts the car's `daudio_*` input devices loaded (`KeyLayoutFile` in `dumpsys input`), plus
@@ -300,8 +376,7 @@ restores exact original bytes. Updates preserve configuration and backups;
 uninstall restores owned tweaks and DST before removing either APK. A failed
 restore retains the recovery runtime. Backups are retained even after successful
 restoration, so a later conflict does not destroy the recovery record. These
-checks address interrupted processes, not a proven power-loss transaction across
-all files; power-loss behavior has not been tested.
+checks address interrupted processes, not a power-loss transaction across all files.
 
 Disable equivalent Cabinwright/other patches before enabling the corresponding
 Tilepad switch. Existing foreign modifications show as unavailable. Keep the USB
@@ -361,10 +436,6 @@ identifies simulated settings and it never calls the vehicle/root backend.
 The captured theme image and mock services are described in the sibling
 `gen5-RearDashcam/tools/emulator-theme/README.md`. That emulator approximates OEM
 theme behavior; it does not reproduce the full OEM window manager or actuators.
-
-The implementation/test state for this branch is recorded in
-[TWEAKS-MISSION.md](TWEAKS-MISSION.md); the remaining checks are in
-[TWEAKS-DEVICE-CHECKLIST.md](TWEAKS-DEVICE-CHECKLIST.md).
 
 ## Sources and attribution
 

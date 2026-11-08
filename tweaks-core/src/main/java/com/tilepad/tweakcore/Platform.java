@@ -25,14 +25,11 @@ public final class Platform {
             throw new IOException("This firmware's vehicle interface isn't supported yet. Capture and submit a log to help add compatibility.");
         checked = true;
     }
-    /**
-     * Climate Sync and Driver Only assume dual-zone climate: verified on the IONIQ 5, and the EV6 reports
-     * the same DATC variant and options (persist.sys.climate.*).
-     */
+    /** Climate Sync and Driver Only need dual-zone climate: the IONIQ 5's, which the EV6 shares (same DATC variant and options). */
     public static void requireDualZone() throws Exception {
         requireVehicle();
         if (!Build.DEVICE.startsWith("wp_daudioplus_neev") && !Build.DEVICE.startsWith("wp_daudioplus_cvev"))
-            throw new IOException("Verified only on the IONIQ 5 and EV6's dual-zone climate so far. Capture and submit a log to help add compatibility.");
+            throw new IOException("This car's climate isn't supported yet. Capture and submit a log to help add compatibility.");
     }
     public static String property(String name) throws Exception {
         return (String) Class.forName("android.os.SystemProperties").getMethod("get", String.class).invoke(null, name);

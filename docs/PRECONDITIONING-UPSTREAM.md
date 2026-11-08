@@ -96,16 +96,7 @@ The only popup additions are warm consent and confirmed activation-timeout text.
   explicit warm consent and eligibility loss during temperature collection.
 - `sh tools/build_apk.sh --sdk-only`: release compilation against Android API 19,
   DEX 035 generation and verification of the pinned v1 signing certificate.
-- Emulator popup flow and standalone Android lint are checked separately.
+- Standalone Android lint runs as part of `sh tools/build_apk.sh`.
 
 The debug-only emulator adapter accepts `debug.tilepad.battery_min_c` for testing
 warm consent. It is ignored outside the emulator and excluded from release code.
-No Start/Stop commands were sent to the real vehicle as part of this integration.
-
-Integration results: 172 Java tests, five installer checks, ten Binder fixture
-scenarios and six service fixture scenarios pass (193 checks total). Standalone
-lint reports zero errors. Release APKs compile for API 19 and verify against the
-pinned v1 certificate. On the emulator, the existing tile opened the warm popup,
-explicit Start anyway produced Waiting for BMS, and Cancel confirmed Off and
-cleared the ownership journal. Screenshots are in `build/precon-preview/`.
-The production manifest and root star-hold service/configuration are unchanged.
