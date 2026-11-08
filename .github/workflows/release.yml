@@ -2,7 +2,7 @@ name: release
 
 # Push a tag v<version> matching versionName in app/build.gradle.kts and package-version= in
 # tune-service/NEMESIS.data (e.g. v1.0.1) to build, sign and publish a release.
-# An annotated tag's message becomes the release's "Changes" section.
+# An annotated tag's message is the release notes: a short changelog (install steps live in the README).
 on:
   push:
     tags: ["v*"]
@@ -65,8 +65,7 @@ jobs:
           import sys
           tmpl, notes, out, version = sys.argv[1:5]
           changes = open(notes).read().strip()
-          body = open(tmpl).read().replace("@VERSION@", version).replace(
-              "@CHANGES@", f"\n**Changes in this release:**\n\n{changes}\n" if changes else "")
+          body = open(tmpl).read().replace("@VERSION@", version).replace("@CHANGES@", changes)
           open(out, "w").write(body)
           EOF
           cat dist/release-body.md
