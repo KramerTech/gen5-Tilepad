@@ -38,7 +38,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-/** Minimal grid launcher: square tiles, long-press to rearrange, steering-wheel star hold to open or close. */
+/** Grid launcher: square tiles, long-press to rearrange, steering-wheel star hold to open or close. */
 public final class MainActivity extends Activity implements TileGrid.Listener, TileView.EditListener, Sheet.Listener {
     static final String EXTRA_FROM_KNOB = "from_knob";
     private static final String TAG = "Tilepad";

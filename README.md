@@ -1,7 +1,8 @@
 # Tilepad
 
-A minimal grid launcher for Hyundai's gen5W head unit (Android 4.4), installed through
-[NEMESIS](https://github.com/xwtk/hmg_nemesis). Its battery preconditioning is based on
+A kitchen-sink launcher for Hyundai's gen5W head unit (Android 4.4), installed through
+[NEMESIS](https://github.com/xwtk/hmg_nemesis): a grid of app shortcuts and status tiles, with Wi-Fi
+and ADB controls, manual battery preconditioning and a bundled set of system tweaks. Its battery preconditioning is based on
 [Launchpad](https://github.com/paytondevs/gen5w-preconditioning)'s backend.
 It's developed and tested on an IONIQ 5 (NEEV23 US).
 
