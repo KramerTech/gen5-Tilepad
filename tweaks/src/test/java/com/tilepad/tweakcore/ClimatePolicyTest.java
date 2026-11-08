@@ -117,6 +117,16 @@ public class ClimatePolicyTest {
         assertFalse(a.paused());
         assertEquals(DRIVER_UP, feed(a, unsynced(23.0f, 23.5f), 9000));  // locked together again
     }
+    @Test public void theCarDroppingSyncAfterLeavingDriverOnlyIsNotSyncTurnedOff() {
+        // On the car, 2026-11-08: Driver Only off at car start shows Sync, then drops it 50 ms later.
+        AlwaysSync a = new AlwaysSync();
+        feed(a, driverOnly(23.5f, 23.5f), 0);
+        a.sent(SYNC, 50);
+        assertEquals(NONE, feed(a, sync(23.5f, 23.5f), 170));
+        assertEquals(SYNC, feed(a, unsynced(23.5f, 23.5f), 218));
+        assertEquals(SYNC, feed(a, unsynced(23.5f, 23.5f), 218 + AlwaysSync.PAUSE_CONFIRM_MS));
+        assertFalse(a.paused());
+    }
     @Test public void aPassengerPressIsNotTakenForSyncTurnedOff() {
         AlwaysSync a = new AlwaysSync();
         feed(a, sync(22.0f, 22.0f), 0);

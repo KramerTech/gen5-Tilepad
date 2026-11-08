@@ -197,9 +197,13 @@ final class ClimateController {
         Platform.status("sync", message);
     }
     private void update(ClimatePolicy.Climate c) {
-        if (climate == null || !climate.toString().equals(c.toString())) { unchanged = 0; syncProblem = null; }
+        boolean changed = climate == null || !climate.toString().equals(c.toString());
+        if (changed) { unchanged = 0; syncProblem = null; }
         climate = c;
         if (sync) { always.observe(c, SystemClock.uptimeMillis()); reportPause(); showSync(); }
+        // A repeat of the state our request was sent on isn't its reply. Wait for the change or the
+        // timeout: sending Driver Only off again while the car is leaving it makes it drop Sync.
+        if (awaiting && !changed) return;
         schedule(awaiting ? REPLY_SETTLE_MS : SETTLE_MS);
         awaiting = false;
     }

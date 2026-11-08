@@ -36,7 +36,8 @@ public final class ClimatePolicy {
      * A driver change that isn't one of those steps is the driver's own choice: the
      * catch-up stops and sync is turned on, so the passenger side takes the driver's new setting.
      * Sync turned off by hand (it drops with both sides already matched and no passenger change)
-     * pauses all of this until sync is on again. Driver Only is left alone.
+     * pauses all of this until sync is on again, unless it drops within OWN_CHANGE_MS of a request of
+     * ours. Driver Only is left alone.
      */
     public static final class AlwaysSync {
         public static final long SYNC_QUIET_MS = 700;
@@ -48,7 +49,9 @@ public final class ClimatePolicy {
          * Sync drop before its new temperature.
          */
         public static final long PAUSE_CONFIRM_MS = 500;
-        private long sentAt, pauseCandidateAt = -1;
+        /** The car's own settling after our request: leaving Driver Only can show Sync and drop it again. */
+        public static final long OWN_CHANGE_MS = 1000;
+        private long sentAt = Long.MIN_VALUE / 2, pauseCandidateAt = -1;
         private Float settledPassenger, lastDriver, lastPassenger;
         private long passengerChangedAt = Long.MIN_VALUE / 2;
         // Our driver steps not yet seen, per direction: after a reversal both can be in flight.
@@ -67,7 +70,7 @@ public final class ClimatePolicy {
             if (c.sync) paused = false;
             if (!c.unsynced()) pauseCandidateAt = -1;
             else if (lastOn && lastSync && c.matched() && passengerSteady && !following
-                && pendingUp + pendingDown == 0) pauseCandidateAt = now;
+                && pendingUp + pendingDown == 0 && now - sentAt >= OWN_CHANGE_MS) pauseCandidateAt = now;
             // The passenger set point moved after all: that drop was a passenger press.
             if (pauseCandidateAt >= 0 && passengerMoved) pauseCandidateAt = -1;
             lastOn = true; lastSync = c.sync;
