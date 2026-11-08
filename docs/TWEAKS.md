@@ -15,7 +15,7 @@ The count is read when the launcher resumes through the lightweight root
 the launcher is closed, or claim that unknown settings are off. Counts refer to
 enabled selections, including any file changes waiting for a restart.
 
-All ten tweaks start **off**. Under each checkbox a sentence or two describes the current state;
+All eleven tweaks start **off**. Under each checkbox a sentence or two describes the current state;
 file tweaks say when a change still waits for a head-unit restart (the runtime records
 which file tweaks were configured when the boot began, `applied.<id>`, and `settings`
 reports `pending.<id>`). The app follows the stock EV Settings layout: a
@@ -68,6 +68,36 @@ The older heater-only `options` command remains supported for compatibility.
 | Automatic Driver Only | Driver Only every time the car is turned on; Sync once the passenger belt is buckled (one way, until the next car start) | None | No |
 | Auto-Open Phone Projection | Opens AA/CarPlay once when a session becomes available, independently of the right pop-over | None | No |
 | Charge-Away | Scheduled Charging off beyond 1.5 miles of Home, on within 1 mile; retains state between boundaries and preserves the off-peak-only choice | Set Home from the current GPS location, update it, or clear it; coordinates shown | No |
+| Disable OTA Client | Disables the head unit's OTA client, stopping its checks, downloads and prompts; turning off or uninstalling Tilepad reenables it, while updates preserve the setting | None | No |
+
+**Disable OTA Client** uses Android's persistent package switch for
+`com.hkmc.system.app.OTAClient`, with an exact-package read-back after each
+change. No system file is modified and no watchdog is added. A recovery record
+is saved before disabling; the existing transaction journal covers interruption
+and rollback. Restore, including the USB recovery runtime, reenables the client
+before retiring that record. If reenablement fails, uninstall stops and retains
+the recovery files. Enabling the tweak takes ownership even if the client was
+already disabled, so turning it off or uninstalling explicitly reenables it.
+An untouched, off-by-default tweak leaves package state alone. NEMESIS updates
+skip restore and keep the setting and record outside the replaceable package.
+
+This uses standard Android package management and checks that the exact package
+is installed; it does not depend on an OEM file hash or vehicle-service API.
+Diagnostic status also checks that a selected OTA block is still in effect.
+It does not block an update already staged for a separate agent, modem updates,
+or vehicle updates handled elsewhere. Local update/recovery components remain
+installed.
+
+Compatibility: across Hyundai USA V015.012.260507,
+Hyundai USA V016.010.260903 and Kia USA V015.012.260507, the archived `pm`
+methods `runSetEnabledSetting`, `runListPackages` and `runPath`, plus
+PackageManagerService's `setApplicationEnabledSetting` and `setEnabledSetting`,
+normalize identically: five methods checked, zero differences across the three
+images. The captured V015 client has the exact package identity above. The
+V016/Kia compatibility logs do not contain the OTA APK, so its presence is
+checked on the head unit rather than inferred from those logs. Future firmware
+with that same package can use the tweak without an allowlist change; a missing
+package or failed read-back is refused.
 
 The broad pop-over switch hides other notices using that same OSD panel as well.
 The stock **Display → Media change notifications** preference is insufficient for
@@ -374,7 +404,8 @@ silently adopted or overwritten.
 The two right-panel switches build their combined result from **one** verified
 stock backup. Disabling either preserves the other. Turning off all file tweaks
 restores exact original bytes. Updates preserve configuration and backups;
-uninstall restores owned tweaks and DST before removing either APK. A failed
+uninstall restores owned tweaks and DST and reenables the OTA client if managed
+by Disable OTA Client before removing either APK. A failed
 restore retains the recovery runtime. Backups are retained even after successful
 restoration, so a later conflict does not destroy the recovery record. These
 checks address interrupted processes, not a power-loss transaction across all files.

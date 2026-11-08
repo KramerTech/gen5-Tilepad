@@ -111,7 +111,13 @@ final class TweakInfo {
             + "While this is on, turning Scheduled Charging on or off by hand is corrected at the next check. To manage it yourself, turn this tweak off; Scheduled Charging is then left as it is. If the car doesn't confirm a change after three tries, Tilepad stops asking until something changes.\n\n"
             + "Works only with the exact EV Settings app of a supported firmware.").states(
             "Scheduled Charging turns off more than 1.5 miles from Home and back on within 1 mile.",
-            "Scheduled Charging is left as it is.", null, null)
+            "Scheduled Charging is left as it is.", null, null),
+        new TweakInfo("ota", "Disable OTA Client", "Stops the head unit's OTA client from checking for or downloading updates.", false, false,
+            "Disables the head unit's OTA update client. While disabled, it cannot check for new updates, download them or show its update prompts. Takes effect immediately; no restart is needed.\n\n"
+            + "Turning this tweak off or uninstalling Tilepad reenables the client, even if it was already disabled when you turned this on. Updating Tilepad keeps it disabled.\n\n"
+            + "An update already downloaded or staged may still be installed by the separate update agent. This does not disable modem updates or vehicle updates handled outside the head unit. USB update and recovery components are left in place.").states(
+            "The head unit's OTA client is disabled, including its update checks, downloads and prompts.",
+            "The head unit's OTA client can check for and download updates as usual.", null, null)
     };
     /** The left pane: every tweak except companions, which show inside their partner's entry. */
     static final TweakInfo[] RAIL = rail();

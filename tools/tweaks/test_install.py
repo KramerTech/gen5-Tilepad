@@ -132,8 +132,12 @@ mv() {
 
     def test_update_does_not_restore_tweaks_or_remove_either_apk(self):
         self.write("stage/NEMESIS.data", b"update")
+        self.write("state/config.properties", b"ota=true\n")
+        self.write("state/ota-client.disabled", b"com.hkmc.system.app.OTAClient")
         self.assertEqual(0, self.run_hook("preuninstall.sh").returncode)
         self.assertFalse((self.base / "restored").exists())
+        self.assertEqual(b"ota=true\n", (self.base / "state/config.properties").read_bytes())
+        self.assertTrue((self.base / "state/ota-client.disabled").exists())
         self.assertTrue((self.base / "system/app/Tilepad.apk").exists())
         self.assertTrue((self.base / "system/app/TilepadTweaks.apk").exists())
 
@@ -193,9 +197,11 @@ mv() {
         self.assertNotIn("wifi", self.props())
 
     def test_failed_restore_preserves_recovery_runtime(self):
-        self.write("state/config.properties", b"consent=true\n")
+        self.write("state/config.properties", b"consent=true\nota=true\n")
+        self.write("state/ota-client.disabled", b"com.hkmc.system.app.OTAClient")
         self.assertNotEqual(0, self.run_hook("preuninstall.sh", RESTORE_FAIL="1").returncode)
         self.assertTrue((self.base / "state/config.properties").exists())
+        self.assertTrue((self.base / "state/ota-client.disabled").exists())
         self.assertTrue((self.base / "system/app/Tilepad.apk").exists())
         self.assertTrue((self.base / "system/app/TilepadTweaks.apk").exists())
 

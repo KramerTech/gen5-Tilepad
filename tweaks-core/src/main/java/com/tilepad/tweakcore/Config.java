@@ -4,7 +4,7 @@ import java.util.Properties;
 
 /** Closed schema: configuration is data, never shell code. Temperature is stored in tenths C. */
 public final class Config {
-    public static final String[] IDS = {"dst", "consent", "heaters", "tracks", "nav", "popover", "sync", "driveronly", "projection", "chargeaway"};
+    public static final String[] IDS = {"dst", "consent", "heaters", "tracks", "nav", "popover", "sync", "driveronly", "projection", "chargeaway", "ota"};
     public final Properties values;
     public Config(Properties values) { this.values = values; }
     public boolean enabled(String id) { return "true".equals(values.getProperty(id, "false")); }

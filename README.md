@@ -22,7 +22,8 @@ A short ★ press still runs whatever Hyundai's Button settings assign to it.
   Automatic Driver Only (Driver Only at start, Sync once the passenger buckles up).
   Auto-Open Phone Projection opens AA/CarPlay when available; Charge-Away switches
   Scheduled Charging off away from Home and back on at Home, preserving off-peak settings.
-  A permanent Tweaks tile sits beside Precondition. All ten tweaks start off.
+  Disable OTA Client stops the head unit's OTA checks and downloads.
+  A permanent Tweaks tile sits beside Precondition. All eleven tweaks start off.
 - **ADB toggle**: turn ADB over Wi-Fi on and off. While it's on, any computer on the network can connect without approving a key. Turning it on also turns on Wi-Fi (so wireless CarPlay/Android Auto are off).
 - **Nemesis Manager** shortcut.
 - **Reboot Head Unit**, with confirmation.

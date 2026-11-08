@@ -76,12 +76,18 @@ public final class TweaksCommand {
     private static Transaction transaction() {
         return new Transaction(Platform.STATE, new Transaction.Apply() {
             @Override public void run(Config next, Config previous, boolean rollback) throws Exception {
+                otaClient().apply(next, previous);
                 Platform.patches().apply(next, previous, Platform.boot());
                 if (next.changedFrom(previous, "dst")) {
                     if (!next.enabled("dst")) DstController.restore();
                     else if (rollback) DstController.update(next, System.currentTimeMillis());
                 }
             }
+        });
+    }
+    private static OtaClient otaClient() {
+        return new OtaClient(Platform.STATE, new OtaClient.Commands() {
+            @Override public String run(String... args) throws Exception { return Platform.exec(args); }
         });
     }
     private static void printStatus(Config c, boolean verify) throws Exception {
@@ -104,6 +110,7 @@ public final class TweaksCommand {
                     if (id.equals("dst")) DstRules.baseOffsetMinutes(Platform.property("persist.sys.timezone"));
                     if (id.equals("projection")) ProjectionController.requireSupported();
                     else if (id.equals("chargeaway")) ScheduledCharging.requireSupported();
+                    else if (id.equals("ota")) otaClient().check(c);
                     else if (!id.equals("dst") && !id.equals("heaters") && !id.equals("sync") && !id.equals("driveronly")) Platform.patches().check(id, c);
                 }
             } catch (Exception e) { reason = e.getMessage(); }

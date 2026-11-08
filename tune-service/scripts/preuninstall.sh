@@ -14,7 +14,7 @@ if [ -f "$STAGE/NEMESIS.data" ]; then
     exit 0
 fi
 
-# Restore owned system patches and DST before deleting the only recovery runtime.
+# Restore owned system patches, DST and the OTA client before deleting the only recovery runtime.
 # Failure deliberately retains the package and all verified backups.
 if [ -d "$TWEAKS_STATE" ]; then
     sh "$HERE/bin/tweaks.sh" restore || {

@@ -27,7 +27,7 @@ public final class Transaction {
         requireNoPending();
         Config old = load();
         if (next.sameSettings(old)) return;
-        if (!next.staticChanged(old) && !next.changedFrom(old, "dst")) {
+        if (!next.staticChanged(old) && !next.changedFrom(old, "dst") && !next.changedFrom(old, "ota")) {
             // Runtime options and heater enablement have no immediate system mutation.
             Files.store(new File(state, "config.properties"), next.values);
             return;
