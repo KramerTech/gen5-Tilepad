@@ -88,7 +88,7 @@ Every script is in `tools/compat/` and runs from the repo root. None of it ships
    - `FirmwareTest`: add an assertion that a mixed pair is refused.
    - `docs/TWEAKS.md`: a row in the supported-images table and a short evidence paragraph next to the
      V016 and Kia ones.
-   - The supported list in the README.
+   - The firmware list under "Supported cars" in the README.
 
 10. **Test:** `sh tools/tweaks/test-host.sh` (expect `OK (N tests)`), then
     `python3 tools/tweaks/verify_capture.py <IONIQ 5 capture>`, which must still reproduce V015's recipes.
