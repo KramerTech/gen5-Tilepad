@@ -6,7 +6,6 @@
 # It is also Tilepad's one boot hook. LongStarDaemon hosts event-driven tweak listeners
 # in its own process; the ADB Wi-Fi helper below is a bounded startup operation.
 . /data/nemesis/apps/tilepad/scripts/common.sh
-DEVICE_NAME=daudio_wp_daudioplus_neev23_us
 KEY_CODE=43
 HOLD_MS=800
 TARGET_COMPONENT=com.tilepad/.MainActivity
@@ -22,6 +21,9 @@ fi
 
 # The target is a normal framework app, so wait until Android is up before listening.
 while [ "$(getprop sys.boot_completed)" != 1 ]; do sleep 2; done
+# The key device is named after the unit's model, which it sets during boot (build.prop only has
+# the image's, e.g. ecohmc): daudio_wp_daudioplus_neev23_us (IONIQ 5), daudio_wp_daudioplus_cvev_us (EV6).
+[ -n "$DEVICE_NAME" ] || DEVICE_NAME=daudio_$(getprop ro.product.device)
 
 export CLASSPATH="$DEX"
 

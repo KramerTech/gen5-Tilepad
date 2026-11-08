@@ -18,18 +18,21 @@ public final class Platform {
     private Platform() { }
     public static void requireVehicle() throws Exception {
         if (checked) return;
-        // One firmware image serves every model of a release; the car's name is set at boot. Identical
-        // vehicle framework files mean identical vehicle interfaces, whichever car the unit is in.
+        // One firmware image serves several models; the car's name is set at boot. Identical vehicle
+        // framework files mean identical vehicle interfaces, whichever car the unit is in.
         if (Build.VERSION.SDK_INT != 19 || !Firmware.vehicle(Files.hash(new File("/system/framework/automotive.odex")),
                 Files.hash(new File("/system/framework/automotive-service.odex"))))
             throw new IOException("This firmware's vehicle interface isn't supported yet. Capture and submit a log to help add compatibility.");
         checked = true;
     }
-    /** Climate Sync and Driver Only assume dual-zone climate, verified so far only on the IONIQ 5. */
+    /**
+     * Climate Sync and Driver Only assume dual-zone climate: verified on the IONIQ 5, and the EV6 reports
+     * the same DATC variant and options (persist.sys.climate.*).
+     */
     public static void requireDualZone() throws Exception {
         requireVehicle();
-        if (!Build.DEVICE.startsWith("wp_daudioplus_neev"))
-            throw new IOException("Verified only on the IONIQ 5's dual-zone climate so far. Capture and submit a log to help add compatibility.");
+        if (!Build.DEVICE.startsWith("wp_daudioplus_neev") && !Build.DEVICE.startsWith("wp_daudioplus_cvev"))
+            throw new IOException("Verified only on the IONIQ 5 and EV6's dual-zone climate so far. Capture and submit a log to help add compatibility.");
     }
     public static String property(String name) throws Exception {
         return (String) Class.forName("android.os.SystemProperties").getMethod("get", String.class).invoke(null, name);

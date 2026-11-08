@@ -96,6 +96,7 @@ def check_md5(data, expected):
 RELEASES = {
     "v015": {"RightScreenHome": "a46717495f957dab68b96cf6c9a01d4a", "SystemUI": "2363d6315a05b51064821b8beab7b5fd"},
     "v016": {"RightScreenHome": "4789932842938078386a21aecc77c984", "SystemUI": "3fba390d4485277ab882bff1d006fc55"},
+    "kia-v015": {"RightScreenHome": "8c06f56597970d09ab369cfd8cc8c28d", "SystemUI": "8abb72b9715bc8e4746ac9ee3b03ab39"},
 }
 
 

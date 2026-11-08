@@ -151,8 +151,9 @@ them, and uninstall restores owned tweaks before removing the APKs, then deletes
 saved tweak settings (including the Charge-Away Home location). Turning on the Wi-Fi
 client remains a separate confirmed action (see above).
 
-Tweaks support is keyed to firmware files rather than the car model, so it covers any car on the
-supported firmware release (USA `V015.012.260507` and `V016.010.260903`); heaters a trim lacks are skipped.
+Tweaks support is keyed to firmware files rather than the car model, so it covers any car on a
+supported firmware image (USA: Hyundai `V015.012.260507` and `V016.010.260903`, Kia `V015.012.260507`);
+heaters a trim lacks are skipped.
 On other firmware, an unavailable tweak offers a compatibility log to attach to an issue. Feature behavior,
 compatibility, overhead, ownership and recovery are in [docs/TWEAKS.md](docs/TWEAKS.md).
 The [mission/checkpoint](docs/TWEAKS-MISSION.md) records completed host validation and

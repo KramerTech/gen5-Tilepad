@@ -195,18 +195,21 @@ The ★ hold: at ~800 ms the MICOM marks the press long (`flags=0x80`) and
 
 ## Compatibility and ownership
 
-Support is keyed to firmware files, not the car's name. One `/system` image serves every model of a
-release (the unit sets `ro.product.device`, e.g. `wp_daudioplus_neev23_us`, at boot), so a car on a
-supported release has byte-identical files whatever model it is. Supported releases (USA):
+Support is keyed to firmware files, not the car's name. One `/system` image serves several models
+(the unit sets `ro.product.device`, e.g. `wp_daudioplus_neev23_us`, at boot), so cars on the same
+image have byte-identical files whatever model they are. Hyundai and Kia build separate images of a
+release (`build.prop` names them `ECOHMC` and `ECOKMC`), so each is listed on its own. Supported
+images (USA):
 
-| Release | First seen | How it was checked |
+| Image | First seen | How it was checked |
 |---|---|---|
-| V015.012.260507 | the IONIQ 5 capture | captured `/system`, all patches verified on the car |
-| V016.010.260903 | a compatibility log | every interface Tilepad calls compared with V015's (below) |
+| Hyundai V015.012.260507 | the IONIQ 5 capture | captured `/system`, all patches verified on the car |
+| Hyundai V016.010.260903 | a compatibility log | every interface Tilepad calls compared with V015's (below) |
+| Kia V015.012.260507 | an EV6 compatibility log | every deodexed file compared with Hyundai V015's (below) |
 
 `Firmware.java` lists each release's `automotive.odex`/`automotive-service.odex` (vehicle tweaks),
 `framework.odex`/`framework2.odex` (projection) and `HKMC_TAppEV3.apk` (Charge-Away) hashes; a pair
-must come from one release. Interface descriptors and reply shapes are still checked before
+must come from one image. Interface descriptors and reply shapes are still checked before
 accepting a result. No OEM framework is bundled.
 
 Adding a release from its log: deodex both releases and compare the binder stubs and proxies of
@@ -219,14 +222,28 @@ HEVService only changed `setTargetSOC` (0x29, unused); EV Settings differed only
 `tools/tweaks/firmware_patches.py <log>/system <release> --compat-log <log>/tilepad-compat.txt` for
 the file patches, and check the patched methods match the previous release's with members masked.
 
+Deodex with `-a 18`, not 19: baksmali 2.5.2's API 19 field layout doesn't match this Dalvik, so
+thousands of quickened field accesses fail to resolve (it prints `AnalysisException` and replaces
+them with `throw`). With 18 every file deodexes cleanly.
+
+For Kia V015 (the EV6 log): the two images are one source tree built four minutes apart.
+`automotive`, `automotive-service`, `framework`, `framework2`, `services`, `com.infobank`,
+`com.hkmc.ext.hcan`, SystemUI, RightScreenHome and EV Settings are identical once line numbers
+and resource IDs are masked; Kia's framework only adds four SOS/ACN resources, which shifts the IDs.
+The generated `consent-kia-v015`/`right-kia-v015` recipes have exactly V015's offsets and bytes, and
+every patched method's code, header included, is byte-identical to V015's at the same offset. Its
+DATC reports the IONIQ 5's climate variant and options (0x02; 0x29, 0x04, 0x2f, 0x03, 0x01), and its
+key layout is the same file, with the track keys at 34/35 and ★ at 43.
+
 Features a trim or model can lack are checked on the car itself:
 
 - Automatic Heaters reads the car's equipment signals before each heater (IUSMService
   `FrontSeatHeat_DrvOption` 0x245, `FrontSeatHeat_AstOption` 0x246,
   `SWRC_SteeringwheelHeatingOpt` 0x241); a heater that reads 0 is skipped and the Tweaks screen
   says so. An unreadable signal also skips that heater.
-- Maintain Climate Sync and Driver Only assume dual-zone climate, verified only on the IONIQ 5,
-  so they also require an `wp_daudioplus_neev*` device until a log shows another model's climate.
+- Maintain Climate Sync and Driver Only assume dual-zone climate, verified on the IONIQ 5, so they
+  also require a `wp_daudioplus_neev*` or `wp_daudioplus_cvev*` device (the EV6 reports the same
+  climate variant and options) until a log shows another model's climate. Not yet tried on an EV6.
 
 On other firmware, an unavailable tweak shows **Capture Compatibility Log to USB**. The root
 `report` command streams `tilepad-compat-<ro.build.product>.zip` (about 17 MB) to the first USB
