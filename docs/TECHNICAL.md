@@ -113,7 +113,9 @@ gh secret set TILEPAD_STORE_PASSWORD < keystore/password
 ## Adding firmware support
 
 A submitted compatibility log is checked against a supported image with the scripts in
-`tools/compat/` (triage, deodex, compare, transaction tables, patch check). The steps are in the
+`tools/compat/` (triage, deodex, compare, transaction tables, patch check). Every log received is
+kept outside the repo, and `tools/compat/corpus.py` deodexes each distinct firmware image once, so a
+new feature's OEM calls can be checked against all of them at once. The steps are in the
 `tilepad-compat` skill (`.claude/skills/tilepad-compat/SKILL.md`), and the evidence for each
 supported image is recorded in [TWEAKS.md](TWEAKS.md#compatibility-and-ownership). None of this
 ships in a release, and no firmware files are committed.
