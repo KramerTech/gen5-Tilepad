@@ -212,7 +212,9 @@ images (USA):
 must come from one image. Interface descriptors and reply shapes are still checked before
 accepting a result. No OEM framework is bundled.
 
-Adding a release from its log: deodex both releases and compare the binder stubs and proxies of
+Adding a release from its log: the `tilepad-compat` skill (`.claude/skills/`) runs these steps with
+the scripts in `tools/compat/` (triage, deodex, compare, transaction tables, patch check). Deodex both
+releases and compare the binder stubs and proxies of
 every interface Tilepad calls (IUSMService, IVRService, IDATCService/IDATCListener/DatcStatus,
 IBCMService, ITM_HSCANService, ITimePolicyService, IHEVService/IHEVListener, IGpmInterfaces/
 IGpmListener, IDiPOManager, `com.hkmc.Feature`), the service implementations behind them, and the EV
