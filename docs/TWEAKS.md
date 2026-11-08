@@ -235,7 +235,8 @@ this firmware, so projection does not depend on its dynamically registered recei
 the stock pop-over's `GPM_CUSTOM_SHORTCUT` / `DIPO_CUSTOM_SHORTCUT` actions; the
 PhoneProjection APK's launcher is connection settings, not the projected screen.
 Opening is once per availability transition, including an already available
-session when enabled. Duplicate notifications, leaving projection manually, and
+session when enabled. Turning the car on (BCM ignition off to on) counts as a new
+transition, since a soft off often keeps a wireless session connected. Duplicate notifications, leaving projection manually, and
 restarting longstar do not repeatedly steal focus. Seen state is persisted per
 kernel boot. Camera screens defer opening; already foreground projection is left
 alone. Native service availability is rechecked without inventing disconnects.

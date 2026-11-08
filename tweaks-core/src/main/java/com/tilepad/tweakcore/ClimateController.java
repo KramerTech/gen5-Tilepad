@@ -19,8 +19,6 @@ final class ClimateController {
     private static final int ON_TEMPERATURE = 1, ON_DATC_STATUS = 3;
     private static final String HSCAN = "tm_hscan_service", HSCAN_IFACE = "com.hkmc.telematics.hscan.tm_interface.ITM_HSCANService";
     private static final int HSCAN_PASSENGER_BELT = 0xcd;
-    private static final String BCM = "com.hkmc.micom.bcm", BCM_IFACE = "com.hkmc.bcm.IBCMService";
-    private static final int BCM_IGN_STATUS = 0x11;  // nonzero = on; ACC reads off
     // The DATC reports a passenger press as a temperature and a status ~10 ms apart; act once
     // both are in, and on our own request's reply straight away. Further presses are just
     // followed by the next steps. With no reply within a second the state is re-read from the
@@ -129,7 +127,7 @@ final class ClimateController {
     private void pollCar() {
         if (!auto) return;
         try {
-            boolean on = ignitionOn();
+            boolean on = Platform.ignitionOn();
             if (!on && !Boolean.FALSE.equals(ignition)) {
                 // The drive is over: the next car start is a new one, even across a restart of this service.
                 stage = ClimatePolicy.STAGE_NEW; belted = false; saveStage();
@@ -149,8 +147,6 @@ final class ClimateController {
         }
         handler.postDelayed(poll, POLL_MS);
     }
-    /** Ignition from the BCM (ACC reads off). Also used by Automatic Heaters' passenger seat. */
-    static boolean ignitionOn() throws Exception { return Platform.integer(BCM, BCM_IFACE, BCM_IGN_STATUS) != 0; }
     /** The front passenger's seat belt switch; occupancy reads 0 on this car, so this is the presence signal. */
     static boolean passengerBuckled() throws Exception { return Platform.integer(HSCAN, HSCAN_IFACE, HSCAN_PASSENGER_BELT) == 1; }
     private void saveStage() {

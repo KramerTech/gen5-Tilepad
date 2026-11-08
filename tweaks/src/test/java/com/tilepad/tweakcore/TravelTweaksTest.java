@@ -100,4 +100,9 @@ public class TravelTweaksTest {
         assertEquals(0,restarted.observe(255));assertEquals(0,restarted.observe(3));
         restarted.observe(0);assertEquals(2,restarted.observe(2));
     }
+    @Test public void projectionReopensASessionThatSurvivedTheCarBeingOff() {
+        ProjectionPolicy p=new ProjectionPolicy(0);assertEquals(2,p.observe(2));assertEquals(0,p.observe(2));
+        p.newDrive();assertEquals(2,p.observe(2));assertEquals(0,p.observe(2));
+        p.newDrive();assertEquals(0,p.observe(0));assertEquals(1,p.observe(1));
+    }
 }

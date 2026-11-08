@@ -50,12 +50,13 @@ public class Platform {
  public static final File STATE=new File(System.getProperty("fixture.state"));
  public static int writes,reads,gpsReads,prefReads,launches,aa,cp;public static boolean ack=true,failWrite,failBroadcast,failProjection,failAaRead,extra;
  public static IBinder listener;public static int registers,removes,freshRequests;public static boolean missingFeedback;public static Runnable feedbackHook;public static int hookAfter;
- public static IBinder gpmListener;public static int gpmAdds,gpmRemoves;public static boolean gpmRegistrationFails;public static int projectionReads;
+ public static boolean ignition=true;public static IBinder gpmListener;public static int gpmAdds,gpmRemoves;public static boolean gpmRegistrationFails;public static int projectionReads;
  public static void gpmEvent(int code,int value)throws Exception{if(gpmListener==null)throw new AssertionError("no native listener");Parcel d=Parcel.obtain(),r=Parcel.obtain();d.token="com.hkmc.gpm.IGpmListener";d.number=value;gpmListener.transact(code,d,r,0);if(!r.ok)throw new AssertionError("callback not acknowledged");}
  private static final IBinder GPM=(code,data,reply,flags)->{if(!"com.hkmc.gpm.IGpmInterfaces".equals(data.token)||flags!=0)throw new AssertionError();if(gpmRegistrationFails)throw new IOException("listener unavailable");if(code==9){gpmListener=data.binder;gpmAdds++;gpmEvent(1,aa);}else if(code==10){if(gpmListener==data.binder)gpmListener=null;gpmRemoves++;}else throw new AssertionError("unknown native registration");reply.ok=true;return true;};
  public static int[] schedule={11,0,4,3,0,0,0,0,0,0,0,0};
  public static double lat,lon,accuracy=3;public static long age;public static String preference="<map><int name=\\"economic_only_economic_mode\\" value=\\"1\\"/></map>";
  public static final List<int[]> requests=new ArrayList<>();public static final List<String> messages=new ArrayList<>();
+ public static boolean ignitionOn(){return ignition;}
  public static void requireVehicle(){}public static String boot(){return "fixture-boot";}
  public static void status(String id,String s){messages.add(id+": "+s);}
  public static int integer(String name,String descriptor,int code)throws Exception{
@@ -170,6 +171,11 @@ public class TravelRuntimeTest {
   for(int i=0;i<12;i++)h.advance(2000);
   check(Platform.launches==opens+6,"periodic status fallback preserves bounded dispatch attempts");Platform.failAaRead=true;h.advance(2000);Platform.failAaRead=false;h.advance(2000);check(Platform.launches==opens+6,"partial unknown read does not reset request budget");passed++;Platform.failBroadcast=false;h.advance(2000);check(Platform.launches==opens+6,"exhausted requests stay paused");
   Platform.aa=0;h.advance(2000);Platform.aa=6;h.advance(2000);check(Platform.launches==opens+7,"new availability edge resets dispatch budget");bounded.configure(false);passed++;
+  Platform.aa=6;Platform.cp=0;ActivityManager.top="com.tilepad";ProjectionController drive=new ProjectionController(context,h);drive.configure(true);h.advance(250);opens=Platform.launches;
+  h.advance(2000);check(Platform.launches==opens,"an unchanged session isn't reopened while the car stays on");
+  Platform.ignition=false;h.advance(2000);h.advance(2000);check(Platform.launches==opens,"turning the car off opens nothing");
+  Platform.ignition=true;h.advance(2000);check(Platform.launches==opens+1,"a session that survived a soft off reopens when the car is turned on");
+  h.advance(2000);h.advance(2000);check(Platform.launches==opens+1,"and only once per drive");drive.configure(false);passed++;
   System.out.println(passed+" travel controller/Parcel scenarios passed (mapped fixtures; no real vehicle writes)");
  }
 }''')

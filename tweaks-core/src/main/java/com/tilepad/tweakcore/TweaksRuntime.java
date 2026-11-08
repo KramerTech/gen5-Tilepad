@@ -224,7 +224,7 @@ public final class TweaksRuntime {
                     Config c = TweaksCommand.load();
                     String stop = null;
                     if (!c.enabled("heaters") || !c.checked("passenger")) stop = "Passenger seat: not heated (turned off in Tweaks).";
-                    else if (ClimateController.ignitionOn()) {
+                    else if (Platform.ignitionOn()) {
                         passengerIgnitionSeen = true;
                         if (ClimateController.passengerBuckled()) {
                             StringBuilder outcome = new StringBuilder(heaterOutcome);

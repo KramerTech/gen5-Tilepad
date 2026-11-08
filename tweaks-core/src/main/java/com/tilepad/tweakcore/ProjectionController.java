@@ -15,6 +15,7 @@ final class ProjectionController {
     private final File state = new File(Platform.STATE, "projection.properties");
     private ProjectionPolicy policy = new ProjectionPolicy(0);
     private boolean enabled, watching;
+    private Boolean ignition;
     private int failures, launchAttempts, observedMask = -1;
     private String lastStatus, lastObservation, listenerProblem;
     private final Runnable check = new Runnable() { @Override public void run() { reconcile(); } };
@@ -37,7 +38,7 @@ final class ProjectionController {
     void configure(boolean next) {
         if (next == enabled) return;
         enabled = next; handler.removeCallbacks(check); handler.removeCallbacks(watch); watching = false;
-        failures = 0; launchAttempts = 0; observedMask = -1; lastObservation = null;
+        failures = 0; launchAttempts = 0; observedMask = -1; lastObservation = null; ignition = null;
         if (!next) {
             nativeEvents.stop();
             policy = new ProjectionPolicy(0);
@@ -76,6 +77,15 @@ final class ProjectionController {
             if (!observation.equals(lastObservation)) { System.out.println("projection status " + observation); lastObservation = observation; }
             if (!known) throw new IOException("Waiting for the Android Auto or CarPlay service.");
             if (mask != observedMask) { observedMask = mask; launchAttempts = 0; }
+            // A soft off often keeps the wireless session up, so turning the car on is a new edge.
+            try {
+                boolean on = Platform.ignitionOn();
+                if (on && Boolean.FALSE.equals(ignition)) {
+                    System.out.println("projection car on; reopening an available session");
+                    policy.newDrive(); launchAttempts = 0;
+                }
+                ignition = on;
+            } catch (Exception ignored) { }
             int before = policy.seen(), target = policy.observe(mask);
             try {
                 if (target != 0 && launchAttempts >= 6) {

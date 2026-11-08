@@ -11,6 +11,8 @@ public final class ProjectionPolicy {
         return value.contains("rearcamera") || value.contains(".camera") || value.contains(".avm") || value.contains("surroundview");
     }
     public int seen() { return seen; }
+    /** A new drive: a session that survived the car being off opens again. */
+    public void newDrive() { seen = 0; }
     public int observe(Integer available) {
         if (available == null || available < 0 || available > 3) return 0;
         int newlyAvailable = available & ~seen; seen = available;
