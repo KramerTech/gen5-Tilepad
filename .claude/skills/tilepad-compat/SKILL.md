@@ -62,19 +62,27 @@ are OEM code: never commit them.
      stopping and telling the user what changed.
 
 4. **Compare transaction codes:** `python3 -I tools/compat/corpus.py stubs` lists every code that
-   differs between any two images. Today only HSCAN's V016-only 0xe3–0xe8 differ. A change to a code
-   Tilepad uses blocks support; new codes are fine.
+   differs between any two images. New codes are fine. A code Tilepad uses that now names a different
+   method blocks support, unless the same method just has a new number. Then record each release's
+   number in `Firmware.java`, as V012's IUSMService heater codes are (`Firmware.Usm`). V012 renumbered
+   all of IUSMService, so check by name: for each code Tilepad calls, the method name on every
+   image, and the service implementation's method body (`corpus.py method`).
 
 5. **Make the patch recipes.** For a log, `<new system>` is `<cache>/<new image>/system`.
    - Add a `RELEASES` entry in `tools/tweaks/firmware_patches.py`, named `<release>` for Hyundai or
      `kia-<release>` for Kia, with the MD5 of the new `RightScreenHome.odex` and `SystemUI.odex`.
    - Then run `python3 -I tools/tweaks/firmware_patches.py <new system> <name> --compat-log <its tilepad-compat.txt>`.
      An assertion failure means an anchor or an obfuscated class or method name moved: find it with
-     step 3's `--show` and give the generator a per-release name, not a looser match.
+     step 3's `--show` and give the generator a per-release entry in `NAMES` (names, nav branch
+     offsets and bytes, the consent call and its `this` register), not a looser match. V012 is the
+     example. Find each method by its unobfuscated neighbours (`canShowSSOsd`, `handleShow`), confirm
+     it's the same code with names masked, then read the patched instructions' bytes from the odex.
    - Then `sh tools/compat/patch_check.sh <ref system> <ref suffix> <new system> <name> <work>/patch`.
      It applies every combination with Tilepad's own code and should print `code-diff=0` for both
      apps. `methods.py` `DIFF` lines are expected when offsets moved; then compare the two
-     disassemblies by eye.
+     disassemblies by eye. For a release in `NAMES` it compares with names masked and skips
+     methods.py: compare each patched method with V015's (names, registers and field offsets masked)
+     and check every difference was already there before patching.
 
 6. **Model-specific gates.**
    - Climate Sync and Driver Only need dual-zone climate: compare the DATC dump's `Variant`/`Option1-5`

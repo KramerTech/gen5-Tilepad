@@ -314,6 +314,7 @@ images (USA):
 | Hyundai V015.012.260507 | the IONIQ 5 capture | captured `/system`, all patches verified on the car |
 | Hyundai V016.010.260903 | a compatibility log | every interface Tilepad calls compared with V015's (below) |
 | Kia V015.012.260507 | an EV6 compatibility log | every deodexed file compared with Hyundai V015's (below) |
+| Hyundai V012.010.240822 | an IONIQ 5 compatibility log | every call Tilepad makes compared with V015's; heater codes per release (below) |
 
 `Firmware.java` lists each release's `automotive.odex`/`automotive-service.odex` (vehicle tweaks),
 `framework.odex`/`framework2.odex` (projection) and `HKMC_TAppEV3.apk` (Charge-Away) hashes; a pair
@@ -346,11 +347,30 @@ every patched method's code, header included, is byte-identical to V015's at the
 DATC reports the IONIQ 5's climate variant and options (0x02; 0x29, 0x04, 0x2f, 0x03, 0x01), and its
 key layout is the same file, with the track keys at 34/35 and ★ at 43.
 
+For Hyundai V012 (an IONIQ 5 log, 2024): an older build, with renamed obfuscated members throughout,
+so each call was compared on its own. Every code Tilepad uses on IDATCService, IBCMService,
+ITM_HSCANService, IVRService, ITimePolicyService, IHEVService, IGpmInterfaces and IDiPOManager has
+the same method and number, and their implementations are identical, apart from HEVService's
+listener calls (fewer initial status flags, no null check on removal: Tilepad never passes null).
+BCM and HSCAN only lack newer codes Tilepad doesn't call. IUSMService numbers its methods
+differently: V015 inserted methods, so V012's heater codes are lower (`setFrontSeatHeatDrvStep`
+0xd4, `setFrontSeatHeatAstStep` 0xd5, `FrontSeatHeat_DrvOption` 0x243, `FrontSeatHeat_AstOption`
+0x244, `SWRC_SteeringwheelHeatingOpt` 0x23f). V015's driver-seat code is V012's passenger seat, so
+`Firmware.java` carries each release's heater codes. The methods behind them are the same, except
+the getters read their internal status index one lower. `DatcStatus`, the DATC dump, the EV
+Settings off-peak preference and `EconomicData` (the charge-schedule array) are identical. In the
+projection frameworks, `DiPOMode` only lacks V015's parcel bounds checks. The recipes needed V012's
+obfuscated names (`firmware_patches.py` `NAMES`). The nav method is one code unit shorter before
+its second branch (a field write where V015 calls a method), and the consent screen's `start()` has
+`this` in v6. Patched with Tilepad's own code, every patched method matches V015's once names,
+registers and field offsets are masked; only the dead code after the OSD entry's return differs.
+The DATC variant and options and the key layout match the IONIQ 5's.
+
 Features a trim or model can lack are checked on the car itself:
 
 - Automatic Heaters reads the car's equipment signals before each heater (IUSMService
-  `FrontSeatHeat_DrvOption` 0x245, `FrontSeatHeat_AstOption` 0x246,
-  `SWRC_SteeringwheelHeatingOpt` 0x241); a heater that reads 0 is skipped and the Tweaks screen
+  `FrontSeatHeat_DrvOption`, `FrontSeatHeat_AstOption`, `SWRC_SteeringwheelHeatingOpt`: 0x245,
+  0x246 and 0x241 from V015 on, 0x243, 0x244 and 0x23f on V012); a heater that reads 0 is skipped and the Tweaks screen
   says so. An unreadable signal also skips that heater.
 - Maintain Climate Sync and Driver Only need dual-zone climate, so they also require a
   `wp_daudioplus_neev*` (IONIQ 5) or `wp_daudioplus_cvev*` (EV6) device until a log shows another

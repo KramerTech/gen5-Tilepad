@@ -12,7 +12,8 @@ integration ports the useful backend changes instead of merging the application 
 
 ## Imported changes
 
-- Exact firmware profiles for ten combinations across six head-unit families.
+- Exact firmware profiles for ten combinations across six head-unit families (Tilepad adds an
+  eleventh, below).
   Android API 19, device code, `ro.build.product` (not `Build.PRODUCT` or the
   displayed `ro.build.product2`), and the matching pair of framework hashes must
   all agree. Hashes from different profiles cannot be mixed. HEV/BCM Binder
@@ -52,7 +53,7 @@ scheduler-specific outside-temperature telemetry was added.
 
 | Head unit | Software suffixes |
 | --- | --- |
-| IONIQ 5 NEEV23 US | 260206, 260507, 260903 |
+| IONIQ 5 NEEV23 US | 240822*, 260206, 260507, 260903 |
 | IONIQ 5 NEEV US | 240822, 260507 |
 | IONIQ 5 NEEV KR | 260902 |
 | EV6 CVEV US | 251120, 260507 |
@@ -60,7 +61,10 @@ scheduler-specific outside-temperature telemetry was added.
 | IONIQ 6 CEEV US | 260507 |
 
 These are exact software/hash combinations, not support for every model year or
-firmware with the same suffix. Evidence and field-testing limits are in the
+firmware with the same suffix. *NEEV23 US 240822 is Tilepad's own addition, not an upstream
+profile: a compatibility log (issue 12) showed its `automotive.odex` and `automotive-service.odex`
+byte-identical to upstream's NEEV US 240822, so it reuses that hash pair, as upstream's NEEV US
+260507 reuses NEEV23 US's. It hasn't been tried on that car. Evidence and field-testing limits are in the
 [pinned compatibility notes](https://github.com/paytondevs/gen5w-preconditioning/blob/0e366bdaee2768131e00eba1a5333e961ffd879b/COMPATIBILITY.md)
 and [temperature/timeout notes](https://github.com/paytondevs/gen5w-preconditioning/blob/0e366bdaee2768131e00eba1a5333e961ffd879b/TEMPERATURE-AND-TIMEOUT.md).
 The captured `/system/build.prop` contains generic ECOHMC defaults; the live

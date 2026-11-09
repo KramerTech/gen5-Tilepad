@@ -14,16 +14,19 @@ public final class Platform {
     public static final String HOME = "/data/nemesis/apps/tilepad";
     /** A readable copy of each tweak's status, for the Tweaks screen to refresh live (STATE is root-only). */
     public static final File LIVE = new File("/data/nemesis/backup/tilepad/status");
-    private static boolean checked;
+    private static Firmware.Release vehicle;
     private Platform() { }
-    public static void requireVehicle() throws Exception {
-        if (checked) return;
+    public static void requireVehicle() throws Exception { vehicle(); }
+    /** The supported release this unit's vehicle interfaces belong to. */
+    static Firmware.Release vehicle() throws Exception {
+        if (vehicle != null) return vehicle;
         // One firmware image serves several models; the car's name is set at boot. Identical vehicle
         // framework files mean identical vehicle interfaces, whichever car the unit is in.
-        if (Build.VERSION.SDK_INT != 19 || !Firmware.vehicle(Files.hash(new File("/system/framework/automotive.odex")),
-                Files.hash(new File("/system/framework/automotive-service.odex"))))
+        Firmware.Release found = Build.VERSION.SDK_INT != 19 ? null : Firmware.vehicleRelease(
+            Files.hash(new File("/system/framework/automotive.odex")), Files.hash(new File("/system/framework/automotive-service.odex")));
+        if (found == null)
             throw new IOException("This firmware's vehicle interface isn't supported yet. Capture and submit a log to help add compatibility.");
-        checked = true;
+        return vehicle = found;
     }
     /** Climate Sync and Driver Only need dual-zone climate: the IONIQ 5's, which the EV6 shares (same DATC variant and options). */
     public static void requireDualZone() throws Exception {

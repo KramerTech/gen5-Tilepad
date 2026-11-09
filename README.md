@@ -144,7 +144,7 @@ Tilepad can work on any gen5W head unit. If something shows an error or a tweak 
 yours, submit a compatibility report (below) so support can be added.
 
 The tweaks check the car's exact firmware files, so they work on any car on a supported firmware
-image: USA Hyundai `V015.012.260507` and `V016.010.260903`, and USA Kia `V015.012.260507` (for
+image: USA Hyundai `V012.010.240822`, `V015.012.260507` and `V016.010.260903`, and USA Kia `V015.012.260507` (for
 example, the IONIQ 5 and EV6). Heaters a trim lacks are skipped. How each tweak works,
 and what it changes, is in [docs/TWEAKS.md](docs/TWEAKS.md).
 

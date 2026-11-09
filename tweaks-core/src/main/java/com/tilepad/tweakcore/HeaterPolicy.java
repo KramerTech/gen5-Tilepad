@@ -7,11 +7,11 @@ public final class HeaterPolicy {
      * IUSMService getters for the heaters the car is equipped with (FrontSeatHeat_DrvOption,
      * FrontSeatHeat_AstOption, SWRC_SteeringwheelHeatingOpt); they read 0 when it isn't fitted.
      */
-    static int fittedTransaction(String key) {
+    static int fittedTransaction(Firmware.Usm usm, String key) {
         switch (key) {
-            case "driver": return 0x245;
-            case "passenger": return 0x246;
-            case "wheel": return 0x241;
+            case "driver": return usm.driverFitted;
+            case "passenger": return usm.passengerFitted;
+            case "wheel": return usm.wheelFitted;
             default: throw new IllegalArgumentException(key);
         }
     }

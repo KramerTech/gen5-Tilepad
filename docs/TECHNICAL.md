@@ -22,8 +22,9 @@ Hyundai's firmware declares each car's options as system features. The Wi-Fi til
 `com.hkmc.software.wifi.module` and the Precondition tile needs `com.hkmc.hardware.ev`. Without
 them those tiles don't appear, and Tilepad never contacts the vehicle service.
 
-Preconditioning supports ten exact upstream firmware profiles across US and Korean IONIQ 5 and EV6
-units and the US IONIQ 6. On other firmware it can't start preconditioning or send commands: the
+Preconditioning supports ten exact upstream firmware profiles, plus one of Tilepad's, across US
+and Korean IONIQ 5 and EV6 units and the US IONIQ 6. On other firmware it can't start
+preconditioning or send commands: the
 Android version, device, software identity and both OEM framework hashes must match a supported
 profile. The backend is Launchpad's, unchanged: firmware-hash gate, ownership journal,
 cancel-on-recovery, and a foreground service that keeps the request alive after the app closes.

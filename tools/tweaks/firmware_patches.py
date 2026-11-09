@@ -97,6 +97,20 @@ RELEASES = {
     "v015": {"RightScreenHome": "a46717495f957dab68b96cf6c9a01d4a", "SystemUI": "2363d6315a05b51064821b8beab7b5fd"},
     "v016": {"RightScreenHome": "4789932842938078386a21aecc77c984", "SystemUI": "3fba390d4485277ab882bff1d006fc55"},
     "kia-v015": {"RightScreenHome": "8c06f56597970d09ab369cfd8cc8c28d", "SystemUI": "8abb72b9715bc8e4746ac9ee3b03ab39"},
+    "v012": {"RightScreenHome": "0fadc5cc2249cd8a9508cce2b618a30c", "SystemUI": "85104c851b0132076bf06ca91463a761"},
+}
+# Obfuscated names, the nav branches (code units into f(ZZ)Z, the branch, the goto it becomes),
+# and start()'s consent call with the register holding `this`. V015, V016 and Kia V015 share them;
+# V012 was obfuscated differently, f(ZZ)Z is one unit shorter and start() has one more register.
+V015_NAMES = {"right": "Lcom/mobis/splitscreen/right/k/r;", "osd": "Lcom/mobis/splitscreen/right/r/i;",
+              "osdEntry": "13081900", "consentAgree": "dc", "consentShow": "T",
+              "consentCall": "f8200f00450029002dff", "consentThis": 5,
+              "nav": [(0x39, "33174000", "29004000"), (0x5b, "38070300", "29000300")]}
+NAMES = {
+    "v012": {"right": "Lcom/mobis/splitscreen/right/l/r;", "osd": "Lcom/mobis/splitscreen/right/s/i;",
+             "osdEntry": "13071900", "consentAgree": "cX", "consentShow": "S",
+             "consentCall": "f8200f00460029002eff", "consentThis": 6,
+             "nav": [(0x39, "33173f00", "29003f00"), (0x5a, "38070300", "29000300")]},
 }
 
 
@@ -124,17 +138,17 @@ def generate(firmware, out, release, apk_hashes=None):
     stock = (app / "RightScreenHome.odex").read_bytes()
     check_md5(stock, RELEASES[release]["RightScreenHome"])
     dex = Dex(stock)
-    owner = "Lcom/mobis/splitscreen/right/k/r;"
+    names = NAMES.get(release, V015_NAMES)
+    owner = names["right"]
     nav_at = dex.method(owner, "f", "(ZZ)Z")
-    nav = [(nav_at + 0x39 * 2, bytes.fromhex("33174000"), bytes.fromhex("29004000")),
-           (nav_at + 0x5b * 2, bytes.fromhex("38070300"), bytes.fromhex("29000300"))]
+    nav = [(nav_at + unit * 2, bytes.fromhex(branch), bytes.fromhex(goto)) for unit, branch, goto in names["nav"]]
     # Gate all standard OSD requests, then block the shared OSD entry and renderer
     # as well, including callers which bypass canShowSSOsd (e.g. forced OSDs).
     at = dex.method(owner, "canShowSSOsd", "(ZZZ)Z")
     popover = [(at, stock[at:at + 4], bytes.fromhex("12000f00"))]
-    osd = "Lcom/mobis/splitscreen/right/r/i;"
+    osd = names["osd"]
     at = dex.method(osd, "d", "(IIZ)V")
-    assert stock[at:at + 4] == bytes.fromhex("13081900")
+    assert stock[at:at + 4] == bytes.fromhex(names["osdEntry"])
     popover.append((at, stock[at:at + 4], bytes.fromhex("0e000000")))
     at = dex.method(osd, "handleShow", "()V")
     assert stock[at:at + 2] == bytes.fromhex("1200")
@@ -146,17 +160,17 @@ def generate(firmware, out, release, apk_hashes=None):
     stock = (app / "SystemUI.odex").read_bytes()
     check_md5(stock, RELEASES[release]["SystemUI"])
     dex = Dex(stock)
-    method = ("Lcom/android/systemui/consentscreen/D;", "dc", "()V")
+    method = ("Lcom/android/systemui/consentscreen/D;", names["consentAgree"], "()V")
     index = dex.methods.index(method)
-    anchor = bytes.fromhex("f8200f00450029002dff")
+    anchor = bytes.fromhex(names["consentCall"])
     assert stock.count(anchor) == 1
     at = stock.index(anchor)
     before = stock[at:at + 6]
-    after = bytes.fromhex("7010") + struct.pack("<H", index) + bytes.fromhex("0500")
+    after = bytes.fromhex("7010") + struct.pack("<HH", index, names["consentThis"])
     consent = [(at, before, after)]
     # ACC/profile/force-show broadcasts call T(I) too. Replace its construction
     # entry with the same agreement path, so later requests cannot recreate it.
-    at = dex.method("Lcom/android/systemui/consentscreen/D;", "T", "(I)V")
+    at = dex.method("Lcom/android/systemui/consentscreen/D;", names["consentShow"], "(I)V")
     assert stock[at:at + 6] == bytes.fromhex("1204f4500c00")
     # Keep the original call address and its GC/register-map entry. The two
     # prefix instructions only initialize v4 and load Context into v0. Replace
