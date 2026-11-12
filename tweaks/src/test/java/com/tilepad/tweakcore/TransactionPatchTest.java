@@ -220,6 +220,20 @@ public class TransactionPatchTest {
         transaction().commitFull(config());
         assertArrayEquals(original, Files.read(ops.file(path)));
     }
+    @Test public void auditSaysWhetherEachFileIsPatchedAsConfigured() throws Exception {
+        transaction().commit(config("nav", "popover"));
+        String audit = manager.audit(transaction().load());
+        String entry = audit.substring(audit.indexOf("/system/app/RightScreenHome.odex"));
+        assertTrue(entry.contains("recipe=right.properties\n"));
+        assertTrue(entry.contains("stock=" + Files.hash(original) + " (Tilepad's backup)"));
+        assertTrue(entry.contains("state=as configured"));
+        // The file put back behind Tilepad's back, as if another tool restored it.
+        Files.write(ops.file(right.getProperty("path")), original);
+        assertTrue(manager.audit(transaction().load()).contains("state=stock, NOT as configured"));
+        Files.write(ops.file(right.getProperty("path")), new byte[]{3});
+        assertTrue(manager.audit(transaction().load()).contains("state=NEITHER stock nor as configured"));
+        assertTrue(manager.audit(config()).contains("/system/priv-app/SystemUI.odex\n  recipe=consent.properties\n  stock=" + Files.hash(original) + " (the file; no backup)"));
+    }
     private static final class SimulatedDeath extends Error { }
     private final class FakeSystem implements PatchManager.SystemOps {
         int writes, failWrite = -1, crashWrite = -1;

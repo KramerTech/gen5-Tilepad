@@ -6,6 +6,11 @@ import android.content.DialogInterface;
 import android.content.pm.ApplicationInfo;
 import android.content.res.Configuration;
 import android.content.res.Resources;
+import android.graphics.Canvas;
+import android.graphics.ColorFilter;
+import android.graphics.Paint;
+import android.graphics.PixelFormat;
+import android.graphics.Rect;
 import android.graphics.Typeface;
 import android.graphics.drawable.*;
 import android.os.*;
@@ -38,6 +43,8 @@ public final class TweaksActivity extends Activity {
     private String reportNotice;
     /** The report file on the USB drive: saved here, or found there by the audit. */
     private String reportSaved = "";
+    /** The support log saved from Support this session. */
+    private String supportSaved = "";
     private boolean savingReport;
     private final SettingsEdits edits = new SettingsEdits();
     private final Runnable saveFlush = new Runnable() { @Override public void run() { flushEdits(); } };
@@ -109,6 +116,11 @@ public final class TweaksActivity extends Activity {
         for (int i = 0; i < TweakInfo.RAIL.length; i++) {
             final int index = i; TweakInfo item = TweakInfo.RAIL[i];
             TextView tab = text(item.railTitle(), 26, i == selected ? accent : ink);
+            // Support isn't a tweak: a help mark sets it apart.
+            if (item == TweakInfo.SUPPORT) {
+                tab.setCompoundDrawablesWithIntrinsicBounds(helpMark(i == selected ? accent : ink, dp(28)), null, null, null);
+                tab.setCompoundDrawablePadding(dp(12));
+            }
             tab.setPadding(dp(14), dp(10), dp(14), dp(10)); tab.setMinHeight(dp(72));
             if (i == selected) selectedTab[0] = tab;
             tab.setSelected(i == selected); tab.setFocusable(true); tab.setClickable(true);
@@ -126,6 +138,16 @@ public final class TweaksActivity extends Activity {
         controlScroll = scroller("Selected tweak controls"); controls = column(); controlScroll.addView(controls);
         panes.addView(controlScroll, new LinearLayout.LayoutParams(dp(600 * scale), -1)); verticalDivider(panes);
         final TweakInfo item = TweakInfo.RAIL[selected];
+        if (item == TweakInfo.SUPPORT) support(); else tweak(item);
+        helpScroll = scroller("Feature explanation"); LinearLayout help = column(); helpScroll.addView(help);
+        panes.addView(helpScroll, new LinearLayout.LayoutParams(0, -1, 1));
+        TextView description = text(item.help, 24, ink); description.setGravity(Gravity.TOP); description.setLineSpacing(dp(3), 1f);
+        description.setPadding(dp(30), dp(24), dp(30), dp(30)); help.addView(description, new LinearLayout.LayoutParams(-1, -2));
+        final ScrollView railView = railScroll, controlView = controlScroll, helpView = helpScroll;
+        railView.post(new Runnable() { @Override public void run() { railView.scrollTo(0, firstLayout ? selectedTab[0].getTop() : railY); controlView.scrollTo(0, controlY); helpView.scrollTo(0, helpY); } });
+    }
+    /** The middle pane for a tweak: its checkbox, state, compatibility issue and settings. */
+    private void tweak(TweakInfo item) {
         String unavailable = unavailable(item.id);
         String saved = reportSaved.isEmpty() ? audit.getProperty("report", "") : reportSaved;
         boolean enabled = new Config(values).enabled(item.id);
@@ -168,7 +190,7 @@ public final class TweaksActivity extends Activity {
             if (reportNotice != null) note(reportNotice, true);
             if (savingReport) progress("Capturing the log. This can take a minute; keep the USB drive plugged in.");
             Button report = button(savingReport ? "Capturing Log…" : "Capture Compatibility Log to USB", "Save this head unit's firmware details to the USB drive", new View.OnClickListener() {
-                @Override public void onClick(View v) { saveReport(); }
+                @Override public void onClick(View v) { saveReport(false); }
             });
             report.setTextSize(22); enable(report, ready && !busy && !edits.hasWork());
             controls.addView(report, new LinearLayout.LayoutParams(-1, dp(72))); divider(controls);
@@ -207,12 +229,31 @@ public final class TweaksActivity extends Activity {
                 heater("driver", "Driver seat", "driverLevel"); heater("wheel", "Steering wheel", null); heater("passenger", "Passenger seat (only with a passenger)", "passengerLevel");
             }
         }
-        helpScroll = scroller("Feature explanation"); LinearLayout help = column(); helpScroll.addView(help);
-        panes.addView(helpScroll, new LinearLayout.LayoutParams(0, -1, 1));
-        TextView description = text(item.help, 24, ink); description.setGravity(Gravity.TOP); description.setLineSpacing(dp(3), 1f);
-        description.setPadding(dp(30), dp(24), dp(30), dp(30)); help.addView(description, new LinearLayout.LayoutParams(-1, -2));
-        final ScrollView railView = railScroll, controlView = controlScroll, helpView = helpScroll;
-        railView.post(new Runnable() { @Override public void run() { railView.scrollTo(0, firstLayout ? selectedTab[0].getTop() : railY); controlView.scrollTo(0, controlY); helpView.scrollTo(0, helpY); } });
+    }
+    /** The middle pane for Support: this head unit's software, then the log button or where the log went. */
+    private void support() {
+        String product = "";
+        try { product = Platform.property("ro.build.product"); } catch (Exception ignored) { }
+        String version = "";
+        try { version = getPackageManager().getPackageInfo(getPackageName(), 0).versionName; } catch (Exception ignored) { }
+        note("Tilepad " + version + (product.isEmpty() ? "" : " on " + product), false);
+        if (!checking) {
+            boolean any = false;
+            for (String id : Config.IDS) any |= !unavailable(id).isEmpty();
+            note(any ? "Some tweaks aren't available on this head unit; their entries say why." : "Every tweak is available on this head unit.", false);
+        }
+        divider(controls);
+        if (!supportSaved.isEmpty()) {
+            note("Log saved to the USB drive as " + supportSaved + ". On a computer, open a new issue at "
+                + "github.com/KramerTech/gen5-Tilepad/issues, say what happened and when, and attach that .zip file.", false);
+        } else note("A tweak not taking effect, or something happening that shouldn't? Save a log while you can still see it, or as soon as you notice, before turning the car off.", false);
+        if (reportNotice != null) note(reportNotice, true);
+        if (savingReport) progress("Saving the log. This can take a minute; keep the USB drive plugged in.");
+        Button save = button(savingReport ? "Saving Log…" : "Save Log to USB", "Save a log of what the head unit is doing to the USB drive", new View.OnClickListener() {
+            @Override public void onClick(View v) { saveReport(true); }
+        });
+        save.setTextSize(22); enable(save, ready && !busy && !edits.hasWork());
+        controls.addView(save, new LinearLayout.LayoutParams(-1, dp(72))); divider(controls);
     }
     private void checkbox(LinearLayout parent, String label, final String key, boolean checked, boolean allowed) {
         LinearLayout row = new LinearLayout(this); row.setGravity(Gravity.CENTER_VERTICAL); row.setMinimumHeight(dp(72)); row.setPadding(dp(30), dp(8), dp(18), dp(8));
@@ -372,18 +413,22 @@ public final class TweaksActivity extends Activity {
             }
         } });
     }
-    private void saveReport() {
+    /** The compatibility log (a tweak's issue) or the support log (Support), to the USB drive. */
+    private void saveReport(final boolean support) {
         if (!ready || busy || edits.hasWork()) return;
         busy = true; savingReport = true; reportNotice = null; render();
         worker.execute(new Runnable() { @Override public void run() {
             String name = "", notice = null;
             try {
-                name = preview ? "tilepad-compat-PREVIEW.txt" : Backend.run("report").getProperty("saved", "");
+                name = preview ? (support ? "tilepad-log-PREVIEW.zip" : "tilepad-compat-PREVIEW.txt")
+                    : Backend.run(support ? "support" : "report").getProperty("saved", "");
             } catch (Exception e) { notice = "Couldn't save the log: " + e.getMessage(); }
             final String file = name, problem = notice;
             main.post(new Runnable() { @Override public void run() {
                 if (isFinishing() || isDestroyed()) return;
-                busy = false; savingReport = false; reportSaved = file; reportNotice = problem; render();
+                busy = false; savingReport = false; reportNotice = problem;
+                if (support) supportSaved = file; else reportSaved = file;
+                render();
             } });
         } });
     }
@@ -429,6 +474,24 @@ public final class TweaksActivity extends Activity {
     private StateListDrawable selector(boolean selected) {
         StateListDrawable d = new StateListDrawable(); d.addState(new int[]{android.R.attr.state_pressed}, new ColorDrawable(0x3300b5de));
         d.addState(new int[]{android.R.attr.state_focused}, new ColorDrawable(0x2200b5de)); d.addState(new int[]{}, new ColorDrawable(selected ? 0x1100b5de : 0x00000000)); return d;
+    }
+    /** A circled question mark in the label's colour, drawn so it follows the theme and selection. */
+    private Drawable helpMark(final int color, final int size) {
+        return new Drawable() {
+            private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+            @Override public void draw(Canvas canvas) {
+                Rect b = getBounds(); float stroke = dp(2.5f);
+                paint.setColor(color); paint.setStyle(Paint.Style.STROKE); paint.setStrokeWidth(stroke);
+                canvas.drawCircle(b.exactCenterX(), b.exactCenterY(), b.width() / 2f - stroke, paint);
+                paint.setStyle(Paint.Style.FILL); paint.setTextAlign(Paint.Align.CENTER); paint.setTextSize(b.height() * .6f); paint.setFakeBoldText(true);
+                canvas.drawText("?", b.exactCenterX(), b.exactCenterY() - (paint.descent() + paint.ascent()) / 2, paint);
+            }
+            @Override public int getIntrinsicWidth() { return size; }
+            @Override public int getIntrinsicHeight() { return size; }
+            @Override public void setAlpha(int alpha) { paint.setAlpha(alpha); }
+            @Override public void setColorFilter(ColorFilter filter) { paint.setColorFilter(filter); }
+            @Override public int getOpacity() { return PixelFormat.TRANSLUCENT; }
+        };
     }
     private void divider(LinearLayout parent) { View v = new View(this); v.setBackgroundColor(line); parent.addView(v, new LinearLayout.LayoutParams(-1, dp(1))); }
     private void verticalDivider(LinearLayout parent) { View v = new View(this); v.setBackgroundColor(line); parent.addView(v, new LinearLayout.LayoutParams(dp(1), -1)); }

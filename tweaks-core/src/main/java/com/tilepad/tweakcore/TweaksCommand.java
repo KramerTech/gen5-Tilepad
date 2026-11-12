@@ -44,8 +44,8 @@ public final class TweaksCommand {
                     return;
                 }
                 if (args.length == 1 && args[0].equals("status")) { printStatus(c, true); return; }
-                if (args.length == 1 && args[0].equals("report")) {
-                    System.out.println("saved=" + UsbReport.save(status(c, true))); return;
+                if (args.length == 1 && (args[0].equals("report") || args[0].equals("support"))) {
+                    System.out.println("saved=" + UsbReport.save(status(c, true), c, args[0].equals("support"))); return;
                 }
                 if (args.length >= 3 && args.length % 2 == 1 && args[0].equals("options")) {
                     String[] pairs = new String[args.length - 1];
@@ -70,7 +70,7 @@ public final class TweaksCommand {
                     if (c.needsVehicleCheck(previous)) Platform.requireVehicle();
                     if (c.needsDualZoneCheck(previous)) Platform.requireDualZone();
                     if (c.enabled("dst") && c.dstChanged(previous)) DstRules.baseOffsetMinutes(Platform.property("persist.sys.timezone"));
-                } else throw new IllegalArgumentException("Usage: settings | summary | status | report | home | restore | reconcile | set/update/options KEY VALUE [KEY VALUE…]");
+                } else throw new IllegalArgumentException("Usage: settings | summary | status | report | support | home | restore | reconcile | set/update/options KEY VALUE [KEY VALUE…]");
                 // Intent survives termination between a /system write and config commit.
                 if (restoring) transaction().commitFull(c); else transaction().commit(c);
                 if (args[0].equals("update")) { printStatus(c, false); return; }

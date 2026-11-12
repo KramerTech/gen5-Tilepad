@@ -120,11 +120,17 @@ final class TweakInfo {
             "The head unit's OTA client is disabled, including its update checks, downloads and prompts.",
             "The head unit's OTA client can check for and download updates as usual.", null, null)
     };
-    /** The left pane: every tweak except companions, which show inside their partner's entry. */
+    /** The left pane's last entry, not a tweak: this head unit's software, and a log for reporting a problem. */
+    static final TweakInfo SUPPORT = new TweakInfo("support", "Support", "Saves a log to a USB drive for reporting a problem.", false, false,
+        "If a tweak doesn't seem to take effect, or something happens that shouldn't, save a log while it's still going on, or as soon as you notice, before turning the car off. Attach it to a GitHub issue that says what you expected and what you saw instead. The log covers the last few minutes, so the sooner the better.\n\n"
+        + "It holds this head unit's software version, the files the tweaks depend on and whether each is patched as set, Tilepad's settings and service log, which windows are on screen, which apps were opened, and the right-hand panel's and startup screen's messages about what they showed. Saving takes about a minute; keep the USB drive plugged in.\n\n"
+        + "It leaves out your location and Home, and drops messages about media, calls, contacts, radio and driver profile names. Long numbers such as phone numbers are masked.");
+    /** The left pane: every tweak except companions, which show inside their partner's entry, then Support. */
     static final TweakInfo[] RAIL = rail();
     private static TweakInfo[] rail() {
         java.util.List<TweakInfo> list = new java.util.ArrayList<>();
         for (TweakInfo t : ALL) if (t != NAV) list.add(t);
+        list.add(SUPPORT);
         return list.toArray(new TweakInfo[0]);
     }
     private TweakInfo() { this("", "", "", false, false, ""); }

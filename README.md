@@ -155,6 +155,15 @@ a USB drive and tap **Capture Compatibility Log to USB**. Then attach the
 It holds the head unit's software version, file hashes, the firmware code the tweaks rely on, and
 numeric vehicle-equipment readings; no location, Home or personal names.
 
+**Reporting a problem:** if a tweak doesn't take effect, or something happens that shouldn't, then
+while it's still showing or as soon as you notice (before turning the car off), plug in a USB drive,
+open Tweaks → **Support** and tap **Save Log to USB**. Attach the `tilepad-log-….zip` from the drive
+to a [problem report](https://github.com/KramerTech/gen5-Tilepad/issues/new?template=problem.md) and
+say what you expected and what you saw instead. Besides what the compatibility report holds, it covers the last few minutes: what was
+on screen, which apps opened, the right-hand panel's and startup screen's messages, Tilepad's
+service log, and whether each patched file is as set. Media, call, contact, radio and driver-profile
+messages are left out.
+
 ## Troubleshooting
 
 - Holding ★ does nothing: check NEMESIS Manager → Services → `tilepad/longstar`.

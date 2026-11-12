@@ -30,6 +30,7 @@ public final class PatchManager {
         for (File f : files) {
             if (!f.getName().endsWith(".properties")) continue;
             Properties p = Files.properties(f);
+            p.setProperty("recipe", f.getName());
             if ("tracks".equals(p.getProperty("kind"))) { tracks = p; continue; }
             List<Properties> same = byPath.get(p.getProperty("path"));
             if (same == null) byPath.put(p.getProperty("path"), same = new ArrayList<>());
@@ -62,6 +63,37 @@ public final class PatchManager {
             result.add(orphan);
         }
         return result;
+    }
+    /**
+     * For a support log: each file a tweak patches or Tilepad backed up, with the recipe it uses,
+     * its stock, current and configured hashes, journal and modification time, and whether it is
+     * as configured. Never throws; a file it can't read says why.
+     */
+    public String audit(Config config) {
+        List<Properties> all;
+        try { all = targets(config); } catch (Exception e) { return "unavailable: " + e.getMessage() + "\n"; }
+        StringBuilder out = new StringBuilder();
+        for (Properties p : all) {
+            String path = p.getProperty("path");
+            out.append(path).append('\n');
+            try {
+                File dir = new File(state, "files/" + new File(path).getName()), backup = new File(dir, "stock"), target = system.file(path);
+                byte[] current = target.isFile() ? Files.read(target) : null, stock = backup.isFile() ? Files.read(backup) : current;
+                String have = current == null ? "missing" : Files.hash(current), stockHash = stock == null ? "missing" : Files.hash(stock);
+                boolean own = stockHash.equals(p.getProperty("stockSha256"));
+                String wanted = own ? Files.hash(transform(p, stock, config)) : relevant(p, config) ? "unsupported" : stockHash;
+                out.append("  recipe=").append(p.getProperty("recipe", "none")).append(own ? "" : " (not made for this stock)").append('\n');
+                out.append("  stock=").append(stockHash).append(backup.isFile() ? " (Tilepad's backup)" : " (the file; no backup)").append('\n');
+                out.append("  current=").append(have).append('\n');
+                out.append("  configured=").append(wanted).append('\n');
+                out.append("  state=").append(have.equals(wanted) ? "as configured" : have.equals(stockHash) ? "stock, NOT as configured" : "NEITHER stock nor as configured").append('\n');
+                Properties j = Files.properties(new File(dir, "journal.properties"));
+                for (String key : new String[]{"current", "next"}) if (j.getProperty(key) != null) out.append("  journal.").append(key).append('=').append(j.getProperty(key)).append('\n');
+                if (target.isFile()) out.append("  modified=").append(new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss Z", Locale.US).format(new Date(target.lastModified()))).append('\n');
+                if (system.file(path + ".tilepad-new").isFile()) out.append("  leftover=").append(path).append(".tilepad-new\n");
+            } catch (Exception e) { out.append("  error=").append(e.getMessage()).append('\n'); }
+        }
+        return out.toString();
     }
     /** The recipe made for this file's stock (Tilepad's backup, or the untouched file). */
     private Properties matching(String path, List<Properties> candidates) throws IOException {

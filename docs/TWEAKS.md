@@ -395,6 +395,28 @@ No GPS position, Home or personal text is included. The owner attaches the zip t
 on the plugged-in drive, the tweak shows where it was saved and how to submit it instead of the
 reason and the button.
 
+Tweaks' last entry, **Support**, is for everything else: it shows Tilepad's version and the head
+unit's software, and **Save Log to USB** runs the `support` command, which writes
+`tilepad-log-<ro.build.product>-<time>.zip` for a problem report
+(`.github/ISSUE_TEMPLATE/problem.md`). It holds everything above, plus `support/`, captured first so
+it shows the moment the owner asked:
+
+- `windows.txt`: `dumpsys window windows` reduced to each window's owner, type, flags, frame and
+  visibility, and the focused window; then the activity stacks and resumed activity.
+- `logcat.txt`: `logcat -d -v threadtime`, read as the log group (uid 1007; this root channel has
+  no `CAP_SYSLOG`), keeping Tilepad's own lines, activity starts and process deaths, crashes, the
+  consent screen's lines without names, and the panel processes' (RightScreenHome, SystemUI) lines
+  about OSDs, views and modes. Lines about media, calls, contacts, radio, Bluetooth devices,
+  location or profiles are dropped, and long digit runs masked. Its first line counts the lines
+  read and kept, so a capture that couldn't read other apps' logs shows.
+- `processes.txt`: each panel process's uid, start time and the code files it mapped (read as its
+  own uid), with `(deleted)` when Tilepad replaced a file after the process started.
+- `state.txt`: boot id and uptime, `runtime.properties`, the settings without Home, each tweak's
+  status, and per patched file the recipe, stock, current and configured hashes, journal and
+  modification time, with `state=as configured` or what differs.
+- `tilepad-service.log`: the last 256 KB of the longstar service's log (distances from Home masked),
+  and `nemesis.log`: NEMESIS's lines about Tilepad (installs, hooks, service restarts).
+
 Static patches require exact stock file hashes and exact paired APK hashes. Each release has its own
 recipe per file (`consent-v015`, `right-v016`, …); Tilepad uses the one whose stock hash matches the
 file, or its stock backup once patched. A file no recipe matches is reported as unsupported:
