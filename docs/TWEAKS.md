@@ -417,8 +417,10 @@ it shows the moment the owner asked:
 - `tilepad-service.log`: the last 256 KB of the longstar service's log (distances from Home masked),
   and `nemesis.log`: NEMESIS's lines about Tilepad (installs, hooks, service restarts).
 
-Tweaks' last entry, **Update Manager**, has **Check for Updates**, which installs newer releases from GitHub without a USB drive: Tilepad's,
-and those of other NEMESIS packages linked to a GitHub repository. The app (`Updater.java`) refuses
+Tweaks' last entry, **Package Manager**, installs and updates packages straight from GitHub releases,
+without a USB drive. It manages only Tilepad and the packages linked to a GitHub repository
+(`update-sources.properties`, below); a package installed from NEMESIS Manager or USB and never
+linked is left to NEMESIS Manager. **Check for Updates** installs newer releases of those. The app (`Updater.java`) refuses
 unless Wi-Fi is on and connected and the lowest-metric default route in `/proc/net/route` is a `wlan`
 interface, so nothing goes over the car's modem (`rmnet*`), and re-checks before every request. When
 Wi-Fi is off or not connected, a window says so, with a button to Android's Wi-Fi settings
@@ -433,7 +435,7 @@ It follows HTTPS redirects only, and wants the clock set, because certificates c
 before then.
 
 For Tilepad it reads `repos/KramerTech/gen5-Tilepad/releases/latest`: the tag, the notes, and the
-`tilepad.zip` and `tilepad.zip.sig` assets. **Configure Updates for Other Software** links other
+`tilepad.zip` and `tilepad.zip.sig` assets. **Configure Other Software** links other
 packages, straight from their developers' GitHub releases, so a package needn't be in the NEMESIS
 Package Store. It asks for the user or organization first (`users/<name>`), then lists its
 repositories (`users/<name>/repos`, up to 300, most recently pushed first) under a search box. The
@@ -482,11 +484,11 @@ one would run. The script runs `nemesis install --update` for each into `<id>.lo
 failure, and restarts the head unit when any installed, which a Tilepad update needs anyway (the
 in-place APK rewrite only registers at boot). Nothing it uses lives in a package directory an
 install replaces, and it doesn't descend from the app, which Tilepad's install stops. `settings`
-reports the last batch as `update.*`: Update Manager shows "Updated … to …" for three days, or each failure
+reports the last batch as `update.*`: Package Manager shows "Updated … to …" for three days, or each failure
 with the end of NEMESIS's output, or an install a restart interrupted (by the version now
 installed, which also covers a package that restarted the head unit itself). NEMESIS removes the old
 version before running the new one's preinstall, so a failed preinstall leaves the package
-uninstalled; Update Manager says so. A second install is refused while one this boot is under 30 minutes
+uninstalled; Package Manager says so. A second install is refused while one this boot is under 30 minutes
 old, and staged files a restart left behind are removed. Support logs add the record and each
 package's install output as `support/self-update.txt`.
 

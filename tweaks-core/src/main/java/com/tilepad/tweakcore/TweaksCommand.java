@@ -29,7 +29,7 @@ public final class TweaksCommand {
                     } catch (Exception unknown) { }
                     return;
                 }
-                // Tweaks › Update Manager's updates, downloaded by the app: checked and started without touching tweak state.
+                // Tweaks › Package Manager's updates, downloaded by the app: checked and started without touching tweak state.
                 if (args.length >= 5 && (args.length - 1) % 4 == 0 && args[0].equals("self-update")) {
                     System.out.println("installing=" + selfUpdate(args));
                     return;
@@ -51,7 +51,7 @@ public final class TweaksCommand {
                     return;
                 }
                 if (args.length == 1 && args[0].equals("status")) { printStatus(c, true); return; }
-                // Update Manager's other software: a package and the GitHub repository whose releases update it.
+                // Package Manager's other software: a package and the GitHub repository whose releases update it.
                 if ((args.length == 4 && args[0].equals("update-source") && args[1].equals("add"))
                     || (args.length == 3 && args[0].equals("update-source") && args[1].equals("remove"))) {
                     SelfUpdate.setSource(SelfUpdate.SOURCES, SelfUpdate.APPS, SelfUpdate.PACKAGES, args[2], args.length == 4 ? args[3] : null);

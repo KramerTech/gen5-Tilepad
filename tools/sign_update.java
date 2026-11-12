@@ -1,6 +1,6 @@
 // Run locally or in CI: java tools/sign_update.java dist/tilepad.zip
 // Writes <file>.sig, a SHA256withRSA signature made with the APK signing key, which Tweaks ›
-// Update Manager's Check for Updates requires before it installs a download (SelfUpdate.java).
+// Package Manager's Check for Updates requires before it installs a download (SelfUpdate.java).
 // The keystore, alias and passwords come from the same variables (and defaults) as tools/build_apk.sh,
 // and the same certificate pin applies: tools/signing-cert.sha256, or $TILEPAD_CERT_PIN_FILE.
 import java.io.FileInputStream;

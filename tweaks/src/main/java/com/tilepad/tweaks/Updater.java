@@ -25,7 +25,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 /**
- * Update Manager's Check for Updates, app side, over Wi-Fi only: finds the latest GitHub release of Tilepad
+ * Package Manager's Check for Updates, app side, over Wi-Fi only: finds the latest GitHub release of Tilepad
  * and of each package linked to a repository, reads which package each release zip holds (a few
  * small range requests, see ZipProbe), and downloads the chosen ones. The root command checks and
  * installs the downloads (SelfUpdate).

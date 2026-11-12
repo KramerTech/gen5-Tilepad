@@ -159,7 +159,7 @@ public class SelfUpdateTest {
         SelfUpdate.setSource(sources, apps, db, "dashcam", "KramerTech/gen5-RearDashcam");
         assertEquals("KramerTech/gen5-RearDashcam", Files.properties(sources).getProperty("dashcam"));
         linkRefused(sources, apps, db, "usb-handler", "a/b", "part of NEMESIS");
-        // Not installed yet: Update Manager installs it fresh.
+        // Not installed yet: Package Manager installs it fresh.
         SelfUpdate.setSource(sources, apps, db, "smarttube", "KramerTech/gen5-SmartTube");
         assertEquals("KramerTech/gen5-SmartTube", Files.properties(sources).getProperty("smarttube"));
         SelfUpdate.setSource(sources, apps, db, "smarttube", null);

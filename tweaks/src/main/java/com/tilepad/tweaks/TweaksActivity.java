@@ -48,9 +48,9 @@ public final class TweaksActivity extends Activity {
     /** The support log saved from Support this session. */
     private String supportSaved = "";
     private boolean savingReport;
-    /** Configure Updates for Other Software, while it's open. */
+    /** Configure Other Software, while it's open. */
     private AlertDialog sourcesDialog;
-    /** Update Manager's Check for Updates, this session: how far it got, and what it found (Tilepad, then linked packages). */
+    /** Package Manager's Check for Updates, this session: how far it got, and what it found (Tilepad, then linked packages). */
     private enum Step { NONE, CHECKING, CHECKED, DOWNLOADING, INSTALLING }
     private Step step = Step.NONE;
     private List<Updater.Offer> offers = new ArrayList<>();
@@ -131,7 +131,7 @@ public final class TweaksActivity extends Activity {
         for (int i = 0; i < TweakInfo.RAIL.length; i++) {
             final int index = i; TweakInfo item = TweakInfo.RAIL[i];
             TextView tab = text(item.railTitle(), 26, i == selected ? accent : ink);
-            // Support and Update Manager aren't tweaks: a mark sets each apart.
+            // Support and Package Manager aren't tweaks: a mark sets each apart.
             if (item == TweakInfo.SUPPORT || item == TweakInfo.UPDATES) {
                 int c = i == selected ? accent : ink;
                 tab.setCompoundDrawablesWithIntrinsicBounds(item == TweakInfo.SUPPORT ? helpMark(c, dp(28)) : updateMark(c, dp(28)), null, null, null);
@@ -154,7 +154,7 @@ public final class TweaksActivity extends Activity {
         controlScroll = scroller("Selected tweak controls"); controls = column(); controlScroll.addView(controls);
         panes.addView(controlScroll, new LinearLayout.LayoutParams(dp(600 * scale), -1)); verticalDivider(panes);
         final TweakInfo item = TweakInfo.RAIL[selected];
-        if (item == TweakInfo.SUPPORT) support(); else if (item == TweakInfo.UPDATES) updateManager(); else tweak(item);
+        if (item == TweakInfo.SUPPORT) support(); else if (item == TweakInfo.UPDATES) packageManager(); else tweak(item);
         helpScroll = scroller("Feature explanation"); LinearLayout help = column(); helpScroll.addView(help);
         panes.addView(helpScroll, new LinearLayout.LayoutParams(0, -1, 1));
         TextView description = text(item.help, 24, ink); description.setGravity(Gravity.TOP); description.setLineSpacing(dp(3), 1f);
@@ -270,13 +270,13 @@ public final class TweaksActivity extends Activity {
         save.setTextSize(22); enable(save, ready && !busy && !edits.hasWork());
         controls.addView(save, new LinearLayout.LayoutParams(-1, dp(72))); divider(controls);
     }
-    /** The middle pane for Update Manager: what's installed, then the updates. */
-    private void updateManager() {
+    /** The middle pane for Package Manager: what's installed, then the updates. */
+    private void packageManager() {
         note("Tilepad " + installedVersion() + " is installed.", false);
         divider(controls);
         updates();
     }
-    /** Update Manager's updates: how the last install went, then the check, what it found, and the install. */
+    /** Package Manager's updates: how the last install went, then the check, what it found, and the install. */
     private void updates() {
         String last = values.getProperty("update.state", "");
         String[] ids = values.getProperty("update.items", "").split(",");
@@ -341,9 +341,10 @@ public final class TweaksActivity extends Activity {
         }
         controls.addView(b, new LinearLayout.LayoutParams(-1, dp(72))); divider(controls);
         int linked = sources().size();
-        note(linked == 0 ? "Other NEMESIS packages can update here too, straight from their GitHub releases, even ones that aren't in the NEMESIS Package Store."
-            : "Also checks " + linked + (linked == 1 ? " other package" : " other packages") + " linked to GitHub.", false);
-        Button configure = button("Configure Updates for Other Software", "Link installed NEMESIS packages to the GitHub repositories they come from", new View.OnClickListener() {
+        note((linked == 0 ? "Other NEMESIS packages can install and update here too, straight from their GitHub releases, even ones that aren't in the NEMESIS Package Store."
+            : "Also checks " + linked + (linked == 1 ? " other package" : " other packages") + " linked to GitHub.")
+            + " Packages installed from NEMESIS Manager and not linked here stay NEMESIS Manager's to update.", false);
+        Button configure = button("Configure Other Software", "Link NEMESIS packages to the GitHub repositories they come from, or install one from there", new View.OnClickListener() {
             @Override public void onClick(View v) { configureSources(); }
         });
         configure.setTextSize(22); enable(configure, ready && !busy && !edits.hasWork() && !preview);
@@ -370,7 +371,7 @@ public final class TweaksActivity extends Activity {
         String detail; boolean problem = false;
         if (o.problem != null) { detail = "Couldn't check: " + o.problem; problem = true; }
         else if (o.fresh() && can) detail = "Not installed here · " + o.repo + ". Tick to install it.";
-        else if (o.fresh()) { detail = "Not installed here, and this release can't be installed from here. Install it from USB, or remove its link under Configure Updates for Other Software."; problem = true; }
+        else if (o.fresh()) { detail = "Not installed here, and this release can't be installed from here. Install it from USB, or remove its link under Configure Other Software."; problem = true; }
         else if (can) detail = "Installed: " + o.installed + (o.id.equals(SelfUpdate.TILEPAD) ? "" : " · " + o.repo);
         else if (o.newer()) { detail = "Installed: " + o.installed + ". This release can't be installed from here; install it from USB (see its page on GitHub)."; problem = true; }
         else if (SelfUpdate.version(o.installed) == null) detail = "Latest release: " + o.version + ". The installed version can't be read.";
@@ -540,7 +541,7 @@ public final class TweaksActivity extends Activity {
         final LinearLayout result = column(); box.addView(result);
         final LinearLayout linked = column(); box.addView(linked);
         ScrollView scroll = new ScrollView(this); scroll.setScrollbarFadingEnabled(false); scroll.addView(box);
-        final AlertDialog dialog = sourcesDialog = dialog("Updates for Other Software", scroll).setPositiveButton("Close", null).create();
+        final AlertDialog dialog = sourcesDialog = dialog("Other Software", scroll).setPositiveButton("Close", null).create();
         dialog.getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE | WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN);
         dialog.setOnDismissListener(new DialogInterface.OnDismissListener() { @Override public void onDismiss(DialogInterface d) {
             // What the last check found may not match the links any more.
@@ -557,8 +558,9 @@ public final class TweaksActivity extends Activity {
     /** Step one: the GitHub user or organization. A pasted owner/repo or github.com address skips step two. */
     private void askOwner(final LinearLayout stage, final LinearLayout result, final Runnable showLinks, String typed) {
         stage.removeAllViews();
-        TextView intro = text("Packages update straight from their developers' releases on GitHub, even ones that aren't in the NEMESIS "
-            + "Package Store. Type the GitHub user or organization that publishes the package.", 19, muted);
+        TextView intro = text("Package Manager installs and updates packages straight from their developers' releases on GitHub, even ones "
+            + "that aren't in the NEMESIS Package Store. It only manages the packages linked here; one installed from NEMESIS Manager stays "
+            + "NEMESIS Manager's until you link it. Type the GitHub user or organization that publishes the package.", 19, muted);
         intro.setGravity(Gravity.TOP); stage.addView(intro);
         LinearLayout row = new LinearLayout(this); row.setGravity(Gravity.CENTER_VERTICAL); row.setPadding(0, dp(14), 0, dp(6));
         final EditText owner = field("GitHub user, e.g. KramerTech"); owner.setText(typed); owner.setSelection(typed.length());
@@ -709,7 +711,7 @@ public final class TweaksActivity extends Activity {
                         // Linked when it's installed, so the check doesn't list what the user only looked at.
                         o.installed = null;
                         said.append(o.name).append(' ').append(o.version).append(" isn't installed here. Install it from ").append(repo.name)
-                            .append(", and Update Manager keeps it up to date.");
+                            .append(", and Package Manager keeps it up to date.");
                         fresh.add(o); problem = false;
                     }
                     else if (o.installed == null || p == null) said.append(o.name).append(" (").append(o.id).append(") is in this release but isn't installed here, and this release can't be installed from here. Install it from USB.");
@@ -744,7 +746,7 @@ public final class TweaksActivity extends Activity {
     /** Installs a package that isn't on this head unit yet: links it, closes the dialog, and installs it like an update. */
     private void confirmFresh(final Updater.Offer o) {
         dialog("Install " + o.name + " " + o.version + "?", words(o.name + " installs from " + o.repo + "'s latest release on GitHub, with root access: "
-                + "only install software you trust. Update Manager then checks it for updates with Tilepad.\n\n"
+                + "only install software you trust. Package Manager then checks it for updates with Tilepad.\n\n"
                 + "The head unit restarts when the install finishes, a minute or two from now. Keep the car parked and on until it's back."))
             .setNegativeButton("Cancel", null)
             .setPositiveButton("Install and Restart", new DialogInterface.OnClickListener() {
@@ -1035,7 +1037,7 @@ public final class TweaksActivity extends Activity {
         StateListDrawable d = new StateListDrawable(); d.addState(new int[]{android.R.attr.state_pressed}, new ColorDrawable(0x3300b5de));
         d.addState(new int[]{android.R.attr.state_focused}, new ColorDrawable(0x2200b5de)); d.addState(new int[]{}, new ColorDrawable(selected ? 0x1100b5de : 0x00000000)); return d;
     }
-    /** Update Manager's mark: a down arrow onto a tray, in the help mark's circle. */
+    /** Package Manager's mark: a down arrow onto a tray, in the help mark's circle. */
     private Drawable updateMark(final int color, final int size) {
         return new Drawable() {
             private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);

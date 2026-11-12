@@ -3,7 +3,7 @@ package com.tilepad.tweaks;
 import com.tilepad.tweakcore.SelfUpdate;
 import java.util.*;
 
-/** Picking a GitHub repository to link in Update Manager, without Android: the account's list and what's typed. */
+/** Picking a GitHub repository to link in Package Manager, without Android: the account's list and what's typed. */
 final class Repos {
     private Repos() { }
 
