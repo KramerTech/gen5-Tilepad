@@ -2,6 +2,8 @@ package com.tilepad.tweakcore;
 
 import java.io.*;
 import java.nio.channels.FileLock;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Properties;
 
 /** Short root command used by the settings APK and uninstall; no listener process. */
@@ -27,9 +29,9 @@ public final class TweaksCommand {
                     } catch (Exception unknown) { }
                     return;
                 }
-                // Tweaks › Support's update, downloaded by the app: checked and started without touching tweak state.
-                if (args.length == 3 && args[0].equals("self-update")) {
-                    System.out.println("installing=" + selfUpdate(new File(args[1]), new File(args[2])));
+                // Tweaks › Support's updates, downloaded by the app: checked and started without touching tweak state.
+                if (args.length >= 5 && (args.length - 1) % 4 == 0 && args[0].equals("self-update")) {
+                    System.out.println("installing=" + selfUpdate(args));
                     return;
                 }
                 boolean restoring = args.length == 1 && args[0].equals("restore");
@@ -49,6 +51,12 @@ public final class TweaksCommand {
                     return;
                 }
                 if (args.length == 1 && args[0].equals("status")) { printStatus(c, true); return; }
+                // Support's other software: a package and the GitHub repository whose releases update it.
+                if ((args.length == 4 && args[0].equals("update-source") && args[1].equals("add"))
+                    || (args.length == 3 && args[0].equals("update-source") && args[1].equals("remove"))) {
+                    SelfUpdate.setSource(SelfUpdate.SOURCES, SelfUpdate.APPS, SelfUpdate.PACKAGES, args[2], args.length == 4 ? args[3] : null);
+                    printStatus(c, false); return;
+                }
                 if (args.length == 1 && (args[0].equals("report") || args[0].equals("support"))) {
                     System.out.println("saved=" + UsbReport.save(status(c, true), c, args[0].equals("support"))); return;
                 }
@@ -75,7 +83,7 @@ public final class TweaksCommand {
                     if (c.needsVehicleCheck(previous)) Platform.requireVehicle();
                     if (c.needsDualZoneCheck(previous)) Platform.requireDualZone();
                     if (c.enabled("dst") && c.dstChanged(previous)) DstRules.baseOffsetMinutes(Platform.property("persist.sys.timezone"));
-                } else throw new IllegalArgumentException("Usage: settings | summary | status | report | support | home | restore | reconcile | self-update ZIP SIGNATURE | set/update/options KEY VALUE [KEY VALUE…]");
+                } else throw new IllegalArgumentException("Usage: settings | summary | status | report | support | home | restore | reconcile | self-update {ID FILE CHECK INNER}… | update-source add ID OWNER/REPO | update-source remove ID | set/update/options KEY VALUE [KEY VALUE…]");
                 // Intent survives termination between a /system write and config commit.
                 if (restoring) transaction().commitFull(c); else transaction().commit(c);
                 if (args[0].equals("update")) { printStatus(c, false); return; }
@@ -84,29 +92,48 @@ public final class TweaksCommand {
         } catch (Exception e) { System.err.println("Tweaks: " + e.getMessage()); System.exit(1); }
     }
     /**
-     * Stages a release the app downloaded, checks it (SelfUpdate.stage) and starts its install, which
-     * runs on after this command and the app have gone and restarts the head unit. Returns its version.
+     * Stages the releases the app downloaded, each as ID FILE CHECK INNER: CHECK is Tilepad's signature
+     * file or GitHub's SHA-256 of FILE, INNER the package's path in a USB bundle or "-". Checks them all
+     * (SelfUpdate.stage), then starts their install, which runs on after this command and the app have
+     * gone and restarts the head unit. Returns the ids in install order.
      */
-    private static String selfUpdate(File zip, File signature) throws Exception {
+    private static String selfUpdate(String[] args) throws Exception {
         File dir = SelfUpdate.DIR; String boot = Platform.boot(); long now = System.currentTimeMillis();
         if (SelfUpdate.installing(dir, boot, now)) throw new IOException("An update is already installing. The head unit restarts when it's done.");
-        String installed = installedVersion();
-        if (installed == null) throw new IOException("Can't read the installed Tilepad version.");
         if (!dir.isDirectory() && !dir.mkdirs()) throw new IOException("Cannot create " + dir);
         Platform.exec("chmod", "0700", dir.getPath());
-        String version = SelfUpdate.stage(zip, signature, installed, dir, SelfUpdate.releaseCertificate().getPublicKey());
-        File script = new File(dir, SelfUpdate.SCRIPT);
-        Files.write(script, SelfUpdate.script(dir).getBytes("UTF-8"));
-        SelfUpdate.started(dir, version, installed, boot, now);
-        // Its own process, reparented to init when this one exits; output goes to its log, not to the app.
-        Platform.exec("sh", "-c", "trap '' HUP; sh '" + script.getPath() + "' </dev/null >/dev/null 2>&1 &");
-        return version;
-    }
-    /** package-version of the Tilepad package NEMESIS has installed. */
-    private static String installedVersion() {
+        SelfUpdate.tidy(dir);
+        Properties sources = Files.properties(SelfUpdate.SOURCES);
+        List<SelfUpdate.Item> items = new ArrayList<>();
         try {
-            return SelfUpdate.version(SelfUpdate.descriptor(new String(Files.read(new File(Platform.HOME, "NEMESIS.data")), "UTF-8")).getProperty("package-version"));
-        } catch (IOException e) { return null; }
+            for (int i = 1; i < args.length; i += 4) {
+                String id = args[i], check = args[i + 2], inner = args[i + 3].equals("-") ? null : args[i + 3];
+                if (!SelfUpdate.validId(id)) throw new IOException("That isn't a NEMESIS package id: " + id);
+                for (SelfUpdate.Item other : items) if (other.id.equals(id)) throw new IOException(id + " is listed twice.");
+                boolean tilepad = id.equals(SelfUpdate.TILEPAD);
+                if (!tilepad) {
+                    // Only what the user linked, still installed, and not NEMESIS's own.
+                    if (sources.getProperty(id) == null) throw new IOException(id + " isn't linked to a GitHub repository.");
+                    SelfUpdate.Package p = SelfUpdate.installedPackage(SelfUpdate.PACKAGES, id);
+                    if (p == null || p.locked) throw new IOException(id + " can't be updated from here.");
+                    if (!check.matches("[0-9a-fA-F]{64}")) throw new IOException("GitHub gave no checksum for " + id + ".");
+                } else if (inner != null) throw new IOException("Tilepad updates from tilepad.zip.");
+                String installed = SelfUpdate.installedVersion(SelfUpdate.APPS, id);
+                if (installed == null) throw new IOException("Can't read the installed " + (tilepad ? "Tilepad" : id) + " version.");
+                SelfUpdate.Item item = new SelfUpdate.Item(id, new File(args[i + 1]), check, inner);
+                SelfUpdate.stage(item, dir, installed, tilepad ? SelfUpdate.releaseCertificate().getPublicKey() : null);
+                items.add(item);
+            }
+        } catch (Exception e) { SelfUpdate.tidy(dir); throw e; }
+        items = SelfUpdate.order(items);
+        File script = new File(dir, SelfUpdate.SCRIPT);
+        Files.write(script, SelfUpdate.script(dir, items).getBytes("UTF-8"));
+        SelfUpdate.started(dir, items, boot, now);
+        // Its own process, reparented to init when this one exits; output goes to its logs, not to the app.
+        Platform.exec("sh", "-c", "trap '' HUP; sh '" + script.getPath() + "' </dev/null >/dev/null 2>&1 &");
+        StringBuilder ids = new StringBuilder();
+        for (SelfUpdate.Item i : items) ids.append(ids.length() == 0 ? "" : ",").append(i.id);
+        return ids.toString();
     }
     public static Config load() throws IOException { return transaction().load(); }
     public static void recover() throws Exception { transaction().recover(); }
@@ -184,7 +211,12 @@ public final class TweaksCommand {
                 runtime = "Tweak listeners are not running. Restart the head unit or Tilepad’s longstar service.";
         } catch (Exception e) { runtime = "Tweak listeners are not running. Restart the head unit or Tilepad’s longstar service."; }
         out.setProperty("runtime", runtime);
-        try { out.putAll(SelfUpdate.result(SelfUpdate.DIR, Platform.boot(), installedVersion(), System.currentTimeMillis())); } catch (IOException ignored) { }
+        long now = System.currentTimeMillis();
+        out.putAll(SelfUpdate.result(SelfUpdate.DIR, SelfUpdate.APPS, Platform.boot(), now));
+        if (!SelfUpdate.installing(SelfUpdate.DIR, Platform.boot(), now)) SelfUpdate.tidy(SelfUpdate.DIR);
+        // source.<id>: the GitHub repository Check for Updates follows for that package.
+        Properties sources = Files.properties(SelfUpdate.SOURCES);
+        for (String id : sources.stringPropertyNames()) out.setProperty("source." + id, sources.getProperty(id));
         return out;
     }
     private TweaksCommand() { }

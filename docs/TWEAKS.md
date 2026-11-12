@@ -417,35 +417,67 @@ it shows the moment the owner asked:
 - `tilepad-service.log`: the last 256 KB of the longstar service's log (distances from Home masked),
   and `nemesis.log`: NEMESIS's lines about Tilepad (installs, hooks, service restarts).
 
-Support's **Check for Updates** installs a newer release from GitHub without a USB drive. The app
-(`Updater.java`) refuses unless Wi-Fi is on and connected and the lowest-metric default route in
-`/proc/net/route` is a `wlan` interface, so nothing goes over the car's modem (`rmnet*`), and
-re-checks before every request. It asks `api.github.com/repos/KramerTech/gen5-Tilepad/releases/latest`
-for the tag, the changelog's `- ` lines and the `tilepad.zip` and `tilepad.zip.sig` assets, over TLS
-1.2 with AES-GCM, the only suites GitHub accepts. KitKat supports TLS 1.2 but leaves it off; stock
-4.4.2 has no GCM suites at all (so the SDK emulator can't reach GitHub), while Hyundai's Conscrypt
-adds the four ECDHE GCM suites as defaults, and the app switches on any supported GCM suite left off.
-It trusts the system store and then
-`tweaks/src/main/res/raw/update_roots.pem` (NEMESIS's root set), since the head unit's own store lacks
-GitHub's roots (USERTrust ECC for the API, ISRG Root X1 for downloads). It follows HTTPS redirects
-only, and wants the clock set, because certificates can't be checked before then.
+Support's **Check for Updates** installs newer releases from GitHub without a USB drive: Tilepad's,
+and those of other NEMESIS packages linked to a GitHub repository. The app (`Updater.java`) refuses
+unless Wi-Fi is on and connected and the lowest-metric default route in `/proc/net/route` is a `wlan`
+interface, so nothing goes over the car's modem (`rmnet*`), and re-checks before every request. When
+Wi-Fi is off or not connected, a window says so, with a button to Android's Wi-Fi settings
+(`android.settings.WIFI_SETTINGS`, Hyundai's `WifiClientSettings`); on a hotspot-only unit (no
+`android.hardware.wifi`) it points to Tilepad's Wi-Fi tile instead. It talks to GitHub over TLS 1.2
+with AES-GCM, the only suites GitHub accepts. KitKat supports TLS 1.2 but leaves it off; stock 4.4.2
+has no GCM suites at all (so the SDK emulator can't reach GitHub), while Hyundai's Conscrypt adds the
+four ECDHE GCM suites as defaults, and the app switches on any supported GCM suite left off. It trusts
+the system store and then `tweaks/src/main/res/raw/update_roots.pem` (NEMESIS's root set), since the
+head unit's own store lacks GitHub's roots (USERTrust ECC for the API, ISRG Root X1 for downloads).
+It follows HTTPS redirects only, and wants the clock set, because certificates can't be checked
+before then.
 
-The app downloads both files into its own `files/update/`, readable by root (which has no DAC
-override) and writable by no other app, then runs `self-update <zip> <sig>`. That command
-(`SelfUpdate.java`) copies them into `/data/nemesis/backup/tilepad/update/` (root-only; updates keep
+For Tilepad it reads `repos/KramerTech/gen5-Tilepad/releases/latest`: the tag, the notes, and the
+`tilepad.zip` and `tilepad.zip.sig` assets. **Configure Updates for Other Software** links other
+packages: given a user and repository, it reads the repository and its latest release, finds which
+NEMESIS package each `.zip` asset holds, and links each one installed here (`packages.db`, which is
+world-readable; NEMESIS 1.16.7 writes `id|name|locked|types` there, so versions come from each
+package's `apps/<id>/NEMESIS.data`). The locked core packages and Tilepad itself can't be linked.
+Links live root-side in `/data/nemesis/backup/tilepad/update-sources.properties` (`id=owner/repo`,
+written by `update-source add|remove`), so they survive Tilepad's updates; `settings` reports them as
+`source.<id>`. `ZipProbe.java` reads an asset's `NEMESIS.data` with HTTP range requests (the central
+directory at the end, then that entry), a few kilobytes even for SmartTube's 22 MB zips. A USB
+bundle (`type=install`, `path=packages/x.zip`, like Evergreen's release) is followed to the package
+inside: by range when it's stored, by streaming it from the start when it's compressed, which only
+happens when the release has no plain package zip. Each check lists Tilepad and every linked package
+with the version installed and the release's `package-version`; a newer one gets a checkbox (ticked)
+and ⓘ, which shows the release notes without their Markdown.
+
+Install downloads the ticked assets into the app's own `files/update/`, readable by root (which has
+no DAC override) and writable by no other app, checks each against the SHA-256 GitHub publishes for
+it (the asset's `digest`), and runs `self-update` with `ID FILE CHECK INNER` per package: CHECK is
+Tilepad's signature file or the SHA-256, INNER the package's path in a bundle or `-`. That command
+(`SelfUpdate.java`) copies each into `/data/nemesis/backup/tilepad/update/` (root-only; updates keep
 it and uninstall removes it with the rest of Tilepad's records) and checks the copy, so the app can't
-change it afterwards: a SHA256withRSA signature from the APK signing key (the certificate is pinned in
-the code and matches `tools/signing-cert.sha256`; `tools/sign_update.java` signs each release's zip in
-CI), `id=tilepad`, and a `package-version` newer than the installed one. Then it writes
-`install.sh` there and starts it detached. The script runs `nemesis install --update` into
-`install.log`, appends `state=installed|failed` and the exit code to `result.properties`, and on
-success restarts the head unit, which the update needs anyway (the in-place APK rewrite only
-registers at boot). Nothing it uses lives in `/data/nemesis/apps/tilepad`, which the install
-replaces, and it doesn't descend from the app, which the install stops. `settings` reports the
-last attempt as `update.*`: Support shows "Updated to …" for three days, or a failure with the end
-of NEMESIS's output, or an install a restart interrupted (by the version now installed). A second
-install is refused while one this boot is under 15 minutes old. Support logs add the record and the
-install output as `support/self-update.txt`.
+change it afterwards. Tilepad's needs a SHA256withRSA signature from the APK signing key (the
+certificate is pinned in the code and matches `tools/signing-cert.sha256`; `tools/sign_update.java`
+signs each release's zip in CI). Another package's must match GitHub's SHA-256, be linked, installed
+and not locked, and is taken out of its bundle. Every one must carry the `id` asked for and a
+`package-version` newer than the installed one; one failing check stops the whole batch before
+anything installs. Linking a repository trusts it: its releases install as root with no signature
+of Tilepad's, so the checksum only shows the download is the file GitHub published.
+
+Then it writes `install.sh` there and starts it detached. The order is other packages first (one
+after the packages in the batch it `depends` on), then Tilepad, then any package whose install
+hooks restart the head unit themselves (Evergreen's postinstall ends with `exec /system/bin/reboot`;
+`SelfUpdate.reboots` looks for a reboot command, not the word in a message), since nothing after
+one would run. The script runs `nemesis install --update` for each into `<id>.log`, appends
+`item.<id>.state=installed|failed` and the exit code to `result.properties`, carries on after a
+failure, and restarts the head unit when any installed, which a Tilepad update needs anyway (the
+in-place APK rewrite only registers at boot). Nothing it uses lives in a package directory an
+install replaces, and it doesn't descend from the app, which Tilepad's install stops. `settings`
+reports the last batch as `update.*`: Support shows "Updated … to …" for three days, or each failure
+with the end of NEMESIS's output, or an install a restart interrupted (by the version now
+installed, which also covers a package that restarted the head unit itself). NEMESIS removes the old
+version before running the new one's preinstall, so a failed preinstall leaves the package
+uninstalled; Support says so. A second install is refused while one this boot is under 30 minutes
+old, and staged files a restart left behind are removed. Support logs add the record and each
+package's install output as `support/self-update.txt`.
 
 Static patches require exact stock file hashes and exact paired APK hashes. Each release has its own
 recipe per file (`consent-v015`, `right-v016`, …); Tilepad uses the one whose stock hash matches the

@@ -150,12 +150,14 @@ final class UsbReport {
             for (String line : tailFile(new File("/data/nemesis/nemesis.log"), 512 << 10).split("\n"))
                 if (line.contains("tilepad")) lines.append(line).append('\n');
             return lines.toString(); } })));
-        // The last update started from Support, if any: its record and NEMESIS's output.
+        // The last update started from Support, if any: its record and NEMESIS's output for each package.
         if (new File(SelfUpdate.DIR, SelfUpdate.RESULT).isFile())
             out.put("self-update.txt", utf8(capture(new Capture() { @Override public String run() throws Exception {
-                File log = new File(SelfUpdate.DIR, SelfUpdate.LOG);
-                return new String(Files.read(new File(SelfUpdate.DIR, SelfUpdate.RESULT)), "UTF-8")
-                    + "\n[" + SelfUpdate.LOG + "]\n" + (log.isFile() ? tailFile(log, 64 << 10) : "missing\n"); } })));
+                StringBuilder s = new StringBuilder(new String(Files.read(new File(SelfUpdate.DIR, SelfUpdate.RESULT)), "UTF-8"));
+                File[] logs = SelfUpdate.DIR.listFiles();
+                if (logs != null) for (File log : logs)
+                    if (log.getName().endsWith(".log")) s.append("\n[").append(log.getName()).append("]\n").append(tailFile(log, 64 << 10));
+                return s.toString(); } })));
         return out;
     }
     /** Pid to a description of each running panel process: uid, start time and mapped code files. */
