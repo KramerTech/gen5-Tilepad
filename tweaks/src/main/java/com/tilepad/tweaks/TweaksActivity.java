@@ -212,7 +212,8 @@ public final class TweaksActivity extends Activity {
                 @Override public void onClick(View v) { saveReport(false); }
             });
             report.setTextSize(22); enable(report, ready && !busy && !edits.hasWork());
-            action(report); divider(controls);
+            action(report);
+            if (!blocked) divider(controls);
         }
         if (!blocked && !values.getProperty("runtime", "").isEmpty()) note(values.getProperty("runtime"), true);
         if (!blocked && item.id.equals("chargeaway")) {
@@ -272,7 +273,7 @@ public final class TweaksActivity extends Activity {
             @Override public void onClick(View v) { saveReport(true); }
         });
         save.setTextSize(22); enable(save, ready && !busy && !edits.hasWork());
-        action(save); divider(controls);
+        action(save);
     }
     /** The middle pane for Package Manager: what's installed, then the updates. */
     private void packageManager() {
@@ -352,7 +353,7 @@ public final class TweaksActivity extends Activity {
             @Override public void onClick(View v) { configureSources(); }
         });
         configure.setTextSize(22); enable(configure, ready && !busy && !edits.hasWork() && !preview);
-        action(configure); divider(controls);
+        action(configure);
     }
     /** One package in the check's list: a checkbox when it can be installed, what's installed, and its release notes. */
     private void offer(final Updater.Offer o) {
