@@ -836,7 +836,7 @@ public final class TweaksActivity extends Activity {
                 link.add(o);
                 said.append(o.name).append(' ').append(o.installed).append(" is installed here. Linking lets Package Manager update it from ").append(repo.name)
                     .append(o.newer() ? ": its latest release is " + o.version + ", which Check for Updates then offers." : ". It's already the latest release.")
-                    .append(" Linking doesn't install anything.");
+                    .append(" Nothing new will be installed.");
             } else if (o.installable()) {
                 // Linked when it's installed, so the check doesn't list what the user only looked at.
                 o.installed = null; fresh.add(o);
