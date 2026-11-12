@@ -184,6 +184,18 @@ public class SelfUpdateTest {
         }
     }
 
+    @Test public void lookedUpOwnersStartWithTheDefaultsAndRefuseBadNames() throws Exception {
+        File owners = new File(dir, "owners");
+        assertEquals("KramerTech,zpoon", SelfUpdate.owners(owners));
+        SelfUpdate.setOwners(owners, "zpoon");
+        assertEquals("zpoon", SelfUpdate.owners(owners));
+        // Emptied stays empty: the defaults don't come back.
+        SelfUpdate.setOwners(owners, "");
+        assertEquals("", SelfUpdate.owners(owners));
+        try { SelfUpdate.setOwners(owners, "ok,bad name"); fail(); } catch (IOException e) { assertTrue(e.getMessage().contains("bad name")); }
+        assertEquals("", SelfUpdate.owners(owners));
+    }
+
     @Test public void theDescriptorIsItsNemesisSectionUnquoted() {
         Properties d = SelfUpdate.descriptor("[nemesis]\nid=tilepad\nshort-desc=\"Star = launcher\"\n; note=x\n[app.0]\nid=other\n");
         assertEquals("tilepad", d.getProperty("id"));

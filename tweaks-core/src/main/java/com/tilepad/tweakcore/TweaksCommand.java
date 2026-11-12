@@ -57,6 +57,11 @@ public final class TweaksCommand {
                     SelfUpdate.setSource(SelfUpdate.SOURCES, SelfUpdate.APPS, SelfUpdate.PACKAGES, args[2], args.length == 4 ? args[3] : null);
                     printStatus(c, false); return;
                 }
+                // Configure Other Software's list of users and organizations looked up before.
+                if (args.length == 2 && args[0].equals("update-owners")) {
+                    SelfUpdate.setOwners(SelfUpdate.OWNERS, args[1]);
+                    printStatus(c, false); return;
+                }
                 // Package Manager's delete: NEMESIS uninstalls the package, then its link goes.
                 if (args.length == 2 && args[0].equals("uninstall")) {
                     String id = args[1];
@@ -97,7 +102,7 @@ public final class TweaksCommand {
                     if (c.needsVehicleCheck(previous)) Platform.requireVehicle();
                     if (c.needsDualZoneCheck(previous)) Platform.requireDualZone();
                     if (c.enabled("dst") && c.dstChanged(previous)) DstRules.baseOffsetMinutes(Platform.property("persist.sys.timezone"));
-                } else throw new IllegalArgumentException("Usage: settings | summary | status | report | support | home | restore | reconcile | self-update {ID FILE CHECK INNER}… | update-source add ID OWNER/REPO | update-source remove ID | uninstall ID | set/update/options KEY VALUE [KEY VALUE…]");
+                } else throw new IllegalArgumentException("Usage: settings | summary | status | report | support | home | restore | reconcile | self-update {ID FILE CHECK INNER}… | update-source add ID OWNER/REPO | update-source remove ID | update-owners NAME,… | uninstall ID | set/update/options KEY VALUE [KEY VALUE…]");
                 // Intent survives termination between a /system write and config commit.
                 if (restoring) transaction().commitFull(c); else transaction().commit(c);
                 if (args[0].equals("update")) { printStatus(c, false); return; }
@@ -232,6 +237,7 @@ public final class TweaksCommand {
         // source.<id>: the GitHub repository Check for Updates follows for that package.
         Properties sources = Files.properties(SelfUpdate.SOURCES);
         for (String id : sources.stringPropertyNames()) out.setProperty("source." + id, sources.getProperty(id));
+        out.setProperty("owners", SelfUpdate.owners(SelfUpdate.OWNERS));
         return out;
     }
     private TweaksCommand() { }

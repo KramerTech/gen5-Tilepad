@@ -437,17 +437,22 @@ before then.
 For Tilepad it reads `repos/KramerTech/gen5-Tilepad/releases/latest`: the tag, the notes, and the
 `tilepad.zip` and `tilepad.zip.sig` assets. **Configure Other Software** links other
 packages, straight from their developers' GitHub releases, so a package needn't be in the NEMESIS
-Package Store. It asks for the user or organization first (`users/<name>`), then lists its
-repositories (`users/<name>/repos`, up to 300, most recently pushed first) under a search box. The
-ones that mention NEMESIS come first, and with nothing typed only they show: one
-`search/repositories` query for `nemesis` in their names, descriptions, topics and READMEs, forks
-included, marks them. Reading each repository's releases instead would cost a request per
+Package Store. It asks for the user or organization first (`users/<name>`), typed or picked from
+the ones looked up before (root-side in `update-owners.properties`, written whole by
+`update-owners NAME,…` and reported by `settings` as `owners`; KramerTech and zpoon until it's
+first changed, each with a bin), then lists its repositories (`users/<name>/repos`, up to 300, most
+recently pushed first). Only the ones that mention NEMESIS show at first, with **Show All N** for the
+rest, which adds a search box when there are more than six. One `search/repositories` query for
+`nemesis` in their names, descriptions, topics and READMEs, forks included, marks the NEMESIS ones. Reading each repository's releases instead would cost a request per
 repository out of the 60 an hour GitHub allows without signing in. A pasted `owner/repo` or
-github.com address skips the list. Given the repository, it reads it and its latest release, finds which
+github.com address skips the list. Given the repository, it reads it and its latest release in a
+window of its own, which says what linking does before anything changes, shows a spinner while it
+does it, and ends with what happened; Package Manager's other outcomes (an install, a removal, a
+failed check) also open a window rather than a line below the buttons. It finds which
 NEMESIS package each `.zip` asset holds, and links each one installed here (`packages.db`, which is
 world-readable; NEMESIS 1.16.7 writes `id|name|locked|types` there, so versions come from each
-package's `apps/<id>/NEMESIS.data`). A package that isn't installed gets an **Install** button
-instead: confirming links it and installs it through the same batch as an update, with plain
+package's `apps/<id>/NEMESIS.data`). A package that isn't installed is offered as a fresh
+install instead: confirming links it and installs it through the same batch as an update, with plain
 `nemesis install` rather than `--update`, and Check for Updates then offers it like any other (a
 linked package that isn't installed shows unticked, as a new install). The locked core packages and
 Tilepad itself can't be linked.

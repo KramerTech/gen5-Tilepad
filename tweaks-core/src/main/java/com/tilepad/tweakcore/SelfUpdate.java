@@ -23,6 +23,10 @@ public final class SelfUpdate {
     public static final File DIR = new File("/data/nemesis/backup/tilepad/update");
     /** Other software Check for Updates follows: package id = GitHub owner/repository. Root-only. */
     public static final File SOURCES = new File("/data/nemesis/backup/tilepad/update-sources.properties");
+    /** The GitHub users and organizations Configure Other Software has looked up, newest first (owners=a,b). Root-only. */
+    public static final File OWNERS = new File("/data/nemesis/backup/tilepad/update-owners.properties");
+    /** What the list holds until it's first changed. */
+    static final String DEFAULT_OWNERS = "KramerTech,zpoon";
     /** NEMESIS's installed packages: a tree each, and a line each (id|name|locked|types; NEMESIS's docs add |package-version|short-desc). */
     public static final File APPS = new File("/data/nemesis/apps"), PACKAGES = new File("/data/nemesis/packages.db");
     public static final String TILEPAD = "tilepad", ZIP = "tilepad.zip", SIGNATURE = "tilepad.zip.sig";
@@ -157,6 +161,24 @@ public final class SelfUpdate {
         if (installed != null && installed.locked) throw new IOException(installed.name + " is part of NEMESIS and can't be uninstalled.");
         return installed != null;
     }
+
+    /** The looked-up owners as the app shows them, comma-separated. */
+    static String owners(File file) throws IOException {
+        return file.isFile() ? Files.properties(file).getProperty("owners", "") : DEFAULT_OWNERS;
+    }
+    /** Replaces the looked-up owners (the app adds and removes); each must be a GitHub user or organization name. */
+    static void setOwners(File file, String list) throws IOException {
+        StringBuilder kept = new StringBuilder(); int count = 0;
+        for (String name : list.split(",")) {
+            if (name.trim().isEmpty()) continue;
+            if (!validRepo(name.trim() + "/x")) throw new IOException("That isn't a GitHub user or organization: " + name.trim());
+            if (count++ < MAX_OWNERS) kept.append(kept.length() == 0 ? "" : ",").append(name.trim());
+        }
+        Properties p = new Properties();
+        p.setProperty("owners", kept.toString());
+        Files.store(file, p);
+    }
+    static final int MAX_OWNERS = 20;
 
     /** One package to install: what the app downloaded and how to check it. */
     static final class Item {

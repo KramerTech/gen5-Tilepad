@@ -23,15 +23,29 @@ public class ReposTest {
 
     @Test public void withNothingTypedOnlyNemesisReposShowWhenThereAreAny() {
         List<Repos.Listed> r = repos("mercury", "*gen5-RearDashcam", "photo-sort", "*gen5-SmartTube");
-        assertEquals(Arrays.asList("gen5-RearDashcam", "gen5-SmartTube"), names(Repos.matching(r, "  ")));
-        assertEquals(Arrays.asList("mercury", "photo-sort"), names(Repos.matching(repos("mercury", "photo-sort"), "")));
+        assertEquals(Arrays.asList("gen5-RearDashcam", "gen5-SmartTube"), names(Repos.matching(r, "  ", false)));
+        assertEquals(Arrays.asList("mercury", "photo-sort"), names(Repos.matching(repos("mercury", "photo-sort"), "", false)));
     }
 
     @Test public void searchingCoversEveryRepoNemesisOnesFirst() {
         List<Repos.Listed> r = repos("gen5-notes", "*gen5-RearDashcam", "house-planner", "*gen5-SmartTube");
-        assertEquals(Arrays.asList("gen5-RearDashcam", "gen5-SmartTube", "gen5-notes"), names(Repos.matching(r, "GEN5")));
-        assertEquals(Arrays.asList("house-planner"), names(Repos.matching(r, "plan")));
-        assertTrue(Repos.matching(r, "zzz").isEmpty());
+        assertEquals(Arrays.asList("gen5-RearDashcam", "gen5-SmartTube", "gen5-notes"), names(Repos.matching(r, "GEN5", false)));
+        assertEquals(Arrays.asList("house-planner"), names(Repos.matching(r, "plan", false)));
+        assertTrue(Repos.matching(r, "zzz", false).isEmpty());
+    }
+
+    @Test public void showAllListsEveryRepoNemesisOnesFirst() {
+        List<Repos.Listed> r = repos("mercury", "*gen5-RearDashcam", "photo-sort");
+        assertEquals(Arrays.asList("gen5-RearDashcam", "mercury", "photo-sort"), names(Repos.matching(r, "", true)));
+        assertEquals(Arrays.asList("photo-sort"), names(Repos.matching(r, "photo", true)));
+    }
+
+    @Test public void aLookedUpOwnerMovesToTheFrontOnceAndCanBeRemoved() {
+        assertEquals("zpoon,KramerTech", Repos.owners("KramerTech,zpoon", "zpoon", false));
+        assertEquals("KramerTech,zpoon", Repos.owners("kramertech,zpoon", "KramerTech", false));
+        assertEquals("zpoon", Repos.owners("KramerTech,zpoon", "kramertech", true));
+        assertEquals("someone", Repos.owners("", "someone", false));
+        assertEquals(Arrays.asList("a", "b"), Repos.owners(" a,,b "));
     }
 
     @Test public void aPastedRepositoryIsRecognisedFromOneBox() {
