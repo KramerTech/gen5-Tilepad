@@ -106,6 +106,21 @@ final class Updater {
         return v != null ? v : p == null ? null : p.version;
     }
 
+    /** What Package Manager lists before a check, in the check's order: Tilepad, then each linked package, with no release. */
+    static List<Offer> listed(String current, Properties sources) {
+        List<Offer> out = new ArrayList<>();
+        Offer t = new Offer(); t.id = SelfUpdate.TILEPAD; t.name = "Tilepad"; t.repo = TILEPAD_REPO; t.installed = current;
+        out.add(t);
+        Map<String, SelfUpdate.Package> installed = installed();
+        for (String id : new TreeSet<>(sources.stringPropertyNames())) {
+            Offer o = new Offer(); o.id = id; o.repo = sources.getProperty(id);
+            SelfUpdate.Package p = installed.get(id);
+            o.name = p == null ? id : p.name;
+            o.installed = installedVersion(installed, id);
+            out.add(o);
+        }
+        return out;
+    }
     /**
      * Tilepad's latest release, then each linked package's ({@code sources}: id = owner/repo), in id
      * order. A package GitHub has nothing for says why in its problem; losing the network stops the check.

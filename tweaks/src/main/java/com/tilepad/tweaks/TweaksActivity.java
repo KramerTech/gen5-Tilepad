@@ -60,8 +60,10 @@ public final class TweaksActivity extends Activity {
     /** What Install downloads, and which one it's on and how far. */
     private List<Updater.Offer> installing = new ArrayList<>();
     private int downloading, downloaded = -1;
-    /** Why the last check or install didn't work, until the next one. */
+    /** Why the last check, install or removal didn't work, until the next one. */
     private String updateNotice;
+    /** The package being uninstalled or unlinked, then what happened to the last one. */
+    private String removing, removed;
     private final SettingsEdits edits = new SettingsEdits();
     private final Runnable saveFlush = new Runnable() { @Override public void run() { flushEdits(); } };
     private int selected, bg, ink, muted, line, accent = 0xff00b5de;
@@ -121,7 +123,7 @@ public final class TweaksActivity extends Activity {
         FrameLayout header = new FrameLayout(this);
         TextView title = text("Tweaks", 28, ink); title.setTypeface(null, Typeface.BOLD); title.setGravity(Gravity.CENTER);
         header.addView(title, new FrameLayout.LayoutParams(-1, -1));
-        String notice = preview ? "Preview" : edits.hasWork() ? "Saving…" : busy ? (capturingHome || savingReport ? "Saving…" : step == Step.CHECKING ? "Checking…" : updating() ? "Updating…" : "Reading settings…") : "true".equals(values.getProperty("restart")) ? "Restart required" : "";
+        String notice = preview ? "Preview" : edits.hasWork() ? "Saving…" : busy ? (capturingHome || savingReport ? "Saving…" : step == Step.CHECKING ? "Checking…" : removing != null ? "Removing…" : updating() ? "Updating…" : "Reading settings…") : "true".equals(values.getProperty("restart")) ? "Restart required" : "";
         TextView state = text(notice, 16, ink); state.setPadding(dp(12), 0, dp(22), 0); state.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
         header.addView(state, new FrameLayout.LayoutParams(-1, -1));
         root.addView(header, new LinearLayout.LayoutParams(-1, dp(60))); divider(root);
@@ -275,28 +277,65 @@ public final class TweaksActivity extends Activity {
         save.setTextSize(22); enable(save, ready && !busy && !edits.hasWork());
         action(save);
     }
-    /** The middle pane for Package Manager: what's installed, then the updates. */
+    /**
+     * The middle pane for Package Manager: Tilepad and each linked package with its version, then Check
+     * for Updates beside Configure Other Software. A check that finds updates adds a checkbox column and
+     * turns Check into Install; how the last install or removal went is under the buttons.
+     */
     private void packageManager() {
-        note("Tilepad " + installedVersion() + " is installed.", false);
-        divider(controls);
-        updates();
-    }
-    /** Package Manager's updates: how the last install went, then the check, what it found, and the install. */
-    private void updates() {
         String last = values.getProperty("update.state", "");
-        String[] ids = values.getProperty("update.items", "").split(",");
-        if (last.equals("installing") && step == Step.NONE) {
-            // Reopened while the install runs: it restarts the head unit itself.
-            List<String> names = new ArrayList<>();
-            for (String id : ids) names.add(values.getProperty("update." + id + ".name", id) + " " + values.getProperty("update." + id + ".version", ""));
-            progress("Installing " + join(names) + ". The head unit restarts by itself when it's done; keep the car on.");
-            divider(controls);
-            return;
+        // Reopened while an install runs: it restarts the head unit itself.
+        boolean installingAlready = last.equals("installing") && step == Step.NONE;
+        boolean checked = !offers.isEmpty() && (step == Step.CHECKED || step == Step.DOWNLOADING || step == Step.INSTALLING);
+        List<Updater.Offer> rows = checked ? offers : Updater.listed(installedVersion(), sources());
+        boolean pending = false;
+        for (Updater.Offer o : rows) pending |= checked && o.installable();
+        boolean idle = ready && !busy && !edits.hasWork() && !installingAlready;
+        note("Installed software (linked to GitHub):", false);
+        divider(controls);
+        for (Updater.Offer o : rows) packageRow(o, checked, pending, idle);
+        List<Updater.Offer> picked = picked();
+        Button left; boolean spinning = true;
+        if (step == Step.CHECKING) left = button("Checking…", "Checking GitHub for updates", null);
+        else if (step == Step.DOWNLOADING) {
+            String percent = downloaded >= 0 ? " " + downloaded + "%" : "…";
+            left = button(installing.size() > 1 ? "Downloading " + (downloading + 1) + "/" + installing.size() + percent : "Downloading" + percent, "Downloading updates", null);
+        } else if (step == Step.INSTALLING || installingAlready) left = button("Installing…", "Installing updates", null);
+        else {
+            spinning = false;
+            if (pending && picked.isEmpty()) left = button("Dismiss Updates", "Put the list back without installing anything", new View.OnClickListener() {
+                @Override public void onClick(View v) { dismissUpdates(); }
+            });
+            else if (pending) left = button("Install " + picked.size() + (picked.size() == 1 ? " Update" : " Updates"), "Download and install the ticked updates, then restart the head unit", new View.OnClickListener() {
+                @Override public void onClick(View v) { confirmInstall(); }
+            });
+            else left = button("Check for Updates", "Ask GitHub for newer releases, over Wi-Fi", new View.OnClickListener() {
+                @Override public void onClick(View v) { checkForUpdates(); }
+            });
         }
+        left.setTextSize(20); enable(left, !spinning && idle);
+        Button configure = button("Configure Other Software", "Link a NEMESIS package to the GitHub repository it comes from, or install one from there", new View.OnClickListener() {
+            @Override public void onClick(View v) { dismissUpdates(); configureSources(); }
+        });
+        configure.setTextSize(20); enable(configure, idle && !preview);
+        columns(spinner(left, spinning), 1f, configure, 1.25f);
+        if (installingAlready) note("Installing " + installingNames() + ". The head unit restarts by itself when it's done; keep the car on.", false);
+        lastInstall();
+        if (updateNotice != null) note(updateNotice, true);
+        if (removed != null) note(removed, false);
+    }
+    private String installingNames() {
+        List<String> names = new ArrayList<>();
+        for (String id : values.getProperty("update.items", "").split(","))
+            names.add(values.getProperty("update." + id + ".name", id) + " " + values.getProperty("update." + id + ".version", ""));
+        return join(names);
+    }
+    /** How the last install went, for three days or until this session tries another. */
+    private void lastInstall() {
+        if (step != Step.NONE || updateNotice != null || !values.getProperty("update.state", "").equals("done")) return;
         long started = 0;
         try { started = Long.parseLong(values.getProperty("update.started", "0")); } catch (NumberFormatException ignored) { }
-        // How the last install went, until this session tries another.
-        if (step == Step.NONE && updateNotice == null && last.equals("done")) for (String id : ids) {
+        for (String id : values.getProperty("update.items", "").split(",")) {
             String p = "update." + id + ".", name = values.getProperty(p + "name", id), version = values.getProperty(p + "version", ""), state = values.getProperty(p + "state", "");
             boolean current = "true".equals(values.getProperty(p + "current"));
             boolean fresh = values.getProperty(p + "from", "").isEmpty();
@@ -311,54 +350,28 @@ public final class TweaksActivity extends Activity {
                         : " Check again to retry, or install it from USB."), true);
             }
         }
-        if (step == Step.CHECKING) progress("Checking GitHub for updates…");
-        // A failed check or install says why right under the heading, where the pane opens.
-        if (updateNotice != null) note(updateNotice, true);
-        if (step == Step.CHECKED || step == Step.DOWNLOADING || step == Step.INSTALLING)
-            for (Updater.Offer o : offers) offer(o);
-        boolean available = false;
-        for (Updater.Offer o : offers) available |= o.installable();
-        List<Updater.Offer> picked = picked();
-        if (step == Step.DOWNLOADING) {
-            Updater.Offer o = installing.get(Math.min(downloading, installing.size() - 1));
-            progress("Downloading " + o.name + " " + o.version + (installing.size() > 1 ? " (" + (downloading + 1) + " of " + installing.size() + ")" : "")
-                + (downloaded >= 0 ? "… " + downloaded + "%" : "…"));
-        } else if (step == Step.INSTALLING)
-            progress("Installing " + (installing.size() == 1 ? installing.get(0).name + " " + installing.get(0).version : installing.size() + " updates")
-                + ". The head unit restarts by itself when it's done; keep the car on.");
-        else if (step == Step.CHECKED && available)
-            note("Installing takes a minute or two, then the head unit restarts: the screen, including the rearview camera, is off for a minute or two. Do it while parked, and keep the car on until it's back.", false);
-        Button b;
-        if (step == Step.CHECKED && available) {
-            String label = picked.size() == 1 ? "Install " + picked.get(0).name + " " + picked.get(0).version + " and Restart"
-                : picked.isEmpty() ? "Install and Restart" : "Install " + picked.size() + " Updates and Restart";
-            b = button(label, "Download and install the ticked updates, then restart the head unit", new View.OnClickListener() {
-                @Override public void onClick(View v) { confirmInstall(); }
-            });
-            b.setTextSize(22); enable(b, ready && !busy && !edits.hasWork() && !picked.isEmpty());
-        } else if (step == Step.DOWNLOADING || step == Step.INSTALLING) {
-            b = button("Installing…", "Installing updates", null); b.setTextSize(22); enable(b, false);
-        } else {
-            b = button(step == Step.CHECKING ? "Checking…" : step == Step.CHECKED ? "Check Again" : "Check for Updates", "Ask GitHub for newer releases, over Wi-Fi", new View.OnClickListener() {
-                @Override public void onClick(View v) { checkForUpdates(); }
-            });
-            b.setTextSize(22); enable(b, ready && !busy && !edits.hasWork());
-        }
-        action(b); divider(controls);
-        int linked = sources().size();
-        note((linked == 0 ? "Other NEMESIS packages can install and update here too, straight from their GitHub releases, even ones that aren't in the NEMESIS Package Store."
-            : "Also checks " + linked + (linked == 1 ? " other package" : " other packages") + " linked to GitHub.")
-            + " Packages installed from NEMESIS Manager and not linked here stay NEMESIS Manager's to update.", false);
-        Button configure = button("Configure Other Software", "Link NEMESIS packages to the GitHub repositories they come from, or install one from there", new View.OnClickListener() {
-            @Override public void onClick(View v) { configureSources(); }
-        });
-        configure.setTextSize(22); enable(configure, ready && !busy && !edits.hasWork() && !preview);
-        action(configure);
     }
-    /** One package in the check's list: a checkbox when it can be installed, what's installed, and its release notes. */
-    private void offer(final Updater.Offer o) {
+    /** A button with a spinner inside it, at its left, while it works; the button keeps its size either way. */
+    private View spinner(Button b, boolean spinning) {
+        FrameLayout f = new FrameLayout(this);
+        f.addView(b, new FrameLayout.LayoutParams(-1, -1));
+        if (spinning) {
+            ProgressBar p = new ProgressBar(this); p.setIndeterminate(true);
+            FrameLayout.LayoutParams at = new FrameLayout.LayoutParams(dp(32), dp(32), Gravity.LEFT | Gravity.CENTER_VERTICAL); at.leftMargin = dp(16);
+            f.addView(p, at);
+        }
+        return f;
+    }
+    /** Back to the plain list: what the check found goes, and nothing installs. */
+    private void dismissUpdates() { step = Step.NONE; offers = new ArrayList<>(); chosen.clear(); updateNotice = null; render(); }
+    /**
+     * One package: a checkbox while updates are offered (a blank column for the rest), its name and
+     * version, then its repository, or its update, or a problem; at the end, delete (not Tilepad), or ⓘ
+     * for a release's notes while updates are offered.
+     */
+    private void packageRow(final Updater.Offer o, boolean checked, boolean pending, boolean idle) {
         LinearLayout row = new LinearLayout(this); row.setGravity(Gravity.CENTER_VERTICAL); row.setMinimumHeight(dp(84)); row.setPadding(dp(30), dp(8), dp(12), dp(8));
-        final boolean can = o.installable(), allowed = can && step == Step.CHECKED && ready && !busy;
+        final boolean can = pending && o.installable(), allowed = can && step == Step.CHECKED && idle;
         boolean ticked = can && chosen.contains(o.id);
         if (can) {
             row.setBackground(drawable("bt_list_selector_minimal", selector(false)));
@@ -370,29 +383,76 @@ public final class TweaksActivity extends Activity {
                 if (!chosen.remove(o.id)) chosen.add(o.id);
                 render();
             } });
-        } else row.addView(new View(this), new LinearLayout.LayoutParams(dp(40), dp(40)));
-        LinearLayout words = column(); words.setPadding(dp(10), 0, dp(8), 0);
-        TextView title = text(o.name + (o.newer() ? " " + o.version : ""), 24, ink); words.addView(title);
-        String detail; boolean problem = false;
-        if (o.problem != null) { detail = "Couldn't check: " + o.problem; problem = true; }
-        else if (o.fresh() && can) detail = "Not installed here · " + o.repo + ". Tick to install it.";
-        else if (o.fresh()) { detail = "Not installed here, and this release can't be installed from here. Install it from USB, or remove its link under Configure Other Software."; problem = true; }
-        else if (can) detail = "Installed: " + o.installed + (o.id.equals(SelfUpdate.TILEPAD) ? "" : " · " + o.repo);
-        else if (o.newer()) { detail = "Installed: " + o.installed + ". This release can't be installed from here; install it from USB (see its page on GitHub)."; problem = true; }
-        else if (SelfUpdate.version(o.installed) == null) detail = "Latest release: " + o.version + ". The installed version can't be read.";
-        else if (SelfUpdate.compare(o.version, o.installed) < 0) detail = o.installed + " is newer than GitHub's latest release, " + o.version + ".";
-        else detail = o.installed + " is the latest version.";
+        } else if (pending) row.addView(new View(this), new LinearLayout.LayoutParams(dp(40), dp(40)));
+        LinearLayout words = column(); words.setPadding(pending ? dp(10) : 0, 0, dp(8), 0);
+        boolean known = o.installed != null && SelfUpdate.version(o.installed) != null;
+        int against = checked && o.problem == null && o.version != null && known ? SelfUpdate.compare(o.version, o.installed) : 1;
+        String title = o.name + (o.installed == null || o.installed.isEmpty() ? "" : " " + o.installed);
+        String detail = o.installed == null ? "Not installed · " + o.repo : o.repo; boolean problem = false;
+        if (checked && o.problem != null) { detail = "Couldn't check: " + o.problem; problem = true; }
+        else if (can) detail = o.fresh() ? "New install: " + o.version : o.installed + " → " + o.version;
+        else if (checked && o.newer()) {
+            detail = (o.fresh() ? "Not installed. " : "") + o.version + " can't be installed from here; install it from USB (see its page on GitHub).";
+            problem = true;
+        } else if (checked && !known) detail = "Latest release: " + o.version + ". The installed version can't be read.";
+        else if (pending) detail = against == 0 ? "Latest" : "Newer than the latest release, " + o.version;
+        else if (checked) title += against == 0 ? " (latest)" : " (newer than " + o.version + ")";
+        words.addView(text(title, 24, ink));
         TextView sub = text(detail, 18, problem ? 0xffb54b30 : muted); sub.setPadding(0, dp(2), 0, 0); words.addView(sub);
         row.addView(words, new LinearLayout.LayoutParams(0, -2, 1));
-        row.setContentDescription(o.name + ", " + detail + (can ? ticked ? ", ticked" : ", not ticked" : ""));
-        if (o.newer()) {
+        row.setContentDescription(title + ", " + detail + (can ? ticked ? ", ticked" : ", not ticked" : ""));
+        View end;
+        if (pending && o.newer()) {
             Button info = button("ⓘ", "Release notes for " + o.name + " " + o.version, new View.OnClickListener() {
                 @Override public void onClick(View v) { releaseNotes(o); }
             });
-            info.setTextSize(28); enable(info, true);
-            row.addView(info, new LinearLayout.LayoutParams(dp(64), dp(56)));
-        }
+            info.setTextSize(28); enable(info, step == Step.CHECKED);
+            end = info;
+        } else if (o.id.equals(removing)) {
+            ProgressBar p = new ProgressBar(this); p.setIndeterminate(true);
+            FrameLayout f = new FrameLayout(this); f.addView(p, new FrameLayout.LayoutParams(dp(36), dp(36), Gravity.CENTER));
+            end = f;
+        } else if (!pending && !o.id.equals(SelfUpdate.TILEPAD)) {
+            ImageButton delete = new ImageButton(this); delete.setImageDrawable(trashMark(ink, dp(30))); delete.setBackground(buttonBackground());
+            delete.setContentDescription((o.installed == null ? "Unlink " : "Uninstall ") + o.name);
+            delete.setOnClickListener(new View.OnClickListener() { @Override public void onClick(View v) { confirmRemove(o); } });
+            boolean on = idle && step != Step.CHECKING && !preview; delete.setEnabled(on); delete.setAlpha(on ? 1f : .4f);
+            end = delete;
+        } else end = new View(this);
+        row.addView(end, new LinearLayout.LayoutParams(dp(64), dp(56)));
         controls.addView(row); divider(controls);
+    }
+    /** Delete: uninstalls the package with NEMESIS, or only unlinks it so it stays installed and Package Manager stops updating it. */
+    private void confirmRemove(final Updater.Offer o) {
+        final boolean here = Updater.installed().containsKey(o.id);
+        AlertDialog.Builder b = dialog((here ? "Uninstall " : "Unlink ") + o.name + "?", words(here
+                ? "NEMESIS removes " + o.name + (o.installed == null ? "" : " " + o.installed) + " from this head unit, with its apps and their data.\n\n"
+                    + "To keep it installed and only stop updating it from " + o.repo + " here, unlink it instead."
+                : o.name + " isn't installed here. Unlinking it stops Package Manager checking " + o.repo + " for it."))
+            .setNegativeButton("Cancel", null);
+        if (here) b.setNeutralButton("Unlink Only", new DialogInterface.OnClickListener() {
+            @Override public void onClick(DialogInterface d, int which) { remove(o, false); }
+        });
+        b.setPositiveButton(here ? "Uninstall" : "Unlink", new DialogInterface.OnClickListener() {
+            @Override public void onClick(DialogInterface d, int which) { remove(o, here); }
+        }).show();
+    }
+    private void remove(final Updater.Offer o, final boolean uninstall) {
+        if (!ready || busy || edits.hasWork() || preview) return;
+        busy = true; removing = o.id; updateNotice = null; removed = null; render();
+        worker.execute(new Runnable() { @Override public void run() {
+            Properties read = null; String failed = null;
+            try { read = uninstall ? Backend.run("uninstall", o.id) : Backend.run("update-source", "remove", o.id); } catch (Exception e) { failed = e.getMessage(); }
+            final Properties loaded = read; final String problem = failed;
+            main.post(new Runnable() { @Override public void run() {
+                if (isFinishing() || isDestroyed()) return;
+                // What a check found no longer matches what's installed.
+                busy = false; removing = null; step = Step.NONE; offers = new ArrayList<>();
+                if (loaded != null) { edits.reset(loaded); removed = (uninstall ? "Uninstalled " : "Unlinked ") + o.name + "."; }
+                else updateNotice = (uninstall ? "Couldn't uninstall " : "Couldn't unlink ") + o.name + ": " + problem;
+                render();
+            } });
+        } });
     }
     private List<Updater.Offer> picked() {
         List<Updater.Offer> out = new ArrayList<>();
@@ -426,7 +486,7 @@ public final class TweaksActivity extends Activity {
         });
         b.show();
     }
-    private boolean updating() { return step == Step.CHECKING || step == Step.DOWNLOADING || step == Step.INSTALLING; }
+    private boolean updating() { return step == Step.CHECKING || step == Step.DOWNLOADING || step == Step.INSTALLING || removing != null; }
     private String installedVersion() {
         try { return getPackageManager().getPackageInfo(getPackageName(), 0).versionName; } catch (Exception e) { return ""; }
     }
@@ -440,7 +500,7 @@ public final class TweaksActivity extends Activity {
         if (!ready || busy || edits.hasWork()) return;
         final String current = installedVersion(); final Properties sources = sources();
         final Step before = step;
-        busy = true; step = Step.CHECKING; updateNotice = null; render();
+        busy = true; step = Step.CHECKING; updateNotice = null; removed = null; render();
         worker.execute(new Runnable() { @Override public void run() {
             List<Updater.Offer> found = null; String notice = null;
             Updater.NetworkProblem offline = Updater.networkProblem(TweaksActivity.this);
@@ -458,7 +518,7 @@ public final class TweaksActivity extends Activity {
                     // New installs wait to be ticked; updates start ticked.
                     for (Updater.Offer o : list) if (o.installable() && !o.fresh()) chosen.add(o.id);
                 } else step = before == Step.CHECKED ? Step.CHECKED : Step.NONE;
-                controlScroll.scrollTo(0, 0); render();
+                render();
                 if (wifi != null) networkProblem(wifi);
             } });
         } });
@@ -470,7 +530,8 @@ public final class TweaksActivity extends Activity {
         for (Updater.Offer o : picked)
             list.append("• ").append(o.name).append(' ').append(o.fresh() ? o.version + " (new)" : o.installed + " → " + o.version).append('\n');
         dialog(picked.size() == 1 ? "Install " + picked.get(0).name + " " + picked.get(0).version + "?" : "Install " + picked.size() + " Updates?",
-                words(list + "\nThe head unit restarts when the installs finish, a minute or two from now. Keep the car parked and on until it's back."))
+                words(list + "\nInstalling takes a minute or two, then the head unit restarts: the screen, including the rearview camera, is off for "
+                    + "a minute or two. Do it while parked, and keep the car on until it's back."))
             .setNegativeButton("Cancel", null)
             .setPositiveButton("Install and Restart", new DialogInterface.OnClickListener() {
                 @Override public void onClick(DialogInterface d, int which) { install(picked); }
@@ -537,14 +598,13 @@ public final class TweaksActivity extends Activity {
     /**
      * Links installed NEMESIS packages to their GitHub repositories, in two steps: the GitHub user or
      * organization, then one of its repositories, picked from a list a filter narrows. The packages in
-     * that repository's latest release that are installed here get linked. Lists and unlinks the rest.
+     * that repository's latest release that are installed here get linked; the pane's delete unlinks them.
      */
     private void configureSources() {
         if (!ready || busy || edits.hasWork()) return;
         LinearLayout box = column(); box.setPadding(dp(28), dp(6), dp(28), dp(8));
         final LinearLayout stage = column(); box.addView(stage);
         final LinearLayout result = column(); box.addView(result);
-        final LinearLayout linked = column(); box.addView(linked);
         ScrollView scroll = new ScrollView(this); scroll.setScrollbarFadingEnabled(false); scroll.addView(box);
         final AlertDialog dialog = sourcesDialog = dialog("Other Software", scroll).setPositiveButton("Close", null).create();
         dialog.getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE | WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN);
@@ -554,14 +614,12 @@ public final class TweaksActivity extends Activity {
             if (sourcesDialog == dialog) sourcesDialog = null;
             render();
         } });
-        final Runnable showLinks = new Runnable() { @Override public void run() { links(linked, result); } };
-        askOwner(stage, result, showLinks, "");
-        showLinks.run();
+        askOwner(stage, result, "");
         dialog.show();
         dialog.getWindow().setLayout(Math.min(dp(900), getResources().getDisplayMetrics().widthPixels - dp(60)), -2);
     }
     /** Step one: the GitHub user or organization. A pasted owner/repo or github.com address skips step two. */
-    private void askOwner(final LinearLayout stage, final LinearLayout result, final Runnable showLinks, String typed) {
+    private void askOwner(final LinearLayout stage, final LinearLayout result, String typed) {
         stage.removeAllViews();
         TextView intro = text("Install and update packages straight from their developers' GitHub releases, even ones not in the NEMESIS "
             + "Package Store. Only packages linked here are managed here; others stay with NEMESIS Manager. Type the GitHub user "
@@ -580,15 +638,15 @@ public final class TweaksActivity extends Activity {
             String login = t.replaceFirst("^(https?://)?(www\\.)?github\\.com/", "").replaceFirst("^@", "").replaceAll("/+$", "");
             if (named == null && !SelfUpdate.validRepo(login + "/x")) { message(result, "Type a GitHub user or organization, e.g. KramerTech.", true); return; }
             hideKeyboard(owner);
-            if (named != null) findSource(named[0], named[1], new View[]{owner, next}, result, showLinks);
-            else loadAccount(login, new View[]{owner, next}, stage, result, showLinks);
+            if (named != null) findSource(named[0], named[1], new View[]{owner, next}, result);
+            else loadAccount(login, new View[]{owner, next}, stage, result);
         } });
         owner.setImeOptions(owner.getImeOptions() | android.view.inputmethod.EditorInfo.IME_ACTION_GO);
         owner.setOnEditorActionListener(new TextView.OnEditorActionListener() { @Override public boolean onEditorAction(TextView v, int action, KeyEvent e) {
             next.performClick(); return true;
         } });
     }
-    private void loadAccount(final String owner, final View[] lock, final LinearLayout stage, final LinearLayout result, final Runnable showLinks) {
+    private void loadAccount(final String owner, final View[] lock, final LinearLayout stage, final LinearLayout result) {
         lock(lock, true);
         working(result, "Finding " + owner + "'s repositories…");
         final String current = installedVersion();
@@ -605,18 +663,18 @@ public final class TweaksActivity extends Activity {
                 result.removeAllViews();
                 if (wifi != null) networkProblem(wifi);
                 else if (problem != null) message(result, problem, true);
-                else pickRepository(account, stage, result, showLinks);
+                else pickRepository(account, stage, result);
             } });
         } });
     }
     /** Step two: the account's repositories, NEMESIS ones first, narrowed by what's typed; tapping one finds its packages. */
-    private void pickRepository(final Updater.Account account, final LinearLayout stage, final LinearLayout result, final Runnable showLinks) {
+    private void pickRepository(final Updater.Account account, final LinearLayout stage, final LinearLayout result) {
         stage.removeAllViews();
         LinearLayout top = new LinearLayout(this); top.setGravity(Gravity.CENTER_VERTICAL);
         TextView who = text(account.login, 24, ink); who.setTypeface(null, Typeface.BOLD);
         top.addView(who, new LinearLayout.LayoutParams(0, -2, 1));
         final Button change = button("Change User", "Type a different GitHub user", new View.OnClickListener() {
-            @Override public void onClick(View v) { result.removeAllViews(); askOwner(stage, result, showLinks, account.login); }
+            @Override public void onClick(View v) { result.removeAllViews(); askOwner(stage, result, account.login); }
         });
         change.setTextSize(20); enable(change, true);
         change.setPadding(dp(24), 0, dp(24), 0);
@@ -657,7 +715,7 @@ public final class TweaksActivity extends Activity {
                 final Repos.Listed l = shown.get(i);
                 rows.get(i).setOnClickListener(new View.OnClickListener() { @Override public void onClick(View v) {
                     hideKeyboard(filter);
-                    findSource(account.login, l.name, lock.toArray(new View[0]), result, showLinks);
+                    findSource(account.login, l.name, lock.toArray(new View[0]), result);
                 } });
             }
             int rest = shown.size() - REPOS_SHOWN;
@@ -696,7 +754,7 @@ public final class TweaksActivity extends Activity {
         TextView v = text(text, 19, problem ? 0xffb54b30 : ink); v.setGravity(Gravity.TOP); v.setPadding(0, dp(10), 0, dp(10)); into.addView(v);
     }
     /** Looks up the repository's latest release, links what's installed here, and says what it found. */
-    private void findSource(final String owner, final String name, final View[] lock, final LinearLayout result, final Runnable showLinks) {
+    private void findSource(final String owner, final String name, final View[] lock, final LinearLayout result) {
         lock(lock, true);
         working(result, "Reading " + owner + "/" + name + "'s latest release…");
         final String current = installedVersion();
@@ -746,7 +804,6 @@ public final class TweaksActivity extends Activity {
                     LinearLayout.LayoutParams ap = new LinearLayout.LayoutParams(-1, dp(60)); ap.setMargins(0, dp(4), 0, dp(8));
                     result.addView(add, ap);
                 }
-                showLinks.run();
             } });
         } });
     }
@@ -772,41 +829,6 @@ public final class TweaksActivity extends Activity {
                     } });
                 }
             }).show();
-    }
-    /** The linked packages, each with Remove. */
-    private void links(final LinearLayout into, final LinearLayout result) {
-        into.removeAllViews();
-        values = edits.display();
-        Properties sources = sources();
-        TextView heading = text(sources.isEmpty() ? "No packages linked yet." : "Linked", 22, ink); heading.setPadding(0, dp(10), 0, dp(4));
-        if (!sources.isEmpty()) heading.setTypeface(null, Typeface.BOLD);
-        into.addView(heading);
-        Map<String, SelfUpdate.Package> installed = Updater.installed();
-        for (final String id : new TreeSet<>(sources.stringPropertyNames())) {
-            LinearLayout row = new LinearLayout(this); row.setGravity(Gravity.CENTER_VERTICAL); row.setMinimumHeight(dp(60));
-            SelfUpdate.Package p = installed.get(id);
-            final String name = p == null ? id : p.name;
-            TextView label = text(name + "\n" + sources.getProperty(id) + (p == null ? " · not installed" : ""), 19, ink); label.setGravity(Gravity.CENTER_VERTICAL);
-            row.addView(label, new LinearLayout.LayoutParams(0, -2, 1));
-            final Button remove = button("Remove", "Stop checking GitHub for " + name, null); remove.setTextSize(20); enable(remove, true);
-            remove.setOnClickListener(new View.OnClickListener() { @Override public void onClick(View v) {
-                enable(remove, false);
-                worker.execute(new Runnable() { @Override public void run() {
-                    Properties read = null; String failed = null;
-                    try { read = Backend.run("update-source", "remove", id); } catch (Exception e) { failed = e.getMessage(); }
-                    final Properties loaded = read; final String problem = failed;
-                    main.post(new Runnable() { @Override public void run() {
-                        if (isFinishing() || isDestroyed()) return;
-                        if (loaded != null) { edits.reset(loaded); message(result, "Unlinked " + name + ".", false); }
-                        else message(result, "Couldn't unlink " + name + ": " + problem, true);
-                        links(into, result);
-                    } });
-                } });
-            } });
-            row.addView(remove, new LinearLayout.LayoutParams(dp(150), dp(52)));
-            into.addView(row);
-            View rule = new View(this); rule.setBackgroundColor(line); into.addView(rule, new LinearLayout.LayoutParams(-1, dp(1)));
-        }
     }
     private void checkbox(LinearLayout parent, String label, final String key, boolean checked, boolean allowed) {
         LinearLayout row = new LinearLayout(this); row.setGravity(Gravity.CENTER_VERTICAL); row.setMinimumHeight(dp(72)); row.setPadding(dp(30), dp(8), dp(18), dp(8));
@@ -1041,9 +1063,11 @@ public final class TweaksActivity extends Activity {
         View[] views = {left, right}; float[] weights = {leftWeight, rightWeight};
         for (int i = 0; i < 2; i++) {
             View v = views[i];
-            LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(0, v instanceof Button ? dp(64) : -2, weights[i]);
+            // A line of text, or a button (perhaps inside spinner()'s frame).
+            boolean words = v instanceof TextView && !(v instanceof Button);
+            LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(0, words ? -2 : dp(64), weights[i]);
             p.setMargins(dp(6), dp(6), dp(6), dp(6));
-            if (!(v instanceof Button)) v.setPadding(0, 0, dp(8), 0);
+            if (words) v.setPadding(0, 0, dp(8), 0);
             row.addView(v, p);
         }
         controls.addView(row);
@@ -1089,6 +1113,31 @@ public final class TweaksActivity extends Activity {
     private StateListDrawable selector(boolean selected) {
         StateListDrawable d = new StateListDrawable(); d.addState(new int[]{android.R.attr.state_pressed}, new ColorDrawable(0x3300b5de));
         d.addState(new int[]{android.R.attr.state_focused}, new ColorDrawable(0x2200b5de)); d.addState(new int[]{}, new ColorDrawable(selected ? 0x1100b5de : 0x00000000)); return d;
+    }
+    /** Package Manager's delete: a bin with a lid and handle, in the label's colour. */
+    private Drawable trashMark(final int color, final int size) {
+        return new Drawable() {
+            private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+            private final Path path = new Path();
+            @Override public void draw(Canvas canvas) {
+                Rect b = getBounds(); float stroke = dp(2.5f), cx = b.exactCenterX(), s = b.width() / 2f;
+                float lid = b.top + s * .38f, bottom = b.bottom - s * .12f;
+                paint.setColor(color); paint.setStyle(Paint.Style.STROKE); paint.setStrokeWidth(stroke);
+                paint.setStrokeCap(Paint.Cap.ROUND); paint.setStrokeJoin(Paint.Join.ROUND);
+                path.reset();
+                path.moveTo(cx - s * .8f, lid); path.lineTo(cx + s * .8f, lid);
+                path.moveTo(cx - s * .3f, lid); path.lineTo(cx - s * .3f, b.top + s * .14f); path.lineTo(cx + s * .3f, b.top + s * .14f); path.lineTo(cx + s * .3f, lid);
+                path.moveTo(cx - s * .62f, lid); path.lineTo(cx - s * .5f, bottom); path.lineTo(cx + s * .5f, bottom); path.lineTo(cx + s * .62f, lid);
+                path.moveTo(cx - s * .2f, lid + s * .3f); path.lineTo(cx - s * .17f, bottom - s * .25f);
+                path.moveTo(cx + s * .2f, lid + s * .3f); path.lineTo(cx + s * .17f, bottom - s * .25f);
+                canvas.drawPath(path, paint);
+            }
+            @Override public int getIntrinsicWidth() { return size; }
+            @Override public int getIntrinsicHeight() { return size; }
+            @Override public void setAlpha(int alpha) { paint.setAlpha(alpha); }
+            @Override public void setColorFilter(ColorFilter filter) { paint.setColorFilter(filter); }
+            @Override public int getOpacity() { return PixelFormat.TRANSLUCENT; }
+        };
     }
     /** Package Manager's mark: a down arrow onto a tray, in the help mark's circle. */
     private Drawable updateMark(final int color, final int size) {

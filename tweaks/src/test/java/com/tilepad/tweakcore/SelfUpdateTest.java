@@ -172,6 +172,18 @@ public class SelfUpdateTest {
         assertFalse(SelfUpdate.validRepo("-x/y")); assertFalse(SelfUpdate.validRepo("x/.."));
     }
 
+    @Test public void deleteUninstallsAnyPackageButTilepadAndNemesisOwn() throws Exception {
+        File db = new File(dir, "packages.db");
+        Files.write(db, "usb-handler|USB Handler|1|service\ndashcam|Rear Dashcam|0|application\ntilepad|Tilepad|0|application\n".getBytes("UTF-8"));
+        assertTrue(SelfUpdate.uninstallable(db, "dashcam"));
+        // Linked but not installed: only the link goes.
+        assertFalse(SelfUpdate.uninstallable(db, "smarttube"));
+        for (String[] refused : new String[][]{{"tilepad", "USB uninstall bundle"}, {"usb-handler", "part of NEMESIS"}, {"../x", "isn't a NEMESIS package id"}}) {
+            try { SelfUpdate.uninstallable(db, refused[0]); fail(refused[0]); }
+            catch (IOException e) { assertTrue(e.getMessage(), e.getMessage().contains(refused[1])); }
+        }
+    }
+
     @Test public void theDescriptorIsItsNemesisSectionUnquoted() {
         Properties d = SelfUpdate.descriptor("[nemesis]\nid=tilepad\nshort-desc=\"Star = launcher\"\n; note=x\n[app.0]\nid=other\n");
         assertEquals("tilepad", d.getProperty("id"));

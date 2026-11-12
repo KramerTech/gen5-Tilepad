@@ -57,6 +57,20 @@ public final class TweaksCommand {
                     SelfUpdate.setSource(SelfUpdate.SOURCES, SelfUpdate.APPS, SelfUpdate.PACKAGES, args[2], args.length == 4 ? args[3] : null);
                     printStatus(c, false); return;
                 }
+                // Package Manager's delete: NEMESIS uninstalls the package, then its link goes.
+                if (args.length == 2 && args[0].equals("uninstall")) {
+                    String id = args[1];
+                    if (SelfUpdate.installing(SelfUpdate.DIR, Platform.boot(), System.currentTimeMillis()))
+                        throw new IOException("An update is installing. The head unit restarts when it's done; uninstall after that.");
+                    if (SelfUpdate.uninstallable(SelfUpdate.PACKAGES, id)) {
+                        String said = "";
+                        try { said = Platform.exec("/system/xbin/nemesis", "uninstall", id); } catch (IOException e) { said = e.getMessage(); }
+                        // Its records say whether it went, whatever the exit status.
+                        if (SelfUpdate.uninstallable(SelfUpdate.PACKAGES, id)) throw new IOException("NEMESIS didn't uninstall it" + (said.isEmpty() ? "." : ": " + said));
+                    }
+                    SelfUpdate.setSource(SelfUpdate.SOURCES, SelfUpdate.APPS, SelfUpdate.PACKAGES, id, null);
+                    printStatus(c, false); return;
+                }
                 if (args.length == 1 && (args[0].equals("report") || args[0].equals("support"))) {
                     System.out.println("saved=" + UsbReport.save(status(c, true), c, args[0].equals("support"))); return;
                 }
@@ -83,7 +97,7 @@ public final class TweaksCommand {
                     if (c.needsVehicleCheck(previous)) Platform.requireVehicle();
                     if (c.needsDualZoneCheck(previous)) Platform.requireDualZone();
                     if (c.enabled("dst") && c.dstChanged(previous)) DstRules.baseOffsetMinutes(Platform.property("persist.sys.timezone"));
-                } else throw new IllegalArgumentException("Usage: settings | summary | status | report | support | home | restore | reconcile | self-update {ID FILE CHECK INNER}… | update-source add ID OWNER/REPO | update-source remove ID | set/update/options KEY VALUE [KEY VALUE…]");
+                } else throw new IllegalArgumentException("Usage: settings | summary | status | report | support | home | restore | reconcile | self-update {ID FILE CHECK INNER}… | update-source add ID OWNER/REPO | update-source remove ID | uninstall ID | set/update/options KEY VALUE [KEY VALUE…]");
                 // Intent survives termination between a /system write and config commit.
                 if (restoring) transaction().commitFull(c); else transaction().commit(c);
                 if (args[0].equals("update")) { printStatus(c, false); return; }

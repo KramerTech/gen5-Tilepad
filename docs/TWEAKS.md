@@ -452,14 +452,25 @@ instead: confirming links it and installs it through the same batch as an update
 linked package that isn't installed shows unticked, as a new install). The locked core packages and
 Tilepad itself can't be linked.
 Links live root-side in `/data/nemesis/backup/tilepad/update-sources.properties` (`id=owner/repo`,
-written by `update-source add|remove`), so they survive Tilepad's updates; `settings` reports them as
+written by `update-source add|remove` and `uninstall`), so they survive Tilepad's updates; `settings` reports them as
 `source.<id>`. `ZipProbe.java` reads an asset's `NEMESIS.data` with HTTP range requests (the central
 directory at the end, then that entry), a few kilobytes even for SmartTube's 22 MB zips. A USB
 bundle (`type=install`, `path=packages/x.zip`, like Evergreen's release) is followed to the package
 inside: by range when it's stored, by streaming it from the start when it's compressed, which only
-happens when the release has no plain package zip. Each check lists Tilepad and every linked package
-with the version installed and the release's `package-version`; a newer one gets a checkbox (ticked)
-and ⓘ, which shows the release notes without their Markdown.
+happens when the release has no plain package zip.
+
+The pane lists Tilepad and every linked package with the version installed, read locally, under
+Check for Updates and Configure Other Software side by side; the check's spinner runs inside its
+button, so nothing moves. When every release matches, each version gains "(latest)". When any is
+newer, every row moves over for a checkbox column: a newer one gets a checkbox (ticked, or unticked
+for a new install), its installed → release versions in place of the repository, and ⓘ, which shows
+the release notes without their Markdown; the rest say "Latest". The left button becomes **Install N
+Updates**, whose confirmation carries the restart warning, or **Dismiss Updates** when nothing is
+ticked. Configure Other Software dismisses them too, since a new link changes the list. Outside that
+state each linked package has a bin: **Uninstall** runs `uninstall ID` (`nemesis uninstall`, then
+the link goes; refused for Tilepad, whose USB uninstall bundle restores its tweaks first, NEMESIS's
+locked packages, and while an update installs; success is read from `packages.db`), and **Unlink
+Only** runs `update-source remove`, leaving the package installed.
 
 Install downloads the ticked assets into the app's own `files/update/`, readable by root (which has
 no DAC override) and writable by no other app, checks each against the SHA-256 GitHub publishes for

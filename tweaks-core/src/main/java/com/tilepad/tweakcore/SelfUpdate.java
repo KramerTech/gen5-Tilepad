@@ -145,6 +145,19 @@ public final class SelfUpdate {
         Files.store(sources, p);
     }
 
+    /**
+     * Whether Package Manager's delete can uninstall the package: refuses Tilepad (its USB uninstall
+     * bundle restores what it changed first) and NEMESIS's own. False when it isn't installed, so only
+     * its link goes.
+     */
+    static boolean uninstallable(File db, String id) throws IOException {
+        if (!validId(id)) throw new IOException("That isn't a NEMESIS package id.");
+        if (id.equals(TILEPAD)) throw new IOException("Tilepad can't uninstall itself here. Use the USB uninstall bundle from its GitHub release.");
+        Package installed = installedPackage(db, id);
+        if (installed != null && installed.locked) throw new IOException(installed.name + " is part of NEMESIS and can't be uninstalled.");
+        return installed != null;
+    }
+
     /** One package to install: what the app downloaded and how to check it. */
     static final class Item {
         final String id, check, inner; final File download;

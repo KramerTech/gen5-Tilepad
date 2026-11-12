@@ -127,14 +127,15 @@ The TUNE knob also works: turn it to move the highlight and press it to open the
 The installer writes `tilepad-install.log` to the drive. **Update** works the same way with
 `Tilepad-update-usb.zip` and keeps your tiles and tweak settings. From 1.2.0 on, Tilepad can also
 update itself: connect the head unit to Wi-Fi (a phone hotspot works), open Tweaks → **Package Manager**
-and tap **Check for Updates**. It only uses Wi-Fi, never the car's built-in modem, installs only a release
+and tap **Check for Updates**. It lists Tilepad and each linked package with its version. It only uses Wi-Fi, never the car's built-in modem, installs only a release
 signed with Tilepad's key, and restarts the head unit when it's done, so do it while parked. Under
 **Configure Other Software** you can link other NEMESIS packages you've installed to the
 GitHub repositories they come from, and the same check updates them too, straight from their
 developers' releases, even packages that aren't in the NEMESIS Package Store. A package in that
 repository that isn't installed yet can be installed from there too. Package Manager only manages
 Tilepad and the packages linked there: a package you installed from NEMESIS Manager and didn't link
-keeps updating through NEMESIS Manager. **Uninstall** uses
+keeps updating through NEMESIS Manager. The bin beside a linked package uninstalls it, or only unlinks
+it. **Uninstall** uses
 `Tilepad-uninstall-usb.zip`: it undoes any tweaks first, then removes Tilepad and its saved
 settings (including the Charge-Away Home location).
 
