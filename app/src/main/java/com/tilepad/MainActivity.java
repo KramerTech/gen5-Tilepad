@@ -47,6 +47,7 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
     private static final String WIFI_CLIENT_SCRIPT = "/data/nemesis/apps/tilepad/bin/wifi-client.sh";
     /** Turns ADB over TCP on or off (the firmware property, as root); shipped in the package. */
     private static final String ADB_TILE_SCRIPT = "/data/nemesis/apps/tilepad/bin/adb-tile.sh";
+    private static final long WIFI_EXPECTED_MS = 30000;
     private static final String WIFI_CLIENT_XML = "/system/etc/permissions/android.hardware.wifi.xml";
     private static final int KEY_TUNE_UP = keyCode("KEYCODE_TUNE_UP", 223);
     private static final int KEY_TUNE_DOWN = keyCode("KEYCODE_TUNE_DOWN", 224);
@@ -76,6 +77,8 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
     private long resumedAt, enterAt;
     private int connectionEpoch, adbEpoch, sheetKnob = -1;
     private ConnectionSnapshot connection = ConnectionSnapshot.unknown();
+    /** When the ADB tile started turning Wi-Fi on; until it connects the tile says to wait. */
+    private long wifiExpectedSince;
 
     private AdbSnapshot adb = AdbSnapshot.checking();
     private boolean adbPendingOn;
@@ -820,10 +823,13 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
                     if (manager == null) value = ConnectionSnapshot.unknown();
                     else {
                         WifiInfo info = manager.getConnectionInfo();
+                        SupplicantState supplicant = info == null ? null : info.getSupplicantState();
                         value = ConnectionSnapshot.read(manager.isWifiEnabled(),
-                            info != null && info.getSupplicantState() == SupplicantState.COMPLETED,
+                            supplicant == SupplicantState.COMPLETED,
                             info == null ? null : info.getSSID(), info == null ? 0 : info.getIpAddress());
                         if (info != null) value = value.withLink(WifiManager.calculateSignalLevel(info.getRssi(), 4), info.getLinkSpeed());
+                        value = value.onTheWay(manager.getWifiState() == WifiManager.WIFI_STATE_ENABLING,
+                            joining(supplicant), false, info == null ? null : info.getSSID());
                     }
                 } catch (SecurityException e) { value = ConnectionSnapshot.unknown(); }
                 final ConnectionSnapshot result = value;
@@ -833,6 +839,16 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
                 } });
             }
         }, "tilepad-wifi").start();
+    }
+
+    /** Associating with a network, or associated and waiting for DHCP. */
+    private static boolean joining(SupplicantState s) {
+        if (s == null) return false;
+        switch (s) {
+            case ASSOCIATING: case ASSOCIATED: case AUTHENTICATING:
+            case FOUR_WAY_HANDSHAKE: case GROUP_HANDSHAKE: case COMPLETED: return true;
+            default: return false;
+        }
     }
 
     // Hotspot-only units: the radio can't join a network until android.hardware.wifi exists.
@@ -895,7 +911,11 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
 
     private void onConnection(ConnectionSnapshot value) {
         connection = value;
-        if (wifiTile != null) wifiTile.bind(value);
+        // Turning the hotspot off, the radio on and joining a saved network takes several
+        // seconds after the ADB tile settles; say so rather than "Off" or "No network".
+        if (wifiExpectedSince > 0 && (value.state == ConnectionSnapshot.State.CONNECTED
+                || SystemClock.uptimeMillis() - wifiExpectedSince > WIFI_EXPECTED_MS)) wifiExpectedSince = 0;
+        if (wifiTile != null) wifiTile.bind(value.onTheWay(false, false, wifiExpectedSince > 0, null));
     }
 
     // ---- Tweaks summary ----
@@ -1073,6 +1093,10 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
         adbPendingError = null;
         adb = AdbSnapshot.of(on ? AdbSnapshot.State.STARTING : AdbSnapshot.State.STOPPING, adb.port);
         if (adbTile != null) adbTile.bind(adb);
+        if (on && support.wifiClient && connection.state != ConnectionSnapshot.State.CONNECTED) {
+            wifiExpectedSince = SystemClock.uptimeMillis();
+            onConnection(connection);
+        }
         if (adbCard != null) renderAdbCard();
         final int epoch = adbEpoch;
         new Thread(new Runnable() {
@@ -1085,6 +1109,11 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
                 final String wifi = failed == null && on ? wifiOn() : null;
                 main.post(new Runnable() { @Override public void run() {
                     if (isFinishing() || !resumed || epoch != adbEpoch) return;
+                    if (on && (failed != null || wifi != null)) {
+                        // Wi-Fi wasn't turned on after all.
+                        wifiExpectedSince = 0;
+                        onConnection(connection);
+                    }
                     if (wifi != null) {
                         adbPendingSince = 0;
                         onAdb(AdbSnapshot.error(wifi));

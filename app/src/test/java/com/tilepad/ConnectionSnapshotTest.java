@@ -30,4 +30,17 @@ public class ConnectionSnapshotTest {
         ConnectionSnapshot off = ConnectionSnapshot.read(false, false, null, 0).withLink(2, 72);
         assertEquals(-1, off.signal);
     }
+    @Test public void onTheWayReplacesOffAndNoNetworkUntilConnected() {
+        ConnectionSnapshot off = ConnectionSnapshot.read(false, false, null, 0);
+        assertSame(off, off.onTheWay(false, false, false, null));
+        assertEquals(ConnectionSnapshot.State.TURNING_ON, off.onTheWay(true, false, false, null).state);
+        assertEquals(ConnectionSnapshot.State.TURNING_ON, off.onTheWay(false, false, true, null).state);
+        ConnectionSnapshot none = ConnectionSnapshot.read(true, false, null, 0);
+        assertSame(none, none.onTheWay(false, false, false, "\"Home\""));
+        assertEquals("Home", none.onTheWay(false, true, false, "\"Home\"").network);
+        assertEquals(ConnectionSnapshot.State.CONNECTING, none.onTheWay(false, true, false, "\"Home\"").state);
+        assertEquals("Connecting…", none.onTheWay(false, false, true, "<unknown ssid>").network);
+        ConnectionSnapshot up = ConnectionSnapshot.read(true, true, "Home", 1);
+        assertSame(up, up.onTheWay(true, true, true, "Home"));
+    }
 }

@@ -11,6 +11,7 @@ final class WifiTile extends StatusTile {
     }
 
     void bind(ConnectionSnapshot c) {
+        spinner.setSpinning(false);
         switch (c.state) {
             case CONNECTED: {
                 glyph.setKind(Glyph.Kind.WIFI);
@@ -21,6 +22,20 @@ final class WifiTile extends StatusTile {
                 show(detail, c.ip);
                 show(meta, c.linkMbps > 0 ? c.linkMbps + " Mbps" : "");
                 setContentDescription("Wi-Fi connected to " + c.network + ", " + c.ip);
+                break;
+            }
+            case TURNING_ON:
+            case CONNECTING: {
+                boolean on = c.state == ConnectionSnapshot.State.CONNECTING;
+                glyph.setKind(Glyph.Kind.WIFI);
+                glyph.setColor(Ui.AMBER); glyph.setSignal(0);
+                spinner.setColor(Ui.AMBER);
+                spinner.setSpinning(true);
+                setPill(on ? "Joining" : "Starting", Ui.AMBER);
+                show(headline, c.network);
+                show(detail, "");
+                show(meta, "Connects automatically");
+                setContentDescription(on ? "Wi-Fi connecting" : "Wi-Fi turning on");
                 break;
             }
             case DISCONNECTED:
@@ -54,6 +69,7 @@ final class WifiTile extends StatusTile {
 
     /** The unit can't join networks yet; pendingReboot once the client is on but not started. */
     void bindClientOff(boolean pendingReboot) {
+        spinner.setSpinning(false);
         glyph.setKind(Glyph.Kind.WIFI_OFF);
         glyph.setColor(Ui.MUTED); glyph.setSignal(0);
         setPill(pendingReboot ? "Pending" : "Client off", pendingReboot ? Ui.AMBER : Ui.MUTED);
