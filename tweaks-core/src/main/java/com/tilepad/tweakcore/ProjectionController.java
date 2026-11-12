@@ -43,7 +43,7 @@ final class ProjectionController {
             nativeEvents.stop();
             policy = new ProjectionPolicy(0);
             try { persist(); } catch (Exception e) { status(e.getMessage()); }
-            status("Automatic opening is off. Phone Projection is left as it is."); return;
+            status("Automatic opening is off. **Phone Projection** is left as it is."); return;
         }
         try {
             Properties saved = Files.properties(state);
@@ -95,7 +95,7 @@ final class ProjectionController {
                 String foreground = target == 0 ? null : foregroundPackage();
                 if (target != 0 && ProjectionPolicy.cameraForeground(foreground)) {
                     policy = new ProjectionPolicy(before);
-                    status("Phone Projection is available; waiting for the camera screen to close.");
+                    status("**Phone Projection** is available; waiting for the camera screen to close.");
                     handler.postDelayed(check, 1000); return;
                 }
                 // Persist before dispatch so restarting the service cannot repeatedly steal focus.

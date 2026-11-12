@@ -288,6 +288,10 @@ public class SelfUpdateTest {
         File script = new File(dir, SelfUpdate.SCRIPT);
         String text = SelfUpdate.script(dir, items);
         assertTrue(text.contains("update_one dashcam\nupdate_one tilepad --update\n"));
+        // The install screen starts first, from its own copy of Tilepad, and the installs don't wait on it.
+        assertTrue(text.indexOf("com.tilepad.tweakcore.InstallScreen") < text.indexOf("update_one dashcam\n"));
+        assertTrue(text.contains("cp /data/nemesis/apps/tilepad/app/Tilepad.apk \"$S/Tilepad.apk\""));
+        assertTrue(text.contains("ANDROID_DATA=\"$S\""));
         Files.write(script, text.replace("/system/xbin/nemesis", fake.getPath()).replace("sleep 2", ":")
             .replace("export PATH=", "export PATH=" + System.getenv("PATH") + ":").getBytes("UTF-8"));
         Process p = new ProcessBuilder("sh", script.getPath()).redirectErrorStream(true).start();

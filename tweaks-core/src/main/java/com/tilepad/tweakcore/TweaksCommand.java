@@ -66,7 +66,7 @@ public final class TweaksCommand {
                 if (args.length == 2 && args[0].equals("uninstall")) {
                     String id = args[1];
                     if (SelfUpdate.installing(SelfUpdate.DIR, Platform.boot(), System.currentTimeMillis()))
-                        throw new IOException("An update is installing. The head unit restarts when it's done; uninstall after that.");
+                        throw new IOException("An update is installing. The head unit will restart when installation is complete, and you can uninstall after that.");
                     if (SelfUpdate.uninstallable(SelfUpdate.PACKAGES, id)) {
                         String said = "";
                         try { said = Platform.exec("/system/xbin/nemesis", "uninstall", id); } catch (IOException e) { said = e.getMessage(); }
@@ -118,7 +118,7 @@ public final class TweaksCommand {
      */
     private static String selfUpdate(String[] args) throws Exception {
         File dir = SelfUpdate.DIR; String boot = Platform.boot(); long now = System.currentTimeMillis();
-        if (SelfUpdate.installing(dir, boot, now)) throw new IOException("An update is already installing. The head unit restarts when it's done.");
+        if (SelfUpdate.installing(dir, boot, now)) throw new IOException("An update is already installing. The head unit will restart when installation is complete.");
         if (!dir.isDirectory() && !dir.mkdirs()) throw new IOException("Cannot create " + dir);
         Platform.exec("chmod", "0700", dir.getPath());
         SelfUpdate.tidy(dir);

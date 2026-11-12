@@ -25,9 +25,9 @@ final class ClimateController {
     // service rather than assumed, and a request that changes nothing is retried at most twice.
     private static final long SETTLE_MS = 40, REPLY_SETTLE_MS = 0, REPLY_MS = 1000, POLL_MS = 1000;
     private static final int MAX_UNCHANGED = 3, MAX_STEPS = 40;
-    private static final String DRIVER_ONLY_SET = "Driver Only is on for this drive. The passenger seat belt is being watched, and buckling it switches to Sync.";
-    private static final String WAITING_CAR = "Waiting for the car and the climate to be on. Driver Only is set then, and the passenger seat belt is watched.";
-    private static final String SYNCED = "The passenger seat belt was buckled, so Sync is on for the rest of this drive. Driver Only will be set again next time the car is turned on.";
+    private static final String DRIVER_ONLY_SET = "**Driver Only** is on for this drive. The passenger seat belt is being watched, and buckling it switches to **Sync**.";
+    private static final String WAITING_CAR = "Waiting for the car and the climate to be on. **Driver Only** is set then, and the passenger seat belt is watched.";
+    private static final String SYNCED = "The passenger seat belt was buckled, so **Sync** is on for the rest of this drive. **Driver Only** will be set again next time the car is turned on.";
 
     private final Handler handler;
     private final File autoFile = new File(Platform.STATE, "driveronly.boot");
@@ -131,15 +131,15 @@ final class ClimateController {
             if (!on && !Boolean.FALSE.equals(ignition)) {
                 // The drive is over: the next car start is a new one, even across a restart of this service.
                 stage = ClimatePolicy.STAGE_NEW; belted = false; saveStage();
-                Platform.status("driveronly", "The car is off. Driver Only will be set again when the car is next turned on.");
+                Platform.status("driveronly", "The car is off. **Driver Only** will be set again when the car is next turned on.");
             } else if (on && Boolean.FALSE.equals(ignition)) {
-                Platform.status("driveronly", "The car is on. Driver Only will be set as soon as the climate is on, and the passenger seat belt is being watched.");
+                Platform.status("driveronly", "The car is on. **Driver Only** will be set as soon as the climate is on, and the passenger seat belt is being watched.");
                 schedule(0);
             }
             ignition = on;
             if (on && !belted && passengerBuckled()) {
                 belted = true;
-                Platform.status("driveronly", "The passenger seat belt was buckled, so the climate is switching to Sync for the rest of the drive.");
+                Platform.status("driveronly", "The passenger seat belt was buckled, so the climate is switching to **Sync** for the rest of the drive.");
                 schedule(0);
             }
         } catch (Exception e) {
@@ -188,7 +188,7 @@ final class ClimateController {
         String message = syncProblem != null ? syncProblem
             : climate == null ? "Waiting for the climate system."
             : !climate.on ? "Waiting for the climate to be turned on."
-            : always.paused() ? "Manual: 'Sync' was turned off in the climate settings, so the two sides are set separately until 'Sync' is pressed again."
+            : always.paused() ? "Manual: **Sync** was turned off in the climate settings, so the two sides are set separately until **Sync** is pressed again."
             : climate.driverOnly ? "Paused while Driver Only is on."
             // Sync off but not paused is momentary: this tweak is turning it back on.
             : "Auto sync: the passenger temperature follows the driver's.";

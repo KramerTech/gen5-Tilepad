@@ -95,8 +95,16 @@ public final class TweaksActivity extends Activity {
         try { int id = stockId("drawable", name); return id == 0 ? fallback : stock.getDrawable(id); } catch (Exception ignored) { return fallback; }
     }
     private TextView text(String label, float size, int color) {
-        TextView v = new TextView(this); v.setText(label); v.setTextColor(color); v.setTextSize(size);
+        TextView v = new TextView(this); v.setText(styled(label)); v.setTextColor(color); v.setTextSize(size);
         v.setGravity(Gravity.CENTER_VERTICAL); return v;
+    }
+    /** The car's own setting and button names are written **like this** in the copy, and drawn in bold. */
+    static CharSequence styled(CharSequence text) {
+        if (!(text instanceof String) || !((String) text).contains("**")) return text;
+        String[] parts = ((String) text).split("\\*\\*", -1);
+        android.text.SpannableStringBuilder out = new android.text.SpannableStringBuilder();
+        for (int i = 0; i < parts.length; i++) if (i % 2 == 1 && i < parts.length - 1) bold(out, parts[i]); else out.append(i % 2 == 1 ? "**" + parts[i] : parts[i]);
+        return out;
     }
     private ScrollView scroller(String description) {
         ScrollView s = new ScrollView(this); s.setFillViewport(true); s.setContentDescription(description);
@@ -897,7 +905,7 @@ public final class TweaksActivity extends Activity {
                     return;
                 }
                 w.done("Installing", (linked.isEmpty() ? "" : "Linked " + join(linked) + ". ") + "Downloading and installing " + join(installing)
-                    + " now. When it's done, the screen will restart on its own. Keep the car on until then.", false, null);
+                    + " now. When installation is complete, the screen will restart on its own. Keep the car on until then.", false, null);
                 closeSources();
                 install(fresh);
             } });
@@ -1082,7 +1090,7 @@ public final class TweaksActivity extends Activity {
         } });
     }
     private void confirmClearHome() {
-        dialog("Clear Home?", words("Charge-Away stops changing Scheduled Charging until you set Home again. Scheduled Charging is left as it is."))
+        dialog("Clear Home?", words("Charge-Away stops changing **Scheduled Charging** until you set Home again. Your current **Scheduled Charging** settings will be left untouched."))
             .setNegativeButton("Cancel", null)
             .setPositiveButton("Clear Home", new DialogInterface.OnClickListener() {
                 @Override public void onClick(DialogInterface d, int which) { captureHome(true); }
@@ -1166,7 +1174,7 @@ public final class TweaksActivity extends Activity {
         }
         private void say(CharSequence message, boolean problem) {
             body.removeAllViews();
-            TextView v = text("", 22, problem ? 0xffb54b30 : ink); v.setText(message); v.setGravity(Gravity.TOP); v.setLineSpacing(dp(3), 1f); body.addView(v);
+            TextView v = text("", 22, problem ? 0xffb54b30 : ink); v.setText(styled(message)); v.setGravity(Gravity.TOP); v.setLineSpacing(dp(3), 1f); body.addView(v);
         }
         private void buttons(String positive, String neutral, boolean cancel) {
             show(DialogInterface.BUTTON_POSITIVE, positive); show(DialogInterface.BUTTON_NEUTRAL, neutral); show(DialogInterface.BUTTON_NEGATIVE, cancel ? "Cancel" : null);

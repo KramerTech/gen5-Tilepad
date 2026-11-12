@@ -384,6 +384,13 @@ public final class SelfUpdate {
             + "D=" + dir.getPath() + "\n"
             + "R=\"$D/" + RESULT + "\"\n"
             + "ANY=0\n"
+            // InstallScreen covers the screen until the restart. It runs from its own copy of Tilepad's dex, with
+            // its own dalvik-cache (ANDROID_DATA), so an update to Tilepad can't change either under it.
+            + "S=\"$D/screen\"\n"
+            + "rm -rf \"$S\"\n"
+            + "if mkdir \"$S\" \"$S/dalvik-cache\" && cp " + new File(APPS, TILEPAD + "/app/Tilepad.apk").getPath() + " \"$S/Tilepad.apk\"; then\n"
+            + "    (ANDROID_DATA=\"$S\" CLASSPATH=\"$S/Tilepad.apk\" exec app_process /system/bin --nice-name=tilepad-install-screen com.tilepad.tweakcore.InstallScreen \"$D\") </dev/null > \"$S/log\" 2>&1 &\n"
+            + "fi 2>/dev/null\n"
             + "update_one() {\n"
             + "    /system/xbin/nemesis install $2 \"$D/$1.zip\" > \"$D/$1.log\" 2>&1\n"
             + "    CODE=$?\n"

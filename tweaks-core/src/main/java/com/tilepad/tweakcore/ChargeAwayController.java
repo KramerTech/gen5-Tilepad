@@ -62,25 +62,25 @@ final class ChargeAwayController {
             Properties saved = new Properties(); saved.setProperty("home", homeKey); saved.setProperty("zone", next.name());
             Files.store(state, saved); zone = next; pendingMode = -1; attempts = 0;
         }
-        if (zone == ChargeAwayPolicy.Zone.UNKNOWN) { status("Between 1 and 1.5 miles of Home; keeping Scheduled Charging unchanged until a boundary is crossed."); return; }
+        if (zone == ChargeAwayPolicy.Zone.UNKNOWN) { status("Between 1 and 1.5 miles of Home; keeping **Scheduled Charging** unchanged until a boundary is crossed."); return; }
         int[] current = ScheduledCharging.read();
         boolean wanted = zone == ChargeAwayPolicy.Zone.HOME;
         String distance = String.format(Locale.US, "%.2f miles from Home. ", metres / ChargeAwayPolicy.MILE_M);
         if (ChargeAwayPolicy.enabled(current) == wanted) {
             pendingMode = -1; attempts = 0;
-            status(distance + "Scheduled Charging is " + (wanted ? "on." : "off.")); return;
+            status(distance + "**Scheduled Charging** is " + (wanted ? "on." : "off.")); return;
         }
         if (wanted && !ChargeAwayPolicy.configured(current)) throw new IOException("Set your off-peak charging times in EV Settings first.");
         int desired = ChargeAwayPolicy.mode(zone, current, wanted ? ScheduledCharging.preference(context) : -1);
         if (pendingMode != desired) { pendingMode = desired; attempts = 0; }
-        if (attempts >= 3) { status(distance + "The car has not confirmed Scheduled Charging " + (wanted ? "on" : "off") + ". No more requests until the state, Home, or tweak selection changes, or Tilepad's service restarts."); return; }
+        if (attempts >= 3) { status(distance + "The car has not confirmed **Scheduled Charging** " + (wanted ? "on" : "off") + ". No more requests until the state, Home, or tweak selection changes, or Tilepad's service restarts."); return; }
         ScheduledCharging.Prepared prepared = ScheduledCharging.prepare(current, desired);
         try (RandomAccessFile file = new RandomAccessFile(new File(Platform.STATE, "lock"), "rw"); FileLock ignored = file.getChannel().lock()) {
             Config live = TweaksCommand.load();
             if (!live.enabled("chargeaway") || !homeKey.equals(live.get("homeLat") + "," + live.get("homeLon"))) return;
             attempts++; prepared.send();
         }
-        status(distance + "Requested Scheduled Charging " + (wanted ? "on" : "off") + "; waiting for vehicle confirmation.");
+        status(distance + "Requested **Scheduled Charging** " + (wanted ? "on" : "off") + "; waiting for vehicle confirmation.");
     }
     private void status(String message) { if (!message.equals(lastStatus)) { lastStatus = message; Platform.status("chargeaway", message); } }
 }

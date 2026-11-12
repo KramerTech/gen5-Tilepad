@@ -128,7 +128,7 @@ The installer writes `tilepad-install.log` to the drive. **Update** works the sa
 `Tilepad-update-usb.zip` and keeps your tiles and tweak settings. From 1.2.0 on, Tilepad can also
 update itself: connect the head unit to Wi-Fi (a phone hotspot works), open **Tweaks and Settings** → **Package Manager**
 and tap **Check for Updates**. It lists Tilepad and each linked package with its version. It only uses Wi-Fi, never the car's built-in modem, installs only a release
-signed with Tilepad's key, and restarts the head unit when it's done, so do it while parked. Under
+signed with Tilepad's key, and restarts the head unit when installation is complete, so do it while parked. While it installs, a full-screen window shows each package's progress until the restart. Under
 **Configure Other Software** you can link other NEMESIS packages you've installed to the
 GitHub repositories they come from, and the same check updates them too, straight from their
 developers' releases, even packages that aren't in the NEMESIS Package Store. A package in that

@@ -499,7 +499,23 @@ one would run. The script runs `nemesis install --update` for each into `<id>.lo
 `item.<id>.state=installed|failed` and the exit code to `result.properties`, carries on after a
 failure, and restarts the head unit when any installed, which a Tilepad update needs anyway (the
 in-place APK rewrite only registers at boot). Nothing it uses lives in a package directory an
-install replaces, and it doesn't descend from the app, which Tilepad's install stops. `settings`
+install replaces, and it doesn't descend from the app, which Tilepad's install stops.
+
+Before the first install, the script starts `InstallScreen`: a full-screen window that lists each
+package as waiting, installing, installed or didn't install, until the head unit restarts, so
+nobody opens apps mid-install or wonders whether anything is happening. It's a separate root
+`app_process` (`tilepad-install-screen`), run from a copy of `Tilepad.apk` in `update/screen/` with
+`ANDROID_DATA` pointed there, so it has its own dalvik-cache entry. A Tilepad update rewrites the
+package's own APK and cache, which would otherwise be in use under it, and NEMESIS's limited root
+can't create entries in `/data/dalvik-cache` anyway. The car's framework is pre-optimized
+(`/system/framework/*.odex`), so nothing else lands there; on the emulator, whose framework isn't,
+the first start also optimizes the framework into that folder. The window is `TYPE_SYSTEM_ALERT`:
+on this firmware that's layer 17, above apps (2) and the status bar (15), below the reverse camera's
+window (Hyundai's type 2035, layer 20), and Android ignores Home while it has focus. It swallows
+the other keys and reads progress from `result.properties`. When nothing installed, or the head unit
+hasn't restarted 90 seconds after the last install, it offers **Close**. The install never waits on it.
+
+`settings`
 reports the last batch as `update.*`: Package Manager shows "Updated … to …" for three days, or each failure
 with the end of NEMESIS's output, or an install a restart interrupted (by the version now
 installed, which also covers a package that restarted the head unit itself). NEMESIS removes the old
