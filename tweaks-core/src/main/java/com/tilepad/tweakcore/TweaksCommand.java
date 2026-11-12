@@ -134,7 +134,7 @@ public final class TweaksCommand {
                     // Only what the user linked, and not NEMESIS's own. One not installed yet installs fresh.
                     if (sources.getProperty(id) == null) throw new IOException(id + " isn't linked to a GitHub repository.");
                     SelfUpdate.Package p = SelfUpdate.installedPackage(SelfUpdate.PACKAGES, id);
-                    if (p != null && p.locked) throw new IOException(id + " can't be updated from here.");
+                    if (p != null && p.locked) throw new IOException(id + " can't be updated from Package Manager.");
                     if (!check.matches("[0-9a-fA-F]{64}")) throw new IOException("GitHub gave no checksum for " + id + ".");
                 } else if (inner != null) throw new IOException("Tilepad updates from tilepad.zip.");
                 String installed = SelfUpdate.installedVersion(SelfUpdate.APPS, id);

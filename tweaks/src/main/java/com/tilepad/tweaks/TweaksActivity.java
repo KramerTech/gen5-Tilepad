@@ -389,7 +389,7 @@ public final class TweaksActivity extends Activity {
         if (checked && o.problem != null) { detail = "Couldn't check: " + o.problem; problem = true; }
         else if (can) detail = o.fresh() ? "New install: " + o.version : o.installed + " → " + o.version;
         else if (checked && o.newer()) {
-            detail = (o.fresh() ? "Not installed. " : "") + o.version + " can't be installed from here; install it from USB (see its page on GitHub).";
+            detail = (o.fresh() ? "Not installed on the car. " : "") + "Version " + o.version + " can't be installed from Package Manager. Install it from USB using its GitHub release.";
             problem = true;
         } else if (checked && !known) detail = "Latest release: " + o.version + ". The installed version can't be read.";
         else if (pending) detail = against == 0 ? "Latest" : "Newer than the latest release, " + o.version;
@@ -424,10 +424,10 @@ public final class TweaksActivity extends Activity {
         final Steps w = new Steps("");
         if (Updater.installed().containsKey(o.id))
             w.ask("Uninstall " + o.name + "?", "Uninstalling will use NEMESIS to remove " + o.name + (o.installed == null ? "" : " " + o.installed)
-                    + " from this head unit, with its apps and their data.\n\nTo keep it installed and only stop updating it from " + o.repo + " here, unlink it instead.",
+                    + " from the car, along with its apps and their data.\n\nIf you'd rather keep it installed and just stop Package Manager updating it from " + o.repo + ", unlink it instead.",
                 "Uninstall", new Runnable() { @Override public void run() { remove(o, true, w); } },
                 "Unlink Only", new Runnable() { @Override public void run() { remove(o, false, w); } });
-        else w.ask("Unlink " + o.name + "?", o.name + " isn't installed here. Unlinking it stops Package Manager checking " + o.repo + " for it.",
+        else w.ask("Unlink " + o.name + "?", o.name + " isn't installed on the car. Unlinking it stops Package Manager checking " + o.repo + " for updates.",
             "Unlink", new Runnable() { @Override public void run() { remove(o, false, w); } });
     }
     private void remove(final Updater.Offer o, final boolean uninstall, final Steps w) {
@@ -621,8 +621,8 @@ public final class TweaksActivity extends Activity {
     private void askOwner(final LinearLayout stage, String typed) {
         stage.removeAllViews();
         TextView intro = text("Install and update packages straight from their developers' GitHub releases, even ones not in the NEMESIS "
-            + "Package Store. Only packages linked here are managed here; others stay with NEMESIS Manager. Type the GitHub user "
-            + "or organization that publishes the package.", 19, muted);
+            + "Package Store. Package Manager only manages the packages you link in this window; everything else stays with NEMESIS Manager. "
+            + "Type the GitHub user or organization that publishes the package.", 19, muted);
         intro.setGravity(Gravity.TOP); stage.addView(intro);
         LinearLayout row = new LinearLayout(this); row.setGravity(Gravity.CENTER_VERTICAL); row.setPadding(0, dp(8), 0, dp(2));
         final EditText owner = field("GitHub user, e.g. KramerTech"); owner.setText(typed); owner.setSelection(typed.length());
@@ -834,15 +834,15 @@ public final class TweaksActivity extends Activity {
             else if (p != null && o.installed != null && repo.name.equals(sources.getProperty(o.id))) said.append(o.name).append(" is already linked to ").append(repo.name).append('.');
             else if (p != null && o.installed != null) {
                 link.add(o);
-                said.append(o.name).append(' ').append(o.installed).append(" is installed here. Linking lets Package Manager update it from ").append(repo.name)
-                    .append(o.newer() ? ": its latest release is " + o.version + ", which Check for Updates then offers." : ". It's already the latest release.")
+                said.append(o.name).append(' ').append(o.installed).append(" is already installed on the car. Linking it lets Package Manager update it from ").append(repo.name)
+                    .append(o.newer() ? ", whose latest release is " + o.version + ". Check for Updates will offer it." : ". It's already on the latest release.")
                     .append(" Nothing new will be installed.");
             } else if (o.installable()) {
                 // Linked when it's installed, so the check doesn't list what the user only looked at.
                 o.installed = null; fresh.add(o);
-                said.append(o.name).append(' ').append(o.version).append(" isn't installed here. It installs from ").append(repo.name)
-                    .append("'s latest release, with root access: only install software you trust. Package Manager then keeps it up to date.");
-            } else said.append(o.name).append(" (").append(o.id).append(") isn't installed here, and this release can't be installed from here. Install it from USB.");
+                said.append(o.name).append(' ').append(o.version).append(" isn't installed on the car yet. It will be installed from ").append(repo.name)
+                    .append("'s latest release with root access, so only install software you trust. Package Manager will then keep it up to date.");
+            } else said.append(o.name).append(" (").append(o.id).append(") isn't installed on the car, and this release can't be installed from Package Manager. Install it from USB instead.");
         }
         if (link.isEmpty() && fresh.isEmpty()) { w.done("Nothing to Link", said.toString(), false, null); return; }
         if (!fresh.isEmpty()) said.append("\n\nInstalling takes a minute or two, then the head unit restarts: the screen, including the rearview camera, "

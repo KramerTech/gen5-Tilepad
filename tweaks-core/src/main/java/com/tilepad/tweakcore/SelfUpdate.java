@@ -156,7 +156,7 @@ public final class SelfUpdate {
      */
     static boolean uninstallable(File db, String id) throws IOException {
         if (!validId(id)) throw new IOException("That isn't a NEMESIS package id.");
-        if (id.equals(TILEPAD)) throw new IOException("Tilepad can't uninstall itself here. Use the USB uninstall bundle from its GitHub release.");
+        if (id.equals(TILEPAD)) throw new IOException("Tilepad can't uninstall itself from Package Manager. Use the USB uninstall bundle from its GitHub release.");
         Package installed = installedPackage(db, id);
         if (installed != null && installed.locked) throw new IOException(installed.name + " is part of NEMESIS and can't be uninstalled.");
         return installed != null;
