@@ -41,6 +41,28 @@ public final class PatchManager {
         result.addAll(trackRecipes(tracks));
         return result;
     }
+    /**
+     * The recipes, plus every file Tilepad backed up that none of them names, so it is restored
+     * too. Restoring all file tweaks needs no recipes at all.
+     */
+    private List<Properties> targets(Config config) throws IOException {
+        List<Properties> result;
+        try { result = profiles(); }
+        catch (IOException missing) {
+            for (String id : Config.FILE_IDS) if (config.enabled(id)) throw missing;
+            result = new ArrayList<>();
+        }
+        Set<String> named = new HashSet<>();
+        for (Properties p : result) named.add(p.getProperty("path"));
+        File[] backed = new File(state, "files").listFiles();
+        if (backed != null) for (File dir : backed) {
+            String path = Files.properties(new File(dir, "journal.properties")).getProperty("path", "");
+            if (path.isEmpty() || named.contains(path) || !new File(dir, "stock").isFile()) continue;
+            Properties orphan = new Properties(); orphan.setProperty("path", path);
+            result.add(orphan);
+        }
+        return result;
+    }
     /** The recipe made for this file's stock (Tilepad's backup, or the untouched file). */
     private Properties matching(String path, List<Properties> candidates) throws IOException {
         if (candidates.size() == 1) return candidates.get(0);
@@ -92,7 +114,7 @@ public final class PatchManager {
         if (previous != null && !config.staticChanged(previous)) return;
         // Validate and stage every affected target BEFORE remounting or writing any.
         List<Change> changes = new ArrayList<>();
-        for (Properties p : profiles()) {
+        for (Properties p : targets(config)) {
             if (previous != null && !affected(p, config, previous)) continue;
             String path = p.getProperty("path");
             File journalDir = new File(state, "files/" + new File(path).getName());
@@ -103,16 +125,20 @@ public final class PatchManager {
             File target = system.file(path);
             byte[] current = Files.read(target);
             byte[] stock = backup.isFile() ? Files.read(backup) : current;
-            require(Files.hash(stock).equals(p.getProperty("stockSha256")), UNSUPPORTED);
+            String stockHash = Files.hash(stock);
+            // Restoring needs only Tilepad's own backup and journal, so it works whichever release
+            // made them: a recipe since changed or dropped, or a downgrade.
+            boolean ownRecipe = stockHash.equals(p.getProperty("stockSha256"));
+            require(ownRecipe || !wanted, UNSUPPORTED);
             Properties j = Files.properties(journal);
             String have = Files.hash(current);
-            require(have.equals(p.getProperty("stockSha256")) || have.equals(j.getProperty("current")) || have.equals(j.getProperty("next")),
+            require(have.equals(stockHash) || have.equals(j.getProperty("current")) || have.equals(j.getProperty("next")),
                 "Another package changed " + path + ". Its file will not be overwritten; Tilepad's stock backup is retained.");
-            byte[] desired = transform(p, stock, config);
+            byte[] desired = wanted ? transform(p, stock, config) : stock;
             // A firmware update may have replaced the APK: restore is allowed only
             // while the owning APK is still the exact one this optimized code belongs to.
             if (Arrays.equals(current, desired)) continue;
-            if (p.getProperty("apkPath") != null) require(Files.hash(system.file(p.getProperty("apkPath"))).equals(p.getProperty("apkSha256")),
+            if (ownRecipe && p.getProperty("apkPath") != null) require(Files.hash(system.file(p.getProperty("apkPath"))).equals(p.getProperty("apkSha256")),
                 "The APK paired with " + path + " has changed; refusing stale optimized code.");
             if (!backup.isFile()) Files.write(backup, stock);
             j.setProperty("path", path);

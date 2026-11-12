@@ -193,6 +193,33 @@ public class TransactionPatchTest {
         transaction().commitFull(config());
         assertArrayEquals(original, Files.read(ops.file("/system/priv-app/SystemUI.odex")));
     }
+    @Test public void restoreNeedsNoRecipeForTheBackedUpStock() throws Exception {
+        transaction().commit(config("nav"));
+        // A downgrade, or a release that dropped this firmware: no recipe matches the backup now.
+        right.setProperty("stockSha256", Files.hash(new byte[]{1})); Files.store(new File(recipes, "right.properties"), right);
+        assertTrue(ops.file(right.getProperty("apkPath")).delete());
+        transaction().commitFull(config());
+        assertArrayEquals(original, Files.read(ops.file(right.getProperty("path"))));
+    }
+    @Test public void restoreWorksWithoutAnyRecipesButEnablingDoesNot() throws Exception {
+        transaction().commit(config("consent", "nav", "tracks"));
+        for (File f : recipes.listFiles()) assertTrue(f.delete());
+        try { manager.apply(config("nav"), "boot-2"); fail(); } catch (IOException expected) { assertTrue(expected.getMessage().contains("Incomplete")); }
+        transaction().commitFull(config());
+        assertArrayEquals(original, Files.read(ops.file(right.getProperty("path"))));
+        assertArrayEquals(original, Files.read(ops.file("/system/priv-app/SystemUI.odex")));
+        assertArrayEquals(KEYS, Files.read(ops.file(KEY)));
+    }
+    @Test public void restoreCoversABackedUpFileNoRecipeNames() throws Exception {
+        String path = "/system/app/Retired.odex";
+        File dir = new File(state, "files/Retired.odex"); assertTrue(dir.mkdirs());
+        Files.write(new File(dir, "stock"), original);
+        Files.write(ops.file(path), new byte[]{42});
+        Properties journal = new Properties(); journal.setProperty("path", path); journal.setProperty("current", Files.hash(new byte[]{42}));
+        Files.store(new File(dir, "journal.properties"), journal);
+        transaction().commitFull(config());
+        assertArrayEquals(original, Files.read(ops.file(path)));
+    }
     private static final class SimulatedDeath extends Error { }
     private final class FakeSystem implements PatchManager.SystemOps {
         int writes, failWrite = -1, crashWrite = -1;

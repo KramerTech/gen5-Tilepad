@@ -99,6 +99,7 @@ def main():
         copy_lf(ROOT / f"usb/tilepad/{action}.sh", scripts / f"{action}.sh")
         if action == "uninstall":
             copy_lf(ROOT / "usb/tilepad/restore-tweaks.sh", scripts / "restore-tweaks.sh")
+            copy_lf(ROOT / "tune-service/scripts/remove.sh", scripts / "remove.sh")
             recovery = scripts / "recovery"
             recovery.mkdir()
             shutil.copy2(apk, recovery / "Tilepad.apk")

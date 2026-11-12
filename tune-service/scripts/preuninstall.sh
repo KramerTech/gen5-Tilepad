@@ -3,86 +3,29 @@
 # package during `nemesis install --update`, after the new package has been
 # extracted to $STAGE.
 . /data/nemesis/apps/tilepad/scripts/common.sh
+. /data/nemesis/apps/tilepad/scripts/remove.sh
 
-log "preuninstall: removing daemon dalvik cache"
-rm -f "$DEXCACHE"
+# An update has the incoming package in $STAGE. NEMESIS deletes the stage after every install, but
+# one killed mid-install leaves it behind, so a stage alone isn't proof: NEMESIS runs this hook
+# directly, and its command line says which it is. Only a clear uninstall or wipe overrides the
+# stage; anything unreadable keeps the update path, which changes nothing.
+updating() {
+    [ -f "$STAGE/NEMESIS.data" ] || return 1
+    case "$(cat /proc/$PPID/cmdline 2>/dev/null)" in
+        *nemesis?uninstall*|*nemesisuninstall*|*nemesis?wipe*|*nemesiswipe*)
+            log "preuninstall: ignoring a stage left by an interrupted install; this is an uninstall"
+            return 1 ;;
+    esac
+    return 0
+}
 
-if [ -f "$STAGE/NEMESIS.data" ]; then
+if updating; then
     # Update: leave /system alone. The new postinstall rewrites the APK in place,
-    # so Android keeps the app's data (favorites, settings).
+    # so Android keeps the app's data (favorites, settings), and reconciles owned tweak files.
+    rm -f "$DEXCACHE"
     log "preuninstall: update in progress; leaving $SYSAPK for the new postinstall"
     exit 0
 fi
 
-# Restore owned system patches, DST and the OTA client before deleting the only recovery runtime.
-# Failure deliberately retains the package and all verified backups.
-if [ -d "$TWEAKS_STATE" ]; then
-    sh "$HERE/bin/tweaks.sh" restore || {
-        log "preuninstall: FAILED: tweak restoration refused; keeping recovery files and APKs"
-        exit 1
-    }
-    # Everything is back to stock: its settings, saved Home and file backups go too.
-    rm -rf "$TWEAKS_STATE"
-    log "preuninstall: tweaks restored; removed $TWEAKS_STATE"
-fi
-
-# ADB tile: a real uninstall turns ADB over TCP off if the tile turned it on, as the tile's own
-# off does (bin/adb-tile.sh). ADB that something else turned on is left alone. (An update
-# returned above, so ADB stays on across updates.)
-if [ -f "$ADB_MARK" ]; then
-    log "preuninstall: turning ADB over TCP off (the ADB tile had it on)"
-    setprop persist.service.adb.tcp.enable 0
-    setprop service.adb.tcp.port -1
-    setprop ctl.stop adbd
-    rm -f "$ADB_MARK"
-fi
-
-# Wi-Fi client: undo what the Wi-Fi tile turned on (bin/wifi-client.sh), unless HMG Leafia Plus
-# is installed, whose own client option uses the same feature file. The feature file goes only
-# if Tilepad added it and it's still exactly what Tilepad wrote. Takes effect after a reboot.
-if [ -f "$WIFI_RECORD" ]; then
-    ADDED=0; OLD_STATE=unset
-    while IFS='=' read KEY VALUE; do
-        case "$KEY" in added_xml) ADDED=$VALUE ;; old_wifi_state) OLD_STATE=$VALUE ;; esac
-    done < "$WIFI_RECORD"
-    LEAFIA=
-    for APP in "$NEMESIS_APPS"/*; do
-        case "${APP##*/}" in *[Ll][Ee][Aa][Ff][Ii][Aa]*) LEAFIA=${APP##*/} ;; esac
-    done
-    if [ -n "$LEAFIA" ]; then
-        log "preuninstall: leaving the Wi-Fi client on: $LEAFIA is installed and may use it"
-    else
-        if [ "$ADDED" = 1 ] && [ -f "$WIFI_XML" ]; then
-            wifi_client_xml > "$BACKUP/expected-wifi.xml"
-            if ! same_file "$WIFI_XML" "$BACKUP/expected-wifi.xml"; then
-                log "preuninstall: leaving $WIFI_XML: it changed since Tilepad added it"
-            elif system_rw; then
-                rm -f "$WIFI_XML"; sync; system_restore
-                log "preuninstall: removed $WIFI_XML (Wi-Fi client off after reboot)"
-            else
-                log "preuninstall: couldn't remount /system; $WIFI_XML left in place"
-            fi
-        fi
-        if [ "$OLD_STATE" != unset ] && [ "$OLD_STATE" != 3 ]; then
-            setprop persist.wifi.state "$OLD_STATE"
-            log "preuninstall: persist.wifi.state 3 -> $OLD_STATE"
-        fi
-    fi
-fi
-rm -rf "$BACKUP"
-
-[ -f "$SYSAPK" ] || [ -f "$TWEAKS_SYSAPK" ] || { log "preuninstall: APKs not present"; exit 0; }
-stop_app
-if ! system_rw; then
-    log "preuninstall: FAILED: nemesis remount rw failed; $SYSAPK left in place"
-    exit 1
-fi
-rm -f "$SYSAPK" "$TWEAKS_SYSAPK"
-sync
-system_restore
-if [ -f "$SYSAPK" ] || [ -f "$TWEAKS_SYSAPK" ]; then
-    log "preuninstall: FAILED: could not remove $SYSAPK"
-    exit 1
-fi
-log "preuninstall: removed $SYSAPK"
+remove_tilepad sh "$HERE/bin/tweaks.sh" restore || exit 1
 exit 0

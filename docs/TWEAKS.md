@@ -437,10 +437,23 @@ with the new release's recipes, so a changed recipe reaches cars that already ha
 the tweak on (changing a setting is otherwise the only thing that rewrites a file).
 A failed reconcile changes nothing and doesn't fail the install.
 Uninstall restores owned tweaks and DST and reenables the OTA client if managed
-by Disable OTA Client before removing either APK. A failed
-restore retains the recovery runtime. Backups are retained even after successful
+by Disable OTA Client before removing either APK. Restoring needs only Tilepad's
+own backup and journal, not a recipe, so it also works after a downgrade or a
+release that changed or dropped a recipe, and it covers backed-up files no recipe
+names. A failed restore retains the recovery runtime. Backups are retained even after successful
 restoration, so a later conflict does not destroy the recovery record. These
 checks address interrupted processes, not a power-loss transaction across all files.
+
+`scripts/remove.sh` is the whole uninstall: preuninstall runs it, and so does the
+USB uninstall, after NEMESIS's own uninstall or in its place when the package is
+missing (an update interrupted after NEMESIS removed the old version). It also
+clears what interrupted installs and writes leave: rollback copies in
+`/data/nemesis/backup/tilepad-install` (postinstall refuses to run while a failed
+rollback's copies are there), `*.tilepad-new` temporary files in `/system`, and
+the dex caches the restore runtime creates. Preuninstall treats a run as an update
+only when the incoming package is staged and NEMESIS's command line (the hook's
+parent) isn't an `uninstall` or `wipe`, so a stage left by a killed install can't
+skip the restore.
 
 Disable equivalent Cabinwright/other patches before enabling the corresponding
 Tilepad switch. Existing foreign modifications show as unavailable. Keep the USB

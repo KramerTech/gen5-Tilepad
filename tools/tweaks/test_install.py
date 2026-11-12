@@ -39,6 +39,9 @@ wifi_client_xml() {
 setprop() { echo "$1=$2" >> "$FIXTURE/props"; }
 DEXCACHE="$FIXTURE/dexcache"
 APP_PACKAGE=com.tilepad
+NEMESIS="$FIXTURE/nemesis"
+pkg_registered() { false; }
+getprop() { :; }
 log() { echo "$*"; }
 toast() { echo "$*"; }
 same_file() { cmp -s "$1" "$2"; }
@@ -69,15 +72,27 @@ mv() {
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(content)
 
-    def run_hook(self, name, **extra):
+    def remove_script(self):
+        """The real remove.sh with /system under the fixture."""
+        source = (ROOT / "tune-service/scripts/remove.sh").read_text()
+        return source.replace("/system/", str(self.base / "system") + "/")
+
+    def run_hook(self, name, parent=None, **extra):
+        """Runs a hook, directly or (parent) as a child of a stand-in `nemesis <parent...>` process."""
         source = (ROOT / "tune-service/scripts" / name).read_text()
         source = source.replace(". /data/nemesis/apps/tilepad/scripts/common.sh", '. "$FIXTURE/common.sh"')
+        source = source.replace(". /data/nemesis/apps/tilepad/scripts/remove.sh", '. "$FIXTURE/remove.sh"')
         source = source.replace("/system/app/", str(self.base / "system/app") + "/")
         source = source.replace("/data/nemesis/backup/tilepad", str(self.base / "unused-backup"))
+        (self.base / "remove.sh").write_text(self.remove_script())
         script = self.base / name
         script.write_text(source)
         env = dict(os.environ, FIXTURE=str(self.base), **extra)
-        return subprocess.run(["sh", str(script)], env=env, capture_output=True, text=True)
+        if parent is None:
+            return subprocess.run(["sh", str(script)], env=env, capture_output=True, text=True)
+        nemesis = self.base / "nemesis"
+        nemesis.write_text(f'sh "{script}"\n')
+        return subprocess.run(["sh", str(nemesis), *parent], env=env, capture_output=True, text=True)
 
     def preinstall(self, registered="", files=()):
         """The real preinstall and common.sh, with car paths under the fixture and a stand-in NEMESIS."""
@@ -141,6 +156,41 @@ mv() {
         self.assertTrue((self.base / "system/app/Tilepad.apk").exists())
         self.assertTrue((self.base / "system/app/TilepadTweaks.apk").exists())
 
+    def test_a_stage_left_by_an_interrupted_install_doesnt_turn_an_uninstall_into_an_update(self):
+        self.write("stage/NEMESIS.data", b"left behind")
+        self.write("state/config.properties", b"consent=true\n")
+        result = self.run_hook("preuninstall.sh", parent=("uninstall", "tilepad"))
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        self.assertEqual("restore\n", (self.base / "restored").read_text())
+        self.assertFalse((self.base / "state").exists())
+        self.assertFalse((self.base / "system/app/Tilepad.apk").exists())
+
+    def test_nemesis_install_update_with_a_stage_is_an_update(self):
+        self.write("stage/NEMESIS.data", b"update")
+        self.write("state/config.properties", b"consent=true\n")
+        result = self.run_hook("preuninstall.sh", parent=("install", "--update", "/mnt/usb/packages/tilepad.zip"))
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        self.assertFalse((self.base / "restored").exists())
+        self.assertTrue((self.base / "state/config.properties").exists())
+        self.assertTrue((self.base / "system/app/Tilepad.apk").exists())
+
+    def test_uninstall_clears_what_interrupted_installs_and_writes_left(self):
+        # A failed rollback's copies (postinstall refuses to run again while they're there), temp files
+        # from writes killed before their rename, and the dex cache the restore recreates.
+        self.write("work/rollback.failed", b"")
+        self.write("work/Tilepad.previous", b"old")
+        (self.base / "system/app/Tilepad.apk").unlink()
+        for name in ("system/app/Tilepad.apk.tilepad-new", "system/priv-app/SystemUI.odex.tilepad-new",
+                     "system/app/RightScreenHome.odex.tilepad-new", "system/usr/keylayout/daudio_x_base.kl.tilepad-new"):
+            self.write(name, b"partial")
+        self.write("package/bin/tweaks.sh", b'echo "$*" > "$FIXTURE/restored"; touch "$FIXTURE/dexcache"\n')
+        result = self.run_hook("preuninstall.sh")
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        self.assertEqual("restore\n", (self.base / "restored").read_text())
+        self.assertFalse((self.base / "work").exists())
+        self.assertFalse((self.base / "dexcache").exists())
+        self.assertEqual([], sorted(str(p.relative_to(self.base)) for p in (self.base / "system").rglob("*") if p.is_file()))
+
     def test_postinstall_reconciles_owned_tweak_files_without_failing_the_install(self):
         result = self.run_hook("postinstall.sh")
         self.assertEqual(0, result.returncode, result.stdout + result.stderr)
@@ -153,6 +203,39 @@ mv() {
         (self.base / "restored").unlink()
         self.assertEqual(0, self.run_hook("postinstall.sh").returncode)
         self.assertFalse((self.base / "restored").exists())
+
+    def usb_uninstall(self):
+        """The real USB uninstall, lib.sh and remove.sh, with fixture paths and a drive-side runtime stand-in."""
+        usb = self.base / "usb/tilepad"
+        usb.mkdir(parents=True)
+        (usb / "common.sh").write_text(self.common.read_text())
+        (usb / "lib.sh").write_text((ROOT / "usb/tilepad/lib.sh").read_text())
+        (usb / "uninstall.sh").write_text((ROOT / "usb/tilepad/uninstall.sh").read_text())
+        (usb / "remove.sh").write_text(self.remove_script())
+        (usb / "restore-tweaks.sh").write_text('echo restore > "$FIXTURE/restored"\n')
+        env = dict(os.environ, FIXTURE=str(self.base))
+        return subprocess.run(["sh", str(usb / "uninstall.sh")], env=env, capture_output=True, text=True)
+
+    def test_usb_uninstall_removes_everything_when_the_package_is_missing(self):
+        # An update interrupted after NEMESIS removed the old version: no package, everything else left.
+        self.write("state/config.properties", b"consent=true\n")
+        self.write("backup/adb.on", b"")
+        self.write("work/rollback.failed", b"")
+        result = self.usb_uninstall()
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        self.assertEqual("restore\n", (self.base / "restored").read_text())
+        for gone in ("state", "backup", "work", "system/app/Tilepad.apk", "system/app/TilepadTweaks.apk"):
+            self.assertFalse((self.base / gone).exists(), gone)
+        self.assertIn("ctl.stop=adbd", self.props())
+
+    def test_usb_uninstall_after_everything_is_gone_changes_nothing(self):
+        for name in ("system/app/Tilepad.apk", "system/app/TilepadTweaks.apk"):
+            (self.base / name).unlink()
+        (self.base / "state").rmdir()
+        result = self.usb_uninstall()
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        self.assertFalse((self.base / "restored").exists())
+        self.assertFalse((self.base / "mounts").exists())
 
     def test_real_uninstall_restores_tweaks_before_removing_apks(self):
         self.assertEqual(0, self.run_hook("preuninstall.sh").returncode)
