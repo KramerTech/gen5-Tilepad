@@ -274,7 +274,7 @@ final class Updater {
     static List<String> download(Context c, List<Offer> offers, String current, Progress progress) throws Exception {
         File dir = new File(c.getFilesDir(), "update");
         clear(c);
-        if (!dir.isDirectory() && !dir.mkdirs()) throw new IOException("Can't make room for the download.");
+        if (!dir.isDirectory() && !dir.mkdirs()) throw new IOException("There isn't enough room on the car for the download.");
         for (File d : new File[]{c.getFilesDir(), dir}) d.setExecutable(true, false);
         // This copy, root's copy, and the package taken out of a bundle.
         long need = 16 << 20;
@@ -288,9 +288,9 @@ final class Updater {
             Progress shown = new Progress() { @Override public void at(int ignored, int percent) { progress.at(index, percent); } };
             progress.at(i, -1);
             fetch(c, current, o.url, o.id.equals(SelfUpdate.TILEPAD) ? 32 << 20 : (int) SelfUpdate.MAX_PACKAGE_BYTES, file, shown);
-            if (o.size > 0 && file.length() != o.size) throw new IOException("The download of " + o.name + " was incomplete. Check again to retry.");
+            if (o.size > 0 && file.length() != o.size) throw new IOException("The download of " + o.name + " was incomplete. Tap “Check for Updates” to try again.");
             if (!com.tilepad.tweakcore.Files.hash(file).equalsIgnoreCase(o.digest))
-                throw new IOException("The download of " + o.name + " doesn't match GitHub's checksum. Check again to retry.");
+                throw new IOException("The download of " + o.name + " doesn't match GitHub's checksum. Tap “Check for Updates” to try again.");
             String check = o.digest;
             if (o.id.equals(SelfUpdate.TILEPAD)) {
                 File sig = new File(dir, SelfUpdate.SIGNATURE);
@@ -363,14 +363,33 @@ final class Updater {
                 if (code == 301 || code == 302 || code == 303 || code == 307 || code == 308) {
                     url = h.getHeaderField("Location"); continue;
                 }
-                if (code == 403 || code == 429) throw new IOException("GitHub is limiting requests from this network right now. Try again in an hour.");
-                if (code == 404) throw new Answer("GitHub has nothing at " + url + ".");
-                if (code != (range == null ? 200 : 206)) throw new IOException("GitHub answered " + code + ". Try again later.");
+                if (code == 403 || code == 429) throw new IOException(returned(code) + " It's limiting requests from this network, so try again in an hour.");
+                if (code == 404) throw new Answer(returned(code) + " The release may have changed since the last check. Tap “Check for Updates” to try again.");
+                if (code != (range == null ? 200 : 206)) throw new IOException(returned(code) + " Try again later.");
                 keep = true;
                 return h;
             } finally { if (!keep) h.disconnect(); }
         }
         throw new IOException("GitHub redirected too many times.");
+    }
+    /** "GitHub returned a 503 error: service unavailable." */
+    static String returned(int code) {
+        String name;
+        switch (code) {
+            case 400: name = "bad request"; break;
+            case 401: name = "authorization required"; break;
+            case 403: name = "access denied"; break;
+            case 404: name = "not found"; break;
+            case 410: name = "gone"; break;
+            case 422: name = "request not accepted"; break;
+            case 429: name = "too many requests"; break;
+            case 500: name = "internal server error"; break;
+            case 502: name = "bad gateway"; break;
+            case 503: name = "service unavailable"; break;
+            case 504: name = "gateway timeout"; break;
+            default: name = code >= 500 ? "server error" : "unexpected response";
+        }
+        return "GitHub returned a " + code + " error: " + name + ".";
     }
     /** The response, into {@code to} when given. */
     private static byte[] body(HttpsURLConnection h, long limit, File to, Progress progress) throws IOException {
@@ -401,7 +420,7 @@ final class Updater {
             HttpsURLConnection h = request(offset, length);
             try {
                 byte[] b = body(h, length, null, null);
-                if (b.length != length) throw new IOException("GitHub sent less of a file than asked.");
+                if (b.length != length) throw new IOException("The connection to GitHub dropped partway through. Try again.");
                 return b;
             } finally { h.disconnect(); }
         }

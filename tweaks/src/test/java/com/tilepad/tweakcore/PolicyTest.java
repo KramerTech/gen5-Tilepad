@@ -42,7 +42,7 @@ public class PolicyTest {
         assertEquals(0.0, HeaterPolicy.outsideC("AmbientTempF : 0x52\nmAmbientTempF: 32.0\n"), 0.00001);
         assertEquals(-1.5, HeaterPolicy.outsideC("AmbientTempC : 0x52\nmAmbientTempC: -1.5\n"), 0.00001);
         assertNull(HeaterPolicy.outsideC("AmbientTempF : 0x52\nmAmbientTempF: 999\n"));
-        assertTrue(HeaterPolicy.cold(9.99, 100)); assertFalse(HeaterPolicy.cold(10.0, 100));
+        assertTrue(HeaterPolicy.cold(9.99, 100)); assertTrue(HeaterPolicy.cold(10.0, 100));
         assertFalse(HeaterPolicy.cold(10.01, 100));
     }
     @Test public void seatLevelsMapToActuatorEnums() { assertEquals(6, HeaterPolicy.seatRequest(1)); assertEquals(7, HeaterPolicy.seatRequest(2)); assertEquals(8, HeaterPolicy.seatRequest(3)); }

@@ -76,6 +76,6 @@ final class WifiTile extends StatusTile {
         show(headline, pendingReboot ? "Reboot to finish" : "Hotspot only");
         show(detail, "");
         show(meta, pendingReboot ? "Tap to reboot" : "Tap to turn on Wi-Fi");
-        setContentDescription(pendingReboot ? "Wi-Fi client on, reboot to finish" : "Wi-Fi client off");
+        setContentDescription(pendingReboot ? "Wi-Fi will turn on after a reboot" : "Wi-Fi client off");
     }
 }

@@ -87,9 +87,9 @@ final class ClusterBatteryTemperatureReader {
         try {
             data.writeInterfaceToken(SERVICE);
             if (code == 37 || code == 38) data.writeStrongBinder(callback);
-            if (!remote.transact(code, data, reply, 0)) throw new RemoteException("Battery read rejected");
+            if (!remote.transact(code, data, reply, 0)) throw new RemoteException("The car didn't answer the battery temperature request.");
             reply.readException();
-            if (reply.dataAvail() != 0) throw new RemoteException("Unexpected battery reply");
+            if (reply.dataAvail() != 0) throw new RemoteException("The car's battery temperature reply couldn't be read.");
         } finally { data.recycle(); reply.recycle(); }
     }
 }

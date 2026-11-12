@@ -496,7 +496,7 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
         LinearLayout.LayoutParams fp = new LinearLayout.LayoutParams(-1, ui.dp(64));
         fp.topMargin = ui.dp(20);
         left.addView(field, fp);
-        TextView hint = ui.text("Original name: " + original + "\nLeave empty to use it.", 15, Ui.MUTED, false);
+        TextView hint = ui.text("Leave this empty to keep the original name, " + original + ".", 15, Ui.MUTED, false);
         hint.setLineSpacing(0, 1.15f);
         LinearLayout.LayoutParams hp = new LinearLayout.LayoutParams(-1, -2);
         hp.topMargin = ui.dp(12);
@@ -1053,7 +1053,7 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
                 break;
             case ERROR:
                 card.set(Glyph.Kind.ALERT, Ui.RED, false, "ADB error",
-                    s.detail.isEmpty() ? "Something went wrong." : s.detail, null);
+                    s.detail.isEmpty() ? "Tilepad couldn't change ADB. Try again." : s.detail, null);
                 buttons = card.setActions(close, adbTurnOn());
                 break;
             case CHECKING:

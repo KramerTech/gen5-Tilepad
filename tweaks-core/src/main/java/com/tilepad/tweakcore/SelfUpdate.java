@@ -213,7 +213,7 @@ public final class SelfUpdate {
                 }
                 if (!check.verify(Files.read(sig))) throw new IOException("The download isn't signed with Tilepad's release key.");
             } else if (!Files.hash(download).equalsIgnoreCase(item.check))
-                throw new IOException("The download of " + item.id + " doesn't match GitHub's checksum. Check again to retry.");
+                throw new IOException("The download of " + item.id + " doesn't match GitHub's checksum. Tap “Check for Updates” to try again.");
             if (item.inner == null) {
                 if (!download.renameTo(out)) throw new IOException("Cannot stage " + out);
             } else {

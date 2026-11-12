@@ -60,9 +60,9 @@ final class OemVehicleClient implements VehiclePort, PreconditioningProfile.Comm
         try {
             data.writeInterfaceToken(descriptor);
             for (int value : values) data.writeInt(value);
-            if (!binder.transact(transaction, data, reply, 0)) throw new IllegalStateException("Getter rejected");
+            if (!binder.transact(transaction, data, reply, 0)) throw new IllegalStateException("The car didn't answer a status request.");
             reply.readException();
-            if (reply.dataAvail() != 4) throw new IllegalStateException("Unexpected vehicle reply");
+            if (reply.dataAvail() != 4) throw new IllegalStateException("The car's status reply couldn't be read.");
             return reply.readInt();
         } finally { data.recycle(); reply.recycle(); }
     }
@@ -76,14 +76,14 @@ final class OemVehicleClient implements VehiclePort, PreconditioningProfile.Comm
     @Override public void write(int transaction, int... values) throws Exception {
         if (!((transaction == 62 && values.length == 2) ||
             ((transaction == 65 || transaction == 66) && values.length == 1)))
-            throw new IllegalArgumentException("Command outside the verified preconditioning profile");
+            throw new IllegalArgumentException("Tilepad won't send a command it hasn't verified for preconditioning.");
         Parcel data = Parcel.obtain(), reply = Parcel.obtain();
         try {
             data.writeInterfaceToken(HEV);
             for (int value : values) data.writeInt(value);
-            if (!hev.transact(transaction, data, reply, 0)) throw new IllegalStateException("Vehicle command rejected");
+            if (!hev.transact(transaction, data, reply, 0)) throw new IllegalStateException("The car didn't accept the command.");
             reply.readException();
-            if (reply.dataAvail() != 0) throw new IllegalStateException("Unexpected vehicle command reply");
+            if (reply.dataAvail() != 0) throw new IllegalStateException("The car's reply to the command couldn't be read.");
         } finally { data.recycle(); reply.recycle(); }
     }
     static String hash(String path) throws Exception {

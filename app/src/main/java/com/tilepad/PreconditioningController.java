@@ -57,11 +57,11 @@ final class PreconditioningController {
                 endedAt = now;
                 state = activationTimedOut ? PreconditioningSnapshot.State.TIMED_OUT : PreconditioningSnapshot.State.ENDED;
                 detail = activationTimedOut
-                    ? "No activation confirmed within " + timeoutText() + ". Cancellation confirmed; the car reports Off."
-                    : "Cancel sent; the car reports conditioning Off.";
+                    ? "Conditioning didn't start within " + timeoutText() + ", so the request was cancelled. The car reports conditioning is off."
+                    : "Cancelled. The car reports conditioning is off.";
             } else if (released) {
                 state = PreconditioningSnapshot.State.STOPPING;
-                detail = "Cancel sent; waiting for the car’s Off indicator.";
+                detail = "Cancelling. Waiting for the car to report conditioning is off.";
             }
             return;
         }
@@ -155,8 +155,8 @@ final class PreconditioningController {
         } catch (Exception e) { fail("Start could not be confirmed. Stop remains available. ", e); return false; }
     }
     private String waitingDetail() {
-        return "Request sent; conditioning is not active. Vehicle conditions may prevent activation. Cancels after "
-            + timeoutText() + " without confirmed activation.";
+        return "The request was sent, but the car hasn't started conditioning. Vehicle conditions may prevent activation. "
+            + "The request cancels itself if conditioning hasn't started within " + timeoutText() + ".";
     }
     private String timeoutText() {
         long minutes = vehicle.activationTimeoutMs() / 60000;
@@ -175,8 +175,8 @@ final class PreconditioningController {
         stopping = true;
         state = PreconditioningSnapshot.State.STOPPING;
         detail = activationTimedOut
-            ? "No activation confirmed within " + timeoutText() + ". Cancelling; waiting for the car’s Off indicator."
-            : "Releasing the manual request; waiting for the car’s Off indicator.";
+            ? "Conditioning didn't start within " + timeoutText() + ", so the request is being cancelled. Waiting for the car to report conditioning is off."
+            : "Cancelling. Waiting for the car to report conditioning is off.";
         try { vehicle.stopAndRelease(); released = true; }
         catch (Exception e) { fail("Cancellation is unconfirmed. Stop can be tried again. ", e); }
     }

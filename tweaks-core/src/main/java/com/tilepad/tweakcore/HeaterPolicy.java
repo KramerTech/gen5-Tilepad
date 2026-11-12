@@ -36,6 +36,6 @@ public final class HeaterPolicy {
         if (level < 1 || level > 3) throw new IllegalArgumentException("Seat level must be 1, 2 or 3");
         return 5 + level;
     }
-    public static boolean cold(double c, int thresholdTenthsC) { return c * 10 < thresholdTenthsC; }
+    public static boolean cold(double c, int thresholdTenthsC) { return c * 10 <= thresholdTenthsC; }
     private HeaterPolicy() { }
 }

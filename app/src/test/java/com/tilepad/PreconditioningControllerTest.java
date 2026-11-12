@@ -40,7 +40,7 @@ public class PreconditioningControllerTest {
             assertTrue(c.snapshot(now).canStop); assertTrue(journal.pending);
         }
         assertEquals(1, car.starts); assertEquals(0, car.maintenance);
-        assertTrue(c.snapshot(300999).detail.contains("Cancels after 5 minutes"));
+        assertTrue(c.snapshot(300999).detail.contains("hasn't started within 5 minutes"));
     }
     @Test public void activeRequiresTheCarsIndicatorAndItsEndReleasesOwnership() {
         FakeVehicle car = new FakeVehicle(); Journal journal = new Journal();
@@ -131,7 +131,7 @@ public class PreconditioningControllerTest {
         c.refresh(120999);
         assertEquals(PreconditioningSnapshot.State.WAITING, c.snapshot(120999).state);
         assertEquals(0, car.stops);
-        assertTrue(c.snapshot(120999).detail.contains("Cancels after 2 minutes"));
+        assertTrue(c.snapshot(120999).detail.contains("hasn't started within 2 minutes"));
         c.refresh(121000);
         assertEquals(1, car.stops); assertTrue(journal.pending);
         assertTrue(c.snapshot(121000).detail.contains("within 2 minutes"));

@@ -207,7 +207,7 @@ public final class TweaksActivity extends Activity {
                 + "github.com/KramerTech/gen5-Tilepad/issues on a computer and attach that .zip file.", false);
         } else if (ready && incompatible) {
             if (reportNotice != null) note(reportNotice, true);
-            if (savingReport) progress("Capturing the log. This can take a minute; keep the USB drive plugged in.");
+            if (savingReport) progress("Capturing the log. This can take a minute, so keep the USB drive plugged in.");
             Button report = button(savingReport ? "Capturing Log…" : "Capture Compatibility Log to USB", "Save this head unit's firmware details to the USB drive", new View.OnClickListener() {
                 @Override public void onClick(View v) { saveReport(false); }
             });
@@ -240,7 +240,7 @@ public final class TweaksActivity extends Activity {
                 note("Daylight-saving schedule", false);
                 choice("region", new String[]{"us", "eu", "none"}, new String[]{"US / Canada", "Europe", "No daylight saving"});
             } else {
-                note("Apply at boot below this outdoor temperature", false);
+                note("Turn the heaters on during startup when the outside temperature is at or below:", false);
                 LinearLayout temp = new LinearLayout(this); temp.setGravity(Gravity.CENTER_VERTICAL); temp.setPadding(dp(18), 0, dp(18), 0);
                 temp.addView(button("−", "Lower temperature threshold", new View.OnClickListener() { @Override public void onClick(View v) { adjustThreshold(-1); } }), new LinearLayout.LayoutParams(dp(72), dp(60)));
                 TextView reading = text(thresholdLabel(), 24, ink); reading.setGravity(Gravity.CENTER); temp.addView(reading, new LinearLayout.LayoutParams(0, dp(64), 1));
@@ -260,7 +260,7 @@ public final class TweaksActivity extends Activity {
         if (!checking) {
             boolean any = false;
             for (String id : Config.IDS) any |= !unavailable(id).isEmpty();
-            note(any ? "Some tweaks aren't available on this head unit; their entries say why." : "Every tweak is compatible with this head unit.", false);
+            note(any ? "Some tweaks aren't compatible with this car. Select one to see why." : "Every tweak is compatible with this head unit.", false);
         }
         divider(controls);
         if (!supportSaved.isEmpty()) {
@@ -268,7 +268,7 @@ public final class TweaksActivity extends Activity {
                 + "github.com/KramerTech/gen5-Tilepad/issues, say what happened and when, and attach that .zip file.", false);
         } else note("If a tweak isn't taking effect or something's not working the way it should, save a log while you can still see it, or as soon as you notice, before turning the car off.", false);
         if (reportNotice != null) note(reportNotice, true);
-        if (savingReport) progress("Saving the log. This can take a minute; keep the USB drive plugged in.");
+        if (savingReport) progress("Saving the log. This can take a minute, so keep the USB drive plugged in.");
         Button save = button(savingReport ? "Saving Log…" : "Save Log to USB", "Save a log of what the head unit is doing to the USB drive", new View.OnClickListener() {
             @Override public void onClick(View v) { saveReport(true); }
         });
@@ -341,7 +341,7 @@ public final class TweaksActivity extends Activity {
                 line = name + " " + version + (state.equals("failed") ? " didn't install: " + values.getProperty(p + "detail", "")
                     : " didn't finish installing, maybe because the car turned off.")
                     + (gone ? " NEMESIS had already removed " + name + " " + values.getProperty(p + "from", "") + ", so it isn't installed now. Install it from USB."
-                        : " Check again to retry, or install it from USB.");
+                        : " Tap “Check for Updates” to try again, or install it from USB.");
                 failed = true;
             }
             if (line != null) said.append(said.length() == 0 ? "" : "\n\n").append(line);
@@ -387,12 +387,12 @@ public final class TweaksActivity extends Activity {
         String title = o.name + (o.installed == null || o.installed.isEmpty() ? "" : " " + o.installed);
         String detail = o.installed == null ? "Not installed · " + o.repo : o.repo; boolean problem = false;
         if (checked && o.problem != null) { detail = "Couldn't check: " + o.problem; problem = true; }
-        else if (can) detail = o.fresh() ? "New install: " + o.version : o.installed + " → " + o.version;
+        else if (can) detail = o.fresh() ? "Previous install attempt failed. Version " + o.version + " is available." : o.installed + " → " + o.version;
         else if (checked && o.newer()) {
             detail = (o.fresh() ? "Not installed on the car. " : "") + "Version " + o.version + " can't be installed from Package Manager. Install it from USB using its GitHub release.";
             problem = true;
         } else if (checked && !known) detail = "Latest release: " + o.version + ". The installed version can't be read.";
-        else if (pending) detail = against == 0 ? "Latest" : "Newer than the latest release, " + o.version;
+        else if (pending) detail = against == 0 ? "Up to date" : "Newer than the latest release, " + o.version;
         else if (checked) title += against == 0 ? " (latest)" : " (newer than " + o.version + ")";
         words.addView(text(title, 24, ink));
         TextView sub = text(detail, 18, problem ? 0xffb54b30 : muted); sub.setPadding(0, dp(2), 0, 0); words.addView(sub);
@@ -444,7 +444,7 @@ public final class TweaksActivity extends Activity {
                 busy = false; removing = null; step = Step.NONE; offers = new ArrayList<>();
                 if (loaded != null) {
                     edits.reset(loaded);
-                    w.done(uninstall ? "Uninstalled" : "Unlinked", uninstall ? o.name + " is uninstalled." : o.name + " is unlinked: it stays as it is, and Package Manager no longer updates it.", false, null);
+                    w.done(uninstall ? "Uninstalled" : "Unlinked", uninstall ? o.name + " has been uninstalled." : o.name + " has been unlinked. It stays installed, but Package Manager won't update it anymore.", false, null);
                 } else w.done(uninstall ? "Couldn't Uninstall" : "Couldn't Unlink", problem, true, null);
                 render();
             } });
@@ -512,8 +512,8 @@ public final class TweaksActivity extends Activity {
                 if (problem != null) new Steps("").done("Couldn't Check for Updates", problem.replace("Couldn't check for updates. ", ""), true, null);
                 if (list != null) {
                     offers = list; chosen.clear(); step = Step.CHECKED;
-                    // New installs wait to be ticked; updates start ticked.
-                    for (Updater.Offer o : list) if (o.installable() && !o.fresh()) chosen.add(o.id);
+                    // Everything installable starts ticked, including a package whose first install failed.
+                    for (Updater.Offer o : list) if (o.installable()) chosen.add(o.id);
                 } else step = before == Step.CHECKED ? Step.CHECKED : Step.NONE;
                 render();
                 if (wifi != null) networkProblem(wifi);
@@ -527,8 +527,7 @@ public final class TweaksActivity extends Activity {
         for (Updater.Offer o : picked)
             list.append("• ").append(o.name).append(' ').append(o.fresh() ? o.version + " (new)" : o.installed + " → " + o.version).append('\n');
         dialog(picked.size() == 1 ? "Install " + picked.get(0).name + " " + picked.get(0).version + "?" : "Install " + picked.size() + " Updates?",
-                words(list + "\nInstalling takes a minute or two, then the head unit restarts: the screen, including the rearview camera, is off for "
-                    + "a minute or two. Do it while parked, and keep the car on until it's back."))
+                words(list + "\n" + INSTALL_WARNING))
             .setNegativeButton("Cancel", null)
             .setPositiveButton("Install and Restart", new DialogInterface.OnClickListener() {
                 @Override public void onClick(DialogInterface d, int which) { install(picked); }
@@ -551,7 +550,7 @@ public final class TweaksActivity extends Activity {
                 main.post(new Runnable() { @Override public void run() { if (isFinishing() || isDestroyed()) return; step = Step.INSTALLING; controlScroll.scrollTo(0, 0); render(); } });
                 args.add(0, "self-update");
                 Backend.run(args.toArray(new String[0]));
-            } catch (Updater.NetworkProblem e) { offline = e; problem = "Wi-Fi went away while downloading. Check again to retry."; }
+            } catch (Updater.NetworkProblem e) { offline = e; problem = "Wi-Fi went away while downloading. Tap “Check for Updates” to try again."; }
             catch (Exception e) { problem = failure("install", e); }
             finally { Updater.clear(TweaksActivity.this); }
             if (problem != null) {
@@ -620,9 +619,8 @@ public final class TweaksActivity extends Activity {
     /** Step one: the GitHub user or organization, typed or picked from the ones looked up before. A pasted owner/repo or github.com address skips step two. */
     private void askOwner(final LinearLayout stage, String typed) {
         stage.removeAllViews();
-        TextView intro = text("Install and update packages straight from their developers' GitHub releases, even ones not in the NEMESIS "
-            + "Package Store. Package Manager only manages the packages you link in this window; everything else stays with NEMESIS Manager. "
-            + "Type the GitHub user or organization that publishes the package.", 19, muted);
+        TextView intro = text("Install and update packages straight from releases on their GitHub repo. Enter the GitHub user or organization "
+            + "that publishes the package to get started configuring the link.", 19, muted);
         intro.setGravity(Gravity.TOP); stage.addView(intro);
         LinearLayout row = new LinearLayout(this); row.setGravity(Gravity.CENTER_VERTICAL); row.setPadding(0, dp(8), 0, dp(2));
         final EditText owner = field("GitHub user, e.g. KramerTech"); owner.setText(typed); owner.setSelection(typed.length());
@@ -786,7 +784,7 @@ public final class TweaksActivity extends Activity {
                 View rule = new View(TweaksActivity.this); rule.setBackgroundColor(line); list.addView(rule, new LinearLayout.LayoutParams(-1, dp(1)));
             }
             int rest = shown.size() - cap;
-            more.setText(rest > 0 ? "And " + rest + " more: type more of the name." : "");
+            more.setText(rest > 0 ? rest + " more aren't shown. Type more of the name to narrow the list." : "");
             more.setVisibility(rest > 0 ? View.VISIBLE : View.GONE);
         } };
         showAll.setOnClickListener(new View.OnClickListener() { @Override public void onClick(View v) { all[0] = true; show.run(); } });
@@ -851,7 +849,7 @@ public final class TweaksActivity extends Activity {
         for (Updater.Offer o : repo.packages) {
             if (said.length() > 0) said.append("\n\n");
             SelfUpdate.Package p = installed.get(o.id);
-            if (o.id.equals(SelfUpdate.TILEPAD)) said.append("That's Tilepad's own repository: Package Manager already updates Tilepad from it.");
+            if (o.id.equals(SelfUpdate.TILEPAD)) said.append("This is Tilepad's repo. It cannot be unlinked.");
             else if (p != null && p.locked) said.append(o.name).append(" is part of NEMESIS and updates with it.");
             else if (p != null && o.installed != null && repo.name.equals(sources.getProperty(o.id))) bold(said.append(o.name).append(" is already linked to "), repo.name).append('.');
             else if (p != null && o.installed != null) {
@@ -866,8 +864,7 @@ public final class TweaksActivity extends Activity {
             } else said.append(o.name).append(" (").append(o.id).append(") isn't installed on the car, and this release can't be installed from Package Manager. Install it from USB instead.");
         }
         if (link.isEmpty() && fresh.isEmpty()) { w.done("Nothing to Link", said, false, null); return; }
-        if (!fresh.isEmpty()) said.append("\n\nInstalling takes a minute or two, then the head unit restarts: the screen, including the rearview camera, "
-            + "is off for a minute or two. Do it while parked, and keep the car on until it's back.");
+        if (!fresh.isEmpty()) said.append("\n\n").append(INSTALL_WARNING);
         w.ask("Link or Install from " + repo.name, said, fresh.isEmpty() ? "Link" : "Link and Install",
             new Runnable() { @Override public void run() { link(w, repo.name, link, fresh); } });
     }
@@ -877,6 +874,8 @@ public final class TweaksActivity extends Activity {
         to.setSpan(new android.text.style.StyleSpan(Typeface.BOLD), at, to.length(), android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
         return to;
     }
+    /** What every install's confirmation says before anything is downloaded. */
+    private static final String INSTALL_WARNING = "Installing will take several minutes and reboot the head unit. Infotainment and any camera feeds will be unavailable during this time. Only proceed with installation once safely parked, and keep the car on until the screen is back to normal.";
     private void link(final Steps w, final String repo, final List<Updater.Offer> link, final List<Updater.Offer> fresh) {
         w.working("Linking…");
         worker.execute(new Runnable() { @Override public void run() {
@@ -898,7 +897,7 @@ public final class TweaksActivity extends Activity {
                     return;
                 }
                 w.done("Installing", (linked.isEmpty() ? "" : "Linked " + join(linked) + ". ") + "Downloading and installing " + join(installing)
-                    + " now. The head unit restarts by itself when it's done; keep the car on.", false, null);
+                    + " now. When it's done, the screen will restart on its own. Keep the car on until then.", false, null);
                 closeSources();
                 install(fresh);
             } });
