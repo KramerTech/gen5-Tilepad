@@ -231,7 +231,7 @@ public final class TweaksActivity extends Activity {
                 clear.setTextSize(20); enable(clear, ready && !busy && !edits.hasWork());
                 columns(mark, 1.7f, clear, 1f);
             } else {
-                TextView none = text("No Home location set.", 22, muted);
+                TextView none = text("No Home location set.", 20, muted);
                 columns(none, 1f, mark, 1.5f);
             }
         } else if (!blocked && enabled && item.options && !absent) {
