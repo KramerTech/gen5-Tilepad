@@ -338,7 +338,7 @@ public final class TweaksActivity extends Activity {
         }
         controls.addView(b, new LinearLayout.LayoutParams(-1, dp(72))); divider(controls);
         int linked = sources().size();
-        note(linked == 0 ? "Other NEMESIS packages from GitHub can update here too: link each one to its repository."
+        note(linked == 0 ? "Other NEMESIS packages can update here too, straight from their GitHub releases, even ones that aren't in the NEMESIS Package Store."
             : "Also checks " + linked + (linked == 1 ? " other package" : " other packages") + " linked to GitHub.", false);
         Button configure = button("Configure Updates for Other Software", "Link installed NEMESIS packages to the GitHub repositories they come from", new View.OnClickListener() {
             @Override public void onClick(View v) { configureSources(); }
@@ -523,23 +523,14 @@ public final class TweaksActivity extends Activity {
         return what + (e.getMessage() == null ? e.toString() : e.getMessage());
     }
     /**
-     * Links installed NEMESIS packages to their GitHub repositories: type a user and repository, and
-     * the packages in its latest release that are installed here get linked. Lists and unlinks the rest.
+     * Links installed NEMESIS packages to their GitHub repositories, in two steps: the GitHub user or
+     * organization, then one of its repositories, picked from a list a filter narrows. The packages in
+     * that repository's latest release that are installed here get linked. Lists and unlinks the rest.
      */
     private void configureSources() {
         if (!ready || busy || edits.hasWork()) return;
         LinearLayout box = column(); box.setPadding(dp(28), dp(16), dp(28), dp(16));
-        TextView intro = text("Type the GitHub user and repository a NEMESIS package comes from. Each package in its latest release "
-            + "that's installed here gets linked, and Check for Updates offers its new releases too.", 19, muted);
-        intro.setGravity(Gravity.TOP); box.addView(intro);
-        LinearLayout fields = new LinearLayout(this); fields.setGravity(Gravity.CENTER_VERTICAL); fields.setPadding(0, dp(14), 0, dp(6));
-        final EditText owner = field("GitHub user"), repo = field("Repository");
-        fields.addView(owner, new LinearLayout.LayoutParams(0, dp(64), 1));
-        fields.addView(text(" / ", 26, ink));
-        fields.addView(repo, new LinearLayout.LayoutParams(0, dp(64), 1.3f));
-        final Button find = button("Find", "Find this repository's packages", null); find.setTextSize(22); enable(find, true);
-        fields.addView(find, new LinearLayout.LayoutParams(dp(120), dp(64)));
-        box.addView(fields);
+        final LinearLayout stage = column(); box.addView(stage);
         final LinearLayout result = column(); box.addView(result);
         final LinearLayout linked = column(); box.addView(linked);
         ScrollView scroll = new ScrollView(this); scroll.setScrollbarFadingEnabled(false); scroll.addView(box);
@@ -551,24 +542,133 @@ public final class TweaksActivity extends Activity {
             render();
         } });
         final Runnable showLinks = new Runnable() { @Override public void run() { links(linked, result); } };
-        find.setOnClickListener(new View.OnClickListener() { @Override public void onClick(View v) {
-            String[] named = repository(owner.getText().toString(), repo.getText().toString());
-            if (named == null) { message(result, "Type the GitHub user (or organization) and the repository's name, e.g. KramerTech and gen5-RearDashcam.", true); return; }
-            owner.setText(named[0]); repo.setText(named[1]);
-            ((android.view.inputmethod.InputMethodManager) getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(repo.getWindowToken(), 0);
-            findSource(named[0], named[1], find, result, showLinks);
-        } });
+        askOwner(stage, result, showLinks, "");
         showLinks.run();
         dialog.show();
         dialog.getWindow().setLayout(Math.min(dp(900), getResources().getDisplayMetrics().widthPixels - dp(60)), -2);
     }
-    /** "owner", "repo"; or a pasted owner/repo or github.com address in either box. Null when something is missing. */
-    static String[] repository(String owner, String repo) {
-        String all = (owner.trim() + "/" + repo.trim()).replaceFirst("^(https?://)?(www\\.)?github\\.com/", "");
-        String[] parts = all.replaceAll("/+", "/").replaceAll("^/|/$", "").split("/");
-        if (parts.length < 2) return null;
-        String name = parts[1].replaceFirst("\\.git$", "");
-        return SelfUpdate.validRepo(parts[0] + "/" + name) ? new String[]{parts[0], name} : null;
+    /** Step one: the GitHub user or organization. A pasted owner/repo or github.com address skips step two. */
+    private void askOwner(final LinearLayout stage, final LinearLayout result, final Runnable showLinks, String typed) {
+        stage.removeAllViews();
+        TextView intro = text("Packages update straight from their developers' releases on GitHub, even ones that aren't in the NEMESIS "
+            + "Package Store. Type the GitHub user or organization that publishes the package.", 19, muted);
+        intro.setGravity(Gravity.TOP); stage.addView(intro);
+        LinearLayout row = new LinearLayout(this); row.setGravity(Gravity.CENTER_VERTICAL); row.setPadding(0, dp(14), 0, dp(6));
+        final EditText owner = field("GitHub user, e.g. KramerTech"); owner.setText(typed); owner.setSelection(typed.length());
+        row.addView(owner, new LinearLayout.LayoutParams(0, dp(64), 1));
+        final Button next = button("Next", "Find this user's repositories", null); next.setTextSize(22); enable(next, true);
+        row.addView(next, new LinearLayout.LayoutParams(dp(140), dp(64)));
+        stage.addView(row);
+        next.setOnClickListener(new View.OnClickListener() { @Override public void onClick(View v) {
+            String t = owner.getText().toString().trim();
+            String[] named = Repos.pasted(t);
+            String login = t.replaceFirst("^(https?://)?(www\\.)?github\\.com/", "").replaceFirst("^@", "").replaceAll("/+$", "");
+            if (named == null && !SelfUpdate.validRepo(login + "/x")) { message(result, "Type a GitHub user or organization, e.g. KramerTech.", true); return; }
+            hideKeyboard(owner);
+            if (named != null) findSource(named[0], named[1], new View[]{owner, next}, result, showLinks);
+            else loadAccount(login, new View[]{owner, next}, stage, result, showLinks);
+        } });
+        owner.setImeOptions(owner.getImeOptions() | android.view.inputmethod.EditorInfo.IME_ACTION_GO);
+        owner.setOnEditorActionListener(new TextView.OnEditorActionListener() { @Override public boolean onEditorAction(TextView v, int action, KeyEvent e) {
+            next.performClick(); return true;
+        } });
+    }
+    private void loadAccount(final String owner, final View[] lock, final LinearLayout stage, final LinearLayout result, final Runnable showLinks) {
+        lock(lock, true);
+        working(result, "Finding " + owner + "'s repositories…");
+        final String current = installedVersion();
+        worker.execute(new Runnable() { @Override public void run() {
+            Updater.NetworkProblem offline = Updater.networkProblem(TweaksActivity.this);
+            Updater.Account found = null; String failed = null;
+            if (offline == null) try { found = Updater.account(TweaksActivity.this, current, owner); }
+            catch (Updater.NetworkProblem e) { offline = e; }
+            catch (Exception e) { failed = failure("check", e).replace("Couldn't check for updates. ", ""); }
+            final Updater.Account account = found; final String problem = failed; final Updater.NetworkProblem wifi = offline;
+            main.post(new Runnable() { @Override public void run() {
+                if (isFinishing() || isDestroyed()) return;
+                lock(lock, false);
+                result.removeAllViews();
+                if (wifi != null) networkProblem(wifi);
+                else if (problem != null) message(result, problem, true);
+                else pickRepository(account, stage, result, showLinks);
+            } });
+        } });
+    }
+    /** Step two: the account's repositories, NEMESIS ones first, narrowed by what's typed; Link finds a repository's packages. */
+    private void pickRepository(final Updater.Account account, final LinearLayout stage, final LinearLayout result, final Runnable showLinks) {
+        stage.removeAllViews();
+        LinearLayout top = new LinearLayout(this); top.setGravity(Gravity.CENTER_VERTICAL);
+        TextView who = text(account.login, 24, ink); who.setTypeface(null, Typeface.BOLD);
+        top.addView(who, new LinearLayout.LayoutParams(0, -2, 1));
+        final Button change = button("Change User", "Type a different GitHub user", new View.OnClickListener() {
+            @Override public void onClick(View v) { result.removeAllViews(); askOwner(stage, result, showLinks, account.login); }
+        });
+        change.setTextSize(20); enable(change, true);
+        top.addView(change, new LinearLayout.LayoutParams(-2, dp(64)));
+        stage.addView(top);
+        final EditText filter = field("Search " + account.login + "'s repositories");
+        stage.addView(filter, new LinearLayout.LayoutParams(-1, dp(64)));
+        final TextView hint = text("", 19, muted); hint.setGravity(Gravity.TOP); hint.setPadding(0, dp(8), 0, dp(4)); stage.addView(hint);
+        final LinearLayout list = column(); stage.addView(list);
+        final TextView more = text("", 19, muted); more.setPadding(0, dp(6), 0, 0); stage.addView(more);
+        final Runnable show = new Runnable() { @Override public void run() {
+            String typed = filter.getText().toString().trim();
+            List<Repos.Listed> shown = Repos.matching(account.repos, typed);
+            int nemesis = 0;
+            for (Repos.Listed l : account.repos) if (l.nemesis) nemesis++;
+            hint.setText(account.repos.isEmpty() ? account.login + " has no public repositories."
+                : !typed.isEmpty() ? (shown.isEmpty() ? "No repository name contains “" + typed + "”." : "")
+                : nemesis > 0 ? (nemesis == 1 ? "1 repository mentions" : nemesis + " repositories mention") + " NEMESIS"
+                    + (account.repos.size() > nemesis ? ". Search to see all " + account.repos.size() + "." : ".")
+                : "None of " + account.login + "'s repositories mention NEMESIS. Search to narrow them down.");
+            hint.setVisibility(hint.getText().length() == 0 ? View.GONE : View.VISIBLE);
+            list.removeAllViews();
+            final List<View> lock = new ArrayList<>(Arrays.<View>asList(filter, change));
+            final List<Button> links = new ArrayList<>();
+            for (int i = 0; i < Math.min(shown.size(), REPOS_SHOWN); i++) {
+                final Repos.Listed l = shown.get(i);
+                LinearLayout row = new LinearLayout(TweaksActivity.this); row.setGravity(Gravity.CENTER_VERTICAL); row.setMinimumHeight(dp(76)); row.setPadding(0, dp(6), 0, dp(6));
+                LinearLayout label = column();
+                label.addView(text(l.name, 22, ink));
+                if (!l.description.isEmpty()) { TextView d = text(l.description, 17, muted); d.setMaxLines(2); d.setEllipsize(android.text.TextUtils.TruncateAt.END); label.addView(d); }
+                row.addView(label, new LinearLayout.LayoutParams(0, -2, 1));
+                Button link = button("Link", "Link the packages in " + l.name + "'s latest release", null); link.setTextSize(20); enable(link, true);
+                row.addView(link, new LinearLayout.LayoutParams(dp(130), dp(64)));
+                links.add(link); lock.add(link);
+                list.addView(row);
+                View rule = new View(TweaksActivity.this); rule.setBackgroundColor(line); list.addView(rule, new LinearLayout.LayoutParams(-1, dp(1)));
+            }
+            for (int i = 0; i < links.size(); i++) {
+                final Repos.Listed l = shown.get(i);
+                links.get(i).setOnClickListener(new View.OnClickListener() { @Override public void onClick(View v) {
+                    hideKeyboard(filter);
+                    findSource(account.login, l.name, lock.toArray(new View[0]), result, showLinks);
+                } });
+            }
+            int rest = shown.size() - REPOS_SHOWN;
+            more.setText(rest > 0 ? "And " + rest + " more: type more of the name." : "");
+            more.setVisibility(rest > 0 ? View.VISIBLE : View.GONE);
+        } };
+        filter.addTextChangedListener(new android.text.TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence t, int a, int b, int c) { }
+            @Override public void onTextChanged(CharSequence t, int a, int b, int c) { }
+            @Override public void afterTextChanged(android.text.Editable e) { show.run(); }
+        });
+        show.run();
+    }
+    private static final int REPOS_SHOWN = 6;
+    /** Disables views while a lookup runs; disabled ones fade like buttons. */
+    private static void lock(View[] views, boolean locked) { for (View v : views) { v.setEnabled(!locked); v.setAlpha(locked ? .4f : 1f); } }
+    private void hideKeyboard(View from) {
+        ((android.view.inputmethod.InputMethodManager) getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(from.getWindowToken(), 0);
+    }
+    /** A spinner and what's happening, in place of the last result. */
+    private void working(LinearLayout result, String label) {
+        result.removeAllViews();
+        LinearLayout row = new LinearLayout(this); row.setGravity(Gravity.CENTER_VERTICAL); row.setPadding(0, dp(10), 0, dp(10));
+        ProgressBar spinner = new ProgressBar(this); spinner.setIndeterminate(true); row.addView(spinner, new LinearLayout.LayoutParams(dp(40), dp(40)));
+        TextView doing = text(label, 19, ink); doing.setPadding(dp(14), 0, 0, 0); row.addView(doing);
+        result.addView(row);
     }
     private EditText field(String hint) {
         EditText e = new EditText(this); e.setHint(hint); e.setSingleLine(true); e.setTextSize(22); e.setTextColor(ink); e.setHintTextColor(line == 0xff41494e ? 0xff7d878d : 0xff9a9a9a);
@@ -581,13 +681,9 @@ public final class TweaksActivity extends Activity {
         TextView v = text(text, 19, problem ? 0xffb54b30 : ink); v.setGravity(Gravity.TOP); v.setPadding(0, dp(10), 0, dp(10)); into.addView(v);
     }
     /** Looks up the repository's latest release, links what's installed here, and says what it found. */
-    private void findSource(final String owner, final String name, final Button find, final LinearLayout result, final Runnable showLinks) {
-        enable(find, false); find.setText("Finding…");
-        result.removeAllViews();
-        LinearLayout row = new LinearLayout(this); row.setGravity(Gravity.CENTER_VERTICAL); row.setPadding(0, dp(10), 0, dp(10));
-        ProgressBar spinner = new ProgressBar(this); spinner.setIndeterminate(true); row.addView(spinner, new LinearLayout.LayoutParams(dp(40), dp(40)));
-        TextView finding = text("Reading " + owner + "/" + name + "'s latest release…", 19, ink); finding.setPadding(dp(14), 0, 0, 0); row.addView(finding);
-        result.addView(row);
+    private void findSource(final String owner, final String name, final View[] lock, final LinearLayout result, final Runnable showLinks) {
+        lock(lock, true);
+        working(result, "Reading " + owner + "/" + name + "'s latest release…");
         final String current = installedVersion();
         worker.execute(new Runnable() { @Override public void run() {
             Updater.NetworkProblem offline = Updater.networkProblem(TweaksActivity.this);
@@ -616,7 +712,7 @@ public final class TweaksActivity extends Activity {
             main.post(new Runnable() { @Override public void run() {
                 if (isFinishing() || isDestroyed()) return;
                 if (loaded != null) edits.reset(loaded);
-                enable(find, true); find.setText("Find");
+                lock(lock, false);
                 if (wifi != null) { result.removeAllViews(); networkProblem(wifi); }
                 else message(result, said.toString(), bad);
                 showLinks.run();
@@ -894,7 +990,6 @@ public final class TweaksActivity extends Activity {
         StateListDrawable d = new StateListDrawable(); d.addState(new int[]{android.R.attr.state_pressed}, new ColorDrawable(0x3300b5de));
         d.addState(new int[]{android.R.attr.state_focused}, new ColorDrawable(0x2200b5de)); d.addState(new int[]{}, new ColorDrawable(selected ? 0x1100b5de : 0x00000000)); return d;
     }
-    /** A circled question mark in the label's colour, drawn so it follows the theme and selection. */
     /** Update Manager's mark: a down arrow onto a tray, in the help mark's circle. */
     private Drawable updateMark(final int color, final int size) {
         return new Drawable() {
@@ -919,6 +1014,7 @@ public final class TweaksActivity extends Activity {
             @Override public int getOpacity() { return PixelFormat.TRANSLUCENT; }
         };
     }
+    /** A circled question mark in the label's colour, drawn so it follows the theme and selection. */
     private Drawable helpMark(final int color, final int size) {
         return new Drawable() {
             private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);

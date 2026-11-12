@@ -158,6 +158,42 @@ final class Updater {
         o.digest = digest.startsWith("sha256:") && digest.length() == 71 ? digest.substring(7) : null;
     }
 
+    /** A GitHub user's or organization's public repositories, for picking one to link: {login as GitHub spells it, repositories}. */
+    static final class Account { String login; List<Repos.Listed> repos = new ArrayList<>(); }
+    private static final int PAGE = 100, MAX_PAGES = 3;
+    /**
+     * The account's repositories, most recently pushed first, except Tilepad's own. Which ones are
+     * NEMESIS packages comes from one search for "nemesis" in their names, descriptions, topics and
+     * READMEs, forks included: reading each repository's releases would take a request per
+     * repository, and GitHub allows 60 an hour without signing in. If the search fails, nothing is marked.
+     */
+    static Account account(Context c, String current, String owner) throws Exception {
+        if (!SelfUpdate.validRepo(owner + "/x")) throw new Answer("That isn't a GitHub user or organization name.");
+        Account a = new Account();
+        try { a.login = json(c, current, "users/" + owner).optString("login", owner); }
+        catch (Answer missing) { throw new Answer("GitHub has no user or organization called " + owner + "."); }
+        if (!SelfUpdate.validRepo(a.login + "/x")) a.login = owner;
+        Set<String> nemesis = new HashSet<>();
+        try {
+            JSONArray hits = json(c, current, "search/repositories?per_page=100&q=nemesis+user:" + a.login + "+fork:true+in:name,description,topics,readme").optJSONArray("items");
+            for (int i = 0; hits != null && i < hits.length(); i++) nemesis.add(hits.getJSONObject(i).optString("name"));
+        } catch (NetworkProblem e) { throw e; }
+        catch (Exception unmarked) { }  // e.g. the search's own limit, 10 a minute: list without marks
+        for (int page = 1; page <= MAX_PAGES; page++) {
+            JSONArray list = array(c, current, "users/" + a.login + "/repos?type=owner&sort=pushed&per_page=" + PAGE + "&page=" + page);
+            for (int i = 0; i < list.length(); i++) {
+                JSONObject r = list.getJSONObject(i);
+                Repos.Listed l = new Repos.Listed();
+                l.name = r.optString("name");
+                if (!SelfUpdate.validRepo(a.login + "/" + l.name) || (a.login + "/" + l.name).equalsIgnoreCase(TILEPAD_REPO)) continue;
+                l.description = r.isNull("description") ? "" : r.optString("description").trim();
+                l.nemesis = nemesis.contains(l.name);
+                a.repos.add(l);
+            }
+            if (list.length() < PAGE) break;
+        }
+        return a;
+    }
     /** A repository and the packages in its latest release, before linking: {owner/repo as GitHub spells it, packages}. */
     static final class Repo { String name; List<Offer> packages; }
     static Repo find(Context c, String current, String owner, String name) throws Exception {
@@ -274,6 +310,10 @@ final class Updater {
     private static JSONObject json(Context c, String current, String path) throws Exception {
         HttpsURLConnection h = open(c, current, API + path, "application/vnd.github+json", null);
         try { return new JSONObject(new String(body(h, MAX_JSON, null, null), "UTF-8")); } finally { h.disconnect(); }
+    }
+    private static JSONArray array(Context c, String current, String path) throws Exception {
+        HttpsURLConnection h = open(c, current, API + path, "application/vnd.github+json", null);
+        try { return new JSONArray(new String(body(h, MAX_JSON, null, null), "UTF-8")); } finally { h.disconnect(); }
     }
     private static void fetch(Context c, String current, String url, int limit, File to, Progress progress) throws Exception {
         HttpsURLConnection h = open(c, current, url, "application/octet-stream", null);

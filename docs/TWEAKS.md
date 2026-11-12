@@ -434,7 +434,14 @@ before then.
 
 For Tilepad it reads `repos/KramerTech/gen5-Tilepad/releases/latest`: the tag, the notes, and the
 `tilepad.zip` and `tilepad.zip.sig` assets. **Configure Updates for Other Software** links other
-packages: given a user and repository, it reads the repository and its latest release, finds which
+packages, straight from their developers' GitHub releases, so a package needn't be in the NEMESIS
+Package Store. It asks for the user or organization first (`users/<name>`), then lists its
+repositories (`users/<name>/repos`, up to 300, most recently pushed first) under a search box. The
+ones that mention NEMESIS come first, and with nothing typed only they show: one
+`search/repositories` query for `nemesis` in their names, descriptions, topics and READMEs, forks
+included, marks them. Reading each repository's releases instead would cost a request per
+repository out of the 60 an hour GitHub allows without signing in. A pasted `owner/repo` or
+github.com address skips the list. Given the repository, it reads it and its latest release, finds which
 NEMESIS package each `.zip` asset holds, and links each one installed here (`packages.db`, which is
 world-readable; NEMESIS 1.16.7 writes `id|name|locked|types` there, so versions come from each
 package's `apps/<id>/NEMESIS.data`). The locked core packages and Tilepad itself can't be linked.

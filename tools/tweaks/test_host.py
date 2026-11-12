@@ -25,6 +25,7 @@ def main():
     sources += [ROOT / "app/src/main/java/com/tilepad/longstar" / (n + ".java") for n in ("Evdev", "HoldDetector")]
     tests = sorted((ROOT / "app/src/test/java").rglob("*Test.java")) + sorted((ROOT / "tweaks/src/test/java").rglob("*Test.java"))
     sources.append(ROOT / "tweaks/src/main/java/com/tilepad/tweaks/SettingsEdits.java")
+    sources.append(ROOT / "tweaks/src/main/java/com/tilepad/tweaks/Repos.java")
     sources += tests
     classpath = os.pathsep.join(jars)
     subprocess.run(["javac", "--release", "8", "-encoding", "UTF-8", "-classpath", classpath, "-d", str(classes), *map(str, sources)], check=True, cwd=ROOT)
