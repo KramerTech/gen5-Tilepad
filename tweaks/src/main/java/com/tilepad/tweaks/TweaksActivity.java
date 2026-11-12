@@ -262,13 +262,13 @@ public final class TweaksActivity extends Activity {
         if (!checking) {
             boolean any = false;
             for (String id : Config.IDS) any |= !unavailable(id).isEmpty();
-            note(any ? "Some tweaks aren't available on this head unit; their entries say why." : "Every tweak is available on this head unit.", false);
+            note(any ? "Some tweaks aren't available on this head unit; their entries say why." : "Every tweak is compatible with this head unit.", false);
         }
         divider(controls);
         if (!supportSaved.isEmpty()) {
             note("Log saved to the USB drive as " + supportSaved + ". On a computer, open a new issue at "
                 + "github.com/KramerTech/gen5-Tilepad/issues, say what happened and when, and attach that .zip file.", false);
-        } else note("A tweak not taking effect, or something happening that shouldn't? Save a log while you can still see it, or as soon as you notice, before turning the car off.", false);
+        } else note("If a tweak isn't taking effect or something's not working the way it should, save a log while you can still see it, or as soon as you notice, before turning the car off.", false);
         if (reportNotice != null) note(reportNotice, true);
         if (savingReport) progress("Saving the log. This can take a minute; keep the USB drive plugged in.");
         Button save = button(savingReport ? "Saving Log…" : "Save Log to USB", "Save a log of what the head unit is doing to the USB drive", new View.OnClickListener() {
