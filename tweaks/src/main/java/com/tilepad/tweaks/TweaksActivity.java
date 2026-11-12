@@ -636,7 +636,7 @@ public final class TweaksActivity extends Activity {
         final List<View> lock = new ArrayList<>(Arrays.<View>asList(owner, next));
         List<String> used = Repos.owners(values.getProperty("owners", ""));
         if (!used.isEmpty()) {
-            TextView before = text("Looked up before:", 19, muted); before.setPadding(0, dp(10), 0, dp(4)); stage.addView(before);
+            TextView before = text("Suggested:", 19, muted); before.setPadding(0, dp(10), 0, dp(4)); stage.addView(before);
             LinearLayout list = column();
             for (final String name : used) {
                 LinearLayout pick = new LinearLayout(this); pick.setGravity(Gravity.CENTER_VERTICAL); pick.setMinimumHeight(dp(60)); pick.setPadding(dp(8), dp(4), 0, dp(4));
