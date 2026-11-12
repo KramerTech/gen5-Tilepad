@@ -34,13 +34,14 @@ public final class TweaksActivity extends Activity {
     /** Until that audit answers, a tweak can't be turned on (it might be unavailable here). */
     private boolean checking = true;
     private Resources stock;
+    /** Device Connections' app, for its buttons (Add New Device): the EV app's are an older, flat style. Null if missing. */
+    private Resources buttons;
+    private static final String BUTTONS = "com.android.btsettings";
     private LinearLayout controls;
     private ScrollView railScroll, controlScroll, helpScroll;
     private boolean preview, busy = true, ready;
     private String error;
     private boolean capturingHome;
-    /** "Home saved." or "Home updated." after a Home change, until another tweak is selected. */
-    private String homeNotice;
     /** Why the compatibility report couldn't be saved, until another tweak is selected. */
     private String reportNotice;
     /** The report file on the USB drive: saved here, or found there by the audit. */
@@ -104,6 +105,8 @@ public final class TweaksActivity extends Activity {
     private LinearLayout column() { LinearLayout v = new LinearLayout(this); v.setOrientation(LinearLayout.VERTICAL); return v; }
     private void render() {
         values = edits.display();
+        // Fetched per render, so a day/night switch picks up the matching art.
+        try { buttons = getPackageManager().getResourcesForApplication(BUTTONS); } catch (Exception e) { buttons = null; }
         final boolean firstLayout = railScroll == null || railScroll.getHeight() == 0;
         final View[] selectedTab = new View[1];
         final int railY = firstLayout ? 0 : railScroll.getScrollY();
@@ -146,7 +149,7 @@ public final class TweaksActivity extends Activity {
             tab.setContentDescription(item.railTitle() + (i == selected ? ", selected" : ""));
             tab.setOnClickListener(new View.OnClickListener() { @Override public void onClick(View v) {
                 if (selected == index || savingReport || updating()) return;
-                selected = index; homeNotice = null; reportNotice = null; if (ready) error = null; getPreferences(0).edit().putInt("selected", selected).apply();
+                selected = index; reportNotice = null; if (ready) error = null; getPreferences(0).edit().putInt("selected", selected).apply();
                 controlScroll.scrollTo(0, 0); helpScroll.scrollTo(0, 0); render();
             } });
             rail.addView(tab, new LinearLayout.LayoutParams(-1, -2)); divider(rail);
@@ -209,26 +212,27 @@ public final class TweaksActivity extends Activity {
                 @Override public void onClick(View v) { saveReport(false); }
             });
             report.setTextSize(22); enable(report, ready && !busy && !edits.hasWork());
-            controls.addView(report, new LinearLayout.LayoutParams(-1, dp(72))); divider(controls);
+            action(report); divider(controls);
         }
         if (!blocked && !values.getProperty("runtime", "").isEmpty()) note(values.getProperty("runtime"), true);
         if (!blocked && item.id.equals("chargeaway")) {
+            // Two columns: with no Home, what's missing and the button that sets it; with one, update and clear side by side.
             boolean home = new Config(values).hasHome();
-            note(home ? String.format(Locale.US, "Home: %.6f, %.6f", Double.parseDouble(values.getProperty("homeLat")), Double.parseDouble(values.getProperty("homeLon")))
-                : "No Home location set.", false);
-            if (homeNotice != null) note(homeNotice, false);
-            Button mark = button(home ? "Update Home to Current Location" : "Set Current Location as Home",
+            Button mark = button(home ? "Update to Current Location" : "Set Current Location as Home",
                 home ? "Replace Home with the current GPS location" : "Save the current GPS location as Home", new View.OnClickListener() {
                 @Override public void onClick(View v) { captureHome(false); }
             });
-            mark.setTextSize(22); enable(mark, ready && !busy && !edits.hasWork());
-            controls.addView(mark, new LinearLayout.LayoutParams(-1, dp(72))); divider(controls);
+            mark.setTextSize(21); enable(mark, ready && !busy && !edits.hasWork());
             if (home) {
+                note(String.format(Locale.US, "Home: %.6f, %.6f", Double.parseDouble(values.getProperty("homeLat")), Double.parseDouble(values.getProperty("homeLon"))), false);
                 Button clear = button("Clear Home", "Remove the saved Home location", new View.OnClickListener() {
                     @Override public void onClick(View v) { confirmClearHome(); }
                 });
-                clear.setTextSize(22); enable(clear, ready && !busy && !edits.hasWork());
-                controls.addView(clear, new LinearLayout.LayoutParams(-1, dp(72))); divider(controls);
+                clear.setTextSize(21); enable(clear, ready && !busy && !edits.hasWork());
+                columns(mark, clear);
+            } else {
+                TextView none = text("No Home location set.", 22, muted);
+                columns(none, mark);
             }
         } else if (!blocked && enabled && item.options && !absent) {
             if (item.id.equals("dst")) {
@@ -237,9 +241,9 @@ public final class TweaksActivity extends Activity {
             } else {
                 note("Apply at boot below this outdoor temperature", false);
                 LinearLayout temp = new LinearLayout(this); temp.setGravity(Gravity.CENTER_VERTICAL); temp.setPadding(dp(18), 0, dp(18), 0);
-                temp.addView(button("−", "Lower temperature threshold", new View.OnClickListener() { @Override public void onClick(View v) { adjustThreshold(-1); } }), new LinearLayout.LayoutParams(dp(62), dp(64)));
+                temp.addView(button("−", "Lower temperature threshold", new View.OnClickListener() { @Override public void onClick(View v) { adjustThreshold(-1); } }), new LinearLayout.LayoutParams(dp(72), dp(60)));
                 TextView reading = text(thresholdLabel(), 24, ink); reading.setGravity(Gravity.CENTER); temp.addView(reading, new LinearLayout.LayoutParams(0, dp(64), 1));
-                temp.addView(button("+", "Raise temperature threshold", new View.OnClickListener() { @Override public void onClick(View v) { adjustThreshold(1); } }), new LinearLayout.LayoutParams(dp(62), dp(64)));
+                temp.addView(button("+", "Raise temperature threshold", new View.OnClickListener() { @Override public void onClick(View v) { adjustThreshold(1); } }), new LinearLayout.LayoutParams(dp(72), dp(60)));
                 controls.addView(temp); divider(controls);
                 choice("units", new String[]{"F", "C"}, new String[]{"Fahrenheit (°F)", "Celsius (°C)"});
                 heater("driver", "Driver seat", "driverLevel"); heater("wheel", "Steering wheel", null); heater("passenger", "Passenger seat (only with a passenger)", "passengerLevel");
@@ -268,7 +272,7 @@ public final class TweaksActivity extends Activity {
             @Override public void onClick(View v) { saveReport(true); }
         });
         save.setTextSize(22); enable(save, ready && !busy && !edits.hasWork());
-        controls.addView(save, new LinearLayout.LayoutParams(-1, dp(72))); divider(controls);
+        action(save); divider(controls);
     }
     /** The middle pane for Package Manager: what's installed, then the updates. */
     private void packageManager() {
@@ -339,7 +343,7 @@ public final class TweaksActivity extends Activity {
             });
             b.setTextSize(22); enable(b, ready && !busy && !edits.hasWork());
         }
-        controls.addView(b, new LinearLayout.LayoutParams(-1, dp(72))); divider(controls);
+        action(b); divider(controls);
         int linked = sources().size();
         note((linked == 0 ? "Other NEMESIS packages can install and update here too, straight from their GitHub releases, even ones that aren't in the NEMESIS Package Store."
             : "Also checks " + linked + (linked == 1 ? " other package" : " other packages") + " linked to GitHub.")
@@ -348,7 +352,7 @@ public final class TweaksActivity extends Activity {
             @Override public void onClick(View v) { configureSources(); }
         });
         configure.setTextSize(22); enable(configure, ready && !busy && !edits.hasWork() && !preview);
-        controls.addView(configure, new LinearLayout.LayoutParams(-1, dp(72))); divider(controls);
+        action(configure); divider(controls);
     }
     /** One package in the check's list: a checkbox when it can be installed, what's installed, and its release notes. */
     private void offer(final Updater.Offer o) {
@@ -385,7 +389,7 @@ public final class TweaksActivity extends Activity {
                 @Override public void onClick(View v) { releaseNotes(o); }
             });
             info.setTextSize(28); enable(info, true);
-            row.addView(info, new LinearLayout.LayoutParams(dp(64), dp(64)));
+            row.addView(info, new LinearLayout.LayoutParams(dp(64), dp(56)));
         }
         controls.addView(row); divider(controls);
     }
@@ -536,7 +540,7 @@ public final class TweaksActivity extends Activity {
      */
     private void configureSources() {
         if (!ready || busy || edits.hasWork()) return;
-        LinearLayout box = column(); box.setPadding(dp(28), dp(16), dp(28), dp(16));
+        LinearLayout box = column(); box.setPadding(dp(28), dp(6), dp(28), dp(8));
         final LinearLayout stage = column(); box.addView(stage);
         final LinearLayout result = column(); box.addView(result);
         final LinearLayout linked = column(); box.addView(linked);
@@ -558,15 +562,16 @@ public final class TweaksActivity extends Activity {
     /** Step one: the GitHub user or organization. A pasted owner/repo or github.com address skips step two. */
     private void askOwner(final LinearLayout stage, final LinearLayout result, final Runnable showLinks, String typed) {
         stage.removeAllViews();
-        TextView intro = text("Package Manager installs and updates packages straight from their developers' releases on GitHub, even ones "
-            + "that aren't in the NEMESIS Package Store. It only manages the packages linked here; one installed from NEMESIS Manager stays "
-            + "NEMESIS Manager's until you link it. Type the GitHub user or organization that publishes the package.", 19, muted);
+        TextView intro = text("Install and update packages straight from their developers' GitHub releases, even ones not in the NEMESIS "
+            + "Package Store. Only packages linked here are managed here; others stay with NEMESIS Manager. Type the GitHub user "
+            + "or organization that publishes the package.", 19, muted);
         intro.setGravity(Gravity.TOP); stage.addView(intro);
-        LinearLayout row = new LinearLayout(this); row.setGravity(Gravity.CENTER_VERTICAL); row.setPadding(0, dp(14), 0, dp(6));
+        LinearLayout row = new LinearLayout(this); row.setGravity(Gravity.CENTER_VERTICAL); row.setPadding(0, dp(8), 0, dp(2));
         final EditText owner = field("GitHub user, e.g. KramerTech"); owner.setText(typed); owner.setSelection(typed.length());
         row.addView(owner, new LinearLayout.LayoutParams(0, dp(64), 1));
         final Button next = button("Next", "Find this user's repositories", null); next.setTextSize(22); enable(next, true);
-        row.addView(next, new LinearLayout.LayoutParams(dp(140), dp(64)));
+        LinearLayout.LayoutParams np = new LinearLayout.LayoutParams(dp(140), dp(56)); np.leftMargin = dp(12);
+        row.addView(next, np);
         stage.addView(row);
         next.setOnClickListener(new View.OnClickListener() { @Override public void onClick(View v) {
             String t = owner.getText().toString().trim();
@@ -603,7 +608,7 @@ public final class TweaksActivity extends Activity {
             } });
         } });
     }
-    /** Step two: the account's repositories, NEMESIS ones first, narrowed by what's typed; Link finds a repository's packages. */
+    /** Step two: the account's repositories, NEMESIS ones first, narrowed by what's typed; tapping one finds its packages. */
     private void pickRepository(final Updater.Account account, final LinearLayout stage, final LinearLayout result, final Runnable showLinks) {
         stage.removeAllViews();
         LinearLayout top = new LinearLayout(this); top.setGravity(Gravity.CENTER_VERTICAL);
@@ -613,7 +618,8 @@ public final class TweaksActivity extends Activity {
             @Override public void onClick(View v) { result.removeAllViews(); askOwner(stage, result, showLinks, account.login); }
         });
         change.setTextSize(20); enable(change, true);
-        top.addView(change, new LinearLayout.LayoutParams(-2, dp(64)));
+        change.setPadding(dp(24), 0, dp(24), 0);
+        top.addView(change, new LinearLayout.LayoutParams(-2, dp(56)));
         stage.addView(top);
         final EditText filter = field("Search " + account.login + "'s repositories");
         stage.addView(filter, new LinearLayout.LayoutParams(-1, dp(64)));
@@ -633,23 +639,22 @@ public final class TweaksActivity extends Activity {
             hint.setVisibility(hint.getText().length() == 0 ? View.GONE : View.VISIBLE);
             list.removeAllViews();
             final List<View> lock = new ArrayList<>(Arrays.<View>asList(filter, change));
-            final List<Button> links = new ArrayList<>();
+            final List<View> rows = new ArrayList<>();
             for (int i = 0; i < Math.min(shown.size(), REPOS_SHOWN); i++) {
                 final Repos.Listed l = shown.get(i);
-                LinearLayout row = new LinearLayout(TweaksActivity.this); row.setGravity(Gravity.CENTER_VERTICAL); row.setMinimumHeight(dp(76)); row.setPadding(0, dp(6), 0, dp(6));
-                LinearLayout label = column();
-                label.addView(text(l.name, 22, ink));
-                if (!l.description.isEmpty()) { TextView d = text(l.description, 17, muted); d.setMaxLines(2); d.setEllipsize(android.text.TextUtils.TruncateAt.END); label.addView(d); }
-                row.addView(label, new LinearLayout.LayoutParams(0, -2, 1));
-                Button link = button("Link", "Link the packages in " + l.name + "'s latest release", null); link.setTextSize(20); enable(link, true);
-                row.addView(link, new LinearLayout.LayoutParams(dp(130), dp(64)));
-                links.add(link); lock.add(link);
+                // The whole row picks the repository.
+                LinearLayout row = column(); row.setGravity(Gravity.CENTER_VERTICAL); row.setMinimumHeight(dp(64)); row.setPadding(dp(8), dp(6), dp(8), dp(6));
+                row.addView(text(l.name, 22, ink));
+                if (!l.description.isEmpty()) { TextView d = text(l.description, 17, muted); d.setMaxLines(2); d.setEllipsize(android.text.TextUtils.TruncateAt.END); row.addView(d); }
+                row.setBackground(drawable("bt_list_selector", selector(false))); row.setClickable(true); row.setFocusable(true);
+                row.setContentDescription(l.name + (l.description.isEmpty() ? "" : ", " + l.description.replaceFirst("\\.$", "")) + ". Links the packages in its latest release.");
+                rows.add(row); lock.add(row);
                 list.addView(row);
                 View rule = new View(TweaksActivity.this); rule.setBackgroundColor(line); list.addView(rule, new LinearLayout.LayoutParams(-1, dp(1)));
             }
-            for (int i = 0; i < links.size(); i++) {
+            for (int i = 0; i < rows.size(); i++) {
                 final Repos.Listed l = shown.get(i);
-                links.get(i).setOnClickListener(new View.OnClickListener() { @Override public void onClick(View v) {
+                rows.get(i).setOnClickListener(new View.OnClickListener() { @Override public void onClick(View v) {
                     hideKeyboard(filter);
                     findSource(account.login, l.name, lock.toArray(new View[0]), result, showLinks);
                 } });
@@ -737,7 +742,8 @@ public final class TweaksActivity extends Activity {
                         @Override public void onClick(View v) { confirmFresh(o); }
                     });
                     add.setTextSize(22); enable(add, ready && !busy && !edits.hasWork());
-                    result.addView(add, new LinearLayout.LayoutParams(-1, dp(72)));
+                    LinearLayout.LayoutParams ap = new LinearLayout.LayoutParams(-1, dp(60)); ap.setMargins(0, dp(4), 0, dp(8));
+                    result.addView(add, ap);
                 }
                 showLinks.run();
             } });
@@ -771,15 +777,15 @@ public final class TweaksActivity extends Activity {
         into.removeAllViews();
         values = edits.display();
         Properties sources = sources();
-        TextView heading = text(sources.isEmpty() ? "No packages linked yet." : "Linked", 22, ink); heading.setPadding(0, dp(18), 0, dp(6));
+        TextView heading = text(sources.isEmpty() ? "No packages linked yet." : "Linked", 22, ink); heading.setPadding(0, dp(10), 0, dp(4));
         if (!sources.isEmpty()) heading.setTypeface(null, Typeface.BOLD);
         into.addView(heading);
         Map<String, SelfUpdate.Package> installed = Updater.installed();
         for (final String id : new TreeSet<>(sources.stringPropertyNames())) {
-            LinearLayout row = new LinearLayout(this); row.setGravity(Gravity.CENTER_VERTICAL); row.setMinimumHeight(dp(72));
+            LinearLayout row = new LinearLayout(this); row.setGravity(Gravity.CENTER_VERTICAL); row.setMinimumHeight(dp(60));
             SelfUpdate.Package p = installed.get(id);
             final String name = p == null ? id : p.name;
-            TextView label = text(name + "\n" + sources.getProperty(id) + (p == null ? " · not installed" : ""), 20, ink); label.setGravity(Gravity.CENTER_VERTICAL);
+            TextView label = text(name + "\n" + sources.getProperty(id) + (p == null ? " · not installed" : ""), 19, ink); label.setGravity(Gravity.CENTER_VERTICAL);
             row.addView(label, new LinearLayout.LayoutParams(0, -2, 1));
             final Button remove = button("Remove", "Stop checking GitHub for " + name, null); remove.setTextSize(20); enable(remove, true);
             remove.setOnClickListener(new View.OnClickListener() { @Override public void onClick(View v) {
@@ -796,7 +802,7 @@ public final class TweaksActivity extends Activity {
                     } });
                 } });
             } });
-            row.addView(remove, new LinearLayout.LayoutParams(dp(150), dp(64)));
+            row.addView(remove, new LinearLayout.LayoutParams(dp(150), dp(52)));
             into.addView(row);
             View rule = new View(this); rule.setBackgroundColor(line); into.addView(rule, new LinearLayout.LayoutParams(-1, dp(1)));
         }
@@ -839,7 +845,8 @@ public final class TweaksActivity extends Activity {
             if (config.get(key).equals(keys[i])) b.setChecked(true);
         }
         group.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() { @Override public void onCheckedChanged(RadioGroup g, int id) { save("set", key, keys[id - 100]); } });
-        controls.addView(group); divider(controls);
+        controls.addView(group);
+        if (!key.equals("region")) divider(controls);
     }
     private boolean pending(String id) { return "true".equals(values.getProperty("pending." + id)); }
     /** Firmware gates end by asking for a log; other failures (a write, a missing service) don't. */
@@ -988,8 +995,7 @@ public final class TweaksActivity extends Activity {
     /** Saves the current GPS fix as Home, or clears Home. */
     private void captureHome(final boolean clear) {
         if (!ready || busy || edits.hasWork()) return;
-        final boolean hadHome = new Config(values).hasHome();
-        busy = true; capturingHome = true; error = null; homeNotice = null; render();
+        busy = true; capturingHome = true; error = null; render();
         worker.execute(new Runnable() { @Override public void run() {
             Properties read = null; String failure = null;
             try {
@@ -1003,10 +1009,7 @@ public final class TweaksActivity extends Activity {
             final Properties result = read; final String problem = failure;
             main.post(new Runnable() { @Override public void run() {
                 if (isFinishing() || isDestroyed()) return;
-                if (result != null) {
-                    edits.reset(result);
-                    homeNotice = clear ? "Home cleared." : hadHome ? "Home updated to your current location." : "Home saved.";
-                }
+                if (result != null) edits.reset(result);
                 busy = false; capturingHome = false; error = problem; render();
             } });
         } });
@@ -1018,7 +1021,7 @@ public final class TweaksActivity extends Activity {
     private AlertDialog.Builder dialog(String title, View body) {
         boolean night = (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
         TextView heading = text(title, 26, ink); heading.setTypeface(null, Typeface.BOLD); heading.setGravity(Gravity.CENTER);
-        heading.setPadding(dp(28), dp(22), dp(28), dp(10));
+        heading.setPadding(dp(28), dp(18), dp(28), dp(8));
         return new AlertDialog.Builder(this, night ? AlertDialog.THEME_HOLO_DARK : AlertDialog.THEME_HOLO_LIGHT).setCustomTitle(heading).setView(body);
     }
     /** A dialog's message. */
@@ -1029,7 +1032,54 @@ public final class TweaksActivity extends Activity {
         return scroll;
     }
     private Button button(String label, String description, View.OnClickListener click) {
-        Button b = new Button(this); b.setText(label); b.setTextColor(ink); b.setTextSize(26); b.setAllCaps(false); b.setBackground(selector(false)); b.setContentDescription(description); enable(b, ready && !busy); b.setOnClickListener(click); return b;
+        Button b = new Button(this); b.setText(label); b.setTextColor(ink); b.setTextSize(26); b.setAllCaps(false); b.setBackground(buttonBackground()); b.setContentDescription(description); enable(b, ready && !busy); b.setOnClickListener(click); return b;
+    }
+    /** Two halves of one row in the middle pane, each a button or a line of text. */
+    private void columns(View left, View right) {
+        LinearLayout row = new LinearLayout(this); row.setGravity(Gravity.CENTER_VERTICAL); row.setPadding(dp(24), dp(4), dp(24), dp(8));
+        for (View v : new View[]{left, right}) {
+            LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(0, v instanceof Button ? dp(64) : -2, 1);
+            p.setMargins(dp(6), dp(6), dp(6), dp(6));
+            if (!(v instanceof Button)) v.setPadding(0, 0, dp(8), 0);
+            row.addView(v, p);
+        }
+        controls.addView(row);
+    }
+    /** A full-width action button in the middle pane, inset like the stock ones rather than filling its row. */
+    private void action(Button b) {
+        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(-1, dp(60));
+        p.setMargins(dp(30), dp(10), dp(30), dp(12));
+        controls.addView(b, p);
+    }
+    /**
+     * Device Connections' raised, rounded button (co_btn_bg_bottom_*, with night versions), pressed and
+     * focused for the TUNE knob. Without that app, a drawn rounded button in the theme's colours.
+     */
+    private Drawable buttonBackground() {
+        StateListDrawable d = new StateListDrawable();
+        try {
+            if (buttons == null) throw new Resources.NotFoundException(BUTTONS);
+            d.addState(new int[]{android.R.attr.state_pressed}, art("co_btn_bg_bottom_push"));
+            d.addState(new int[]{android.R.attr.state_focused}, art("co_btn_bg_bottom_sel"));
+            d.addState(new int[]{}, art("co_btn_bg_bottom_nor"));
+            return d;
+        } catch (Exception missing) {
+            boolean night = bg == 0xff171b1f;
+            d = new StateListDrawable();
+            d.addState(new int[]{android.R.attr.state_pressed}, rounded(night ? 0xff101315 : 0xffdedede));
+            d.addState(new int[]{android.R.attr.state_focused}, rounded(night ? 0xff2c3238 : 0xffe4f3f8));
+            d.addState(new int[]{}, rounded(night ? 0xff23282d : 0xfffafafa));
+            return d;
+        }
+    }
+    private Drawable art(String name) {
+        int id = buttons.getIdentifier(name, "drawable", BUTTONS);
+        if (id == 0) throw new Resources.NotFoundException(name);
+        return buttons.getDrawable(id);
+    }
+    private Drawable rounded(int fill) {
+        GradientDrawable g = new GradientDrawable(); g.setColor(fill); g.setCornerRadius(dp(12)); g.setStroke(dp(1), line);
+        return g;
     }
     /** Disabled buttons fade out: the stock background doesn't change when disabled. */
     private static void enable(Button b, boolean enabled) { b.setEnabled(enabled); b.setAlpha(enabled ? 1f : .4f); }
