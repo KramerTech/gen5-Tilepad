@@ -36,6 +36,13 @@ public final class TweaksCommand {
                 // Settings reads configuration and small runtime files only. Compatibility
                 // checks remain mandatory in the write transaction; status is the full audit.
                 if (args.length == 1 && args[0].equals("settings")) { printStatus(c, false); return; }
+                // After an update: rewrite owned files with this release's recipes (one may have changed)
+                // and the saved settings. Postinstall runs it, before the restart an install needs anyway.
+                if (args.length == 1 && args[0].equals("reconcile")) {
+                    Platform.patches().apply(c, null, Platform.boot());
+                    System.out.println("Owned files match this release's recipes.");
+                    return;
+                }
                 if (args.length == 1 && args[0].equals("status")) { printStatus(c, true); return; }
                 if (args.length == 1 && args[0].equals("report")) {
                     System.out.println("saved=" + UsbReport.save(status(c, true))); return;
@@ -63,7 +70,7 @@ public final class TweaksCommand {
                     if (c.needsVehicleCheck(previous)) Platform.requireVehicle();
                     if (c.needsDualZoneCheck(previous)) Platform.requireDualZone();
                     if (c.enabled("dst") && c.dstChanged(previous)) DstRules.baseOffsetMinutes(Platform.property("persist.sys.timezone"));
-                } else throw new IllegalArgumentException("Usage: settings | summary | status | report | home | restore | set/update/options KEY VALUE [KEY VALUE…]");
+                } else throw new IllegalArgumentException("Usage: settings | summary | status | report | home | restore | reconcile | set/update/options KEY VALUE [KEY VALUE…]");
                 // Intent survives termination between a /system write and config commit.
                 if (restoring) transaction().commitFull(c); else transaction().commit(c);
                 if (args[0].equals("update")) { printStatus(c, false); return; }

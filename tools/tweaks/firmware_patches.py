@@ -103,12 +103,12 @@ RELEASES = {
 # and start()'s consent call with the register holding `this`. V015, V016 and Kia V015 share them;
 # V012 was obfuscated differently, f(ZZ)Z is one unit shorter and start() has one more register.
 V015_NAMES = {"right": "Lcom/mobis/splitscreen/right/k/r;", "osd": "Lcom/mobis/splitscreen/right/r/i;",
-              "osdEntry": "13081900", "consentAgree": "dc", "consentShow": "T",
+              "osdEntry": "13081900", "consentAgree": "dc",
               "consentCall": "f8200f00450029002dff", "consentThis": 5,
               "nav": [(0x39, "33174000", "29004000"), (0x5b, "38070300", "29000300")]}
 NAMES = {
     "v012": {"right": "Lcom/mobis/splitscreen/right/l/r;", "osd": "Lcom/mobis/splitscreen/right/s/i;",
-             "osdEntry": "13071900", "consentAgree": "cX", "consentShow": "S",
+             "osdEntry": "13071900", "consentAgree": "cX",
              "consentCall": "f8200f00460029002eff", "consentThis": 6,
              "nav": [(0x39, "33173f00", "29003f00"), (0x5a, "38070300", "29000300")]},
 }
@@ -160,6 +160,9 @@ def generate(firmware, out, release, apk_hashes=None):
     stock = (app / "SystemUI.odex").read_bytes()
     check_md5(stock, RELEASES[release]["SystemUI"])
     dex = Dex(stock)
+    # Only the boot-time call: start()'s T(0) becomes dc(), the agreement path factory mode and the
+    # welcome screen already take. T(I) itself stays, since the same window is the driver picker
+    # (a profile change, a profile's password after the car was off) and the post-update notice.
     method = ("Lcom/android/systemui/consentscreen/D;", names["consentAgree"], "()V")
     index = dex.methods.index(method)
     anchor = bytes.fromhex(names["consentCall"])
@@ -168,17 +171,6 @@ def generate(firmware, out, release, apk_hashes=None):
     before = stock[at:at + 6]
     after = bytes.fromhex("7010") + struct.pack("<HH", index, names["consentThis"])
     consent = [(at, before, after)]
-    # ACC/profile/force-show broadcasts call T(I) too. Replace its construction
-    # entry with the same agreement path, so later requests cannot recreate it.
-    at = dex.method("Lcom/android/systemui/consentscreen/D;", names["consentShow"], "(I)V")
-    assert stock[at:at + 6] == bytes.fromhex("1204f4500c00")
-    # Keep the original call address and its GC/register-map entry. The two
-    # prefix instructions only initialize v4 and load Context into v0. Replace
-    # getPackageManager + move-result with agreed + return, with no orphaned
-    # move-result and no newly introduced invocation/program-counter location.
-    at += 6
-    assert stock[at:at + 8] == bytes.fromhex("f810390000000c00")
-    consent.append((at, stock[at:at + 8], bytes.fromhex("7010") + struct.pack("<H", index) + bytes.fromhex("05000e00")))
     write_recipe(out, f"consent-{release}.properties", release, "/system/priv-app/SystemUI.odex", "/system/priv-app/SystemUI.apk",
                  apk_sha(firmware, "/system/priv-app/SystemUI.apk", apk_hashes), stock, {"consent": consent})
 

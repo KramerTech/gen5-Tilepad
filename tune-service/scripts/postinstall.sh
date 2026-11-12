@@ -3,10 +3,21 @@
 . /data/nemesis/apps/tilepad/scripts/common.sh
 
 fail() { log "postinstall: FAILED: $*"; exit 1; }
+# Owned tweak files follow this release's recipes, which may differ from the ones that wrote them.
+# A failure leaves every file as it was, still restorable from its backup, so it doesn't fail the install.
+reconcile_tweaks() {
+    [ -d "$TWEAKS_STATE" ] || return 0
+    if sh "$HERE/bin/tweaks.sh" reconcile; then
+        log "postinstall: tweak files match this release"
+    else
+        log "postinstall: WARN: tweak files not reconciled; they keep their current changes until a tweak is switched"
+    fi
+}
 [ -f "$DEX" ] && [ -f "$TWEAKSDEX" ] || fail "bundle must contain Tilepad.apk and Tweaks.apk"
 if [ -f "$SYSAPK" ] && [ -f "$TWEAKS_SYSAPK" ] \
     && same_file "$DEX" "$SYSAPK" && same_file "$TWEAKSDEX" "$TWEAKS_SYSAPK"; then
     log "postinstall: both APKs already current"
+    reconcile_tweaks
     exit 0
 fi
 
@@ -69,5 +80,6 @@ if [ "$FAILED" = 1 ]; then
 fi
 system_restore
 rm -rf "$WORK"
+reconcile_tweaks
 toast "Tilepad and Tweaks installed. Reboot the head unit to finish."
 exit 0

@@ -59,7 +59,7 @@ The older heater-only `options` command remains supported for compatibility.
 | Switch | Behavior | Extra settings | Restart |
 | --- | --- | --- | --- |
 | Automatic Daylight Saving Time | Synchronizes the OEM DST flag and Date/Time checkbox | US/Canada, Europe, or none | No |
-| Skip Startup Safety Brief | Uses the OEM agreement path before consent-screen construction, at boot and subsequent construction requests | None | Yes |
+| Skip Startup Safety Brief | Uses the OEM agreement path instead of building the consent screen at boot; every later request (driver picker, profile password, post-update notice) still opens it | None | Yes |
 | Automatic Heaters | One cold-boot request to selected heaters; the passenger seat waits for the front passenger's belt (polled once a second until the car is turned off); never continuously overrides manual settings | Threshold, °F/°C, driver/wheel/passenger checkboxes, independent seat levels 1–3 | Next head-unit boot |
 | Swap Steering-Wheel Track Buttons | Reverses keys 34/35; up advances, down goes back | None | Yes |
 | Hide Right-Hand Nav Handle | Forces the stock handle controller's hidden path; shown under the pop-over entry and always on while the pop-over is disabled | None | Yes |
@@ -399,9 +399,16 @@ Static patches require exact stock file hashes and exact paired APK hashes. Each
 recipe per file (`consent-v015`, `right-v016`, …); Tilepad uses the one whose stock hash matches the
 file, or its stock backup once patched. A file no recipe matches is reported as unsupported:
 
-- Consent: `SystemUI.odex`; the startup call and the later `T(I)` construction
-  entry use `dc()`, which sets the normal agreement properties and broadcast.
-  The replacement preserves existing invocation addresses/register maps.
+- Consent: `SystemUI.odex`; only `start()`'s boot call `T(0)` becomes `dc()`, which sets the
+  normal agreement properties and broadcast, as factory mode and the welcome screen already do.
+  The replacement preserves existing invocation addresses/register maps. `T(I)` itself is left
+  alone: the same window is the driver picker. The profile app's "change driver" sends
+  `SHOW_CONSENT` (`T(1)`/`T(3)`) whenever `ro.product.opt.stepofspec` is at least 20 (every
+  IONIQ 5 log reports 105 or 110). A profile with a password re-locks after a car off/on
+  (`ACTION_ACC_STATUS_CHANGED` → `T(5)`, only when the current driver has a 4-digit password),
+  and `FORCE_SHOW_CONSENTSCREEN` (`T(4)`) follows a software update. Releases up to 1.1.8 also
+  replaced `T(I)`'s entry, which left no way to switch drivers (issue #14); updating rewrites
+  the file through the postinstall reconcile (below).
 - Navigation handle: the two previously researched branches in
   `k.r.f(ZZ)Z`, byte-identical to the existing local patch when enabled alone.
 - Pop-over: `k.r.canShowSSOsd(ZZZ)Z` returns false; shared `r.i.d(IIZ)V` and
@@ -424,8 +431,12 @@ silently adopted or overwritten.
 
 The two right-panel switches build their combined result from **one** verified
 stock backup. Disabling either preserves the other. Turning off all file tweaks
-restores exact original bytes. Updates preserve configuration and backups;
-uninstall restores owned tweaks and DST and reenables the OTA client if managed
+restores exact original bytes. Updates preserve configuration and backups, and
+postinstall then runs `tweaks.sh reconcile`: a full apply of the saved settings
+with the new release's recipes, so a changed recipe reaches cars that already had
+the tweak on (changing a setting is otherwise the only thing that rewrites a file).
+A failed reconcile changes nothing and doesn't fail the install.
+Uninstall restores owned tweaks and DST and reenables the OTA client if managed
 by Disable OTA Client before removing either APK. A failed
 restore retains the recovery runtime. Backups are retained even after successful
 restoration, so a later conflict does not destroy the recovery record. These

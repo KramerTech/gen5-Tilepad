@@ -182,6 +182,17 @@ public class TransactionPatchTest {
         assertArrayEquals(PatchManager.transform(right, original, config("popover")), Files.read(ops.file(right.getProperty("path"))));
         transaction().commit(config()); assertArrayEquals(original, Files.read(ops.file(right.getProperty("path"))));
     }
+    @Test public void aFullApplyRewritesAFileWhoseRecipeChanged() throws Exception {
+        Properties consent = Files.properties(new File(recipes, "consent.properties"));
+        consent.setProperty("consent", "80,50,03;90,5a,04"); Files.store(new File(recipes, "consent.properties"), consent);
+        transaction().commit(config("consent"));
+        // The next release drops the second operation; postinstall's reconcile is a full apply.
+        consent.setProperty("consent", "80,50,03"); Files.store(new File(recipes, "consent.properties"), consent);
+        manager.apply(transaction().load(), "boot-2");
+        assertArrayEquals(PatchManager.transform(consent, original, config("consent")), Files.read(ops.file("/system/priv-app/SystemUI.odex")));
+        transaction().commitFull(config());
+        assertArrayEquals(original, Files.read(ops.file("/system/priv-app/SystemUI.odex")));
+    }
     private static final class SimulatedDeath extends Error { }
     private final class FakeSystem implements PatchManager.SystemOps {
         int writes, failWrite = -1, crashWrite = -1;

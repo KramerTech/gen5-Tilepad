@@ -8,7 +8,7 @@ spec = importlib.util.spec_from_file_location("fp", sys.argv[1]); fp = importlib
 a, b = sys.argv[2], sys.argv[3]
 checks = {"app/RightScreenHome.odex": [("Lcom/mobis/splitscreen/right/k/r;", "f", "(ZZ)Z"), ("Lcom/mobis/splitscreen/right/k/r;", "canShowSSOsd", "(ZZZ)Z"),
                                        ("Lcom/mobis/splitscreen/right/r/i;", "d", "(IIZ)V"), ("Lcom/mobis/splitscreen/right/r/i;", "handleShow", "()V")],
-          "priv-app/SystemUI.odex": [("Lcom/android/systemui/consentscreen/D;", "dc", "()V"), ("Lcom/android/systemui/consentscreen/D;", "T", "(I)V"),
+          "priv-app/SystemUI.odex": [("Lcom/android/systemui/consentscreen/D;", "dc", "()V"), ("Lcom/android/systemui/consentscreen/D;", "start", "()V"),
                                      ("Lcom/android/systemui/consentscreen/D;", "<init>", None)]}
 for path, methods in checks.items():
     x, y = open(f"{a}/{path}", "rb").read(), open(f"{b}/{path}", "rb").read()

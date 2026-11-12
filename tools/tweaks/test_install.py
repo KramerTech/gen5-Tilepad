@@ -141,6 +141,19 @@ mv() {
         self.assertTrue((self.base / "system/app/Tilepad.apk").exists())
         self.assertTrue((self.base / "system/app/TilepadTweaks.apk").exists())
 
+    def test_postinstall_reconciles_owned_tweak_files_without_failing_the_install(self):
+        result = self.run_hook("postinstall.sh")
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        self.assertEqual("reconcile\n", (self.base / "restored").read_text())
+        (self.base / "restored").unlink()
+        result = self.run_hook("postinstall.sh", RESTORE_FAIL="1")
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        self.assertIn("WARN: tweak files not reconciled", result.stdout)
+        (self.base / "state").rmdir()
+        (self.base / "restored").unlink()
+        self.assertEqual(0, self.run_hook("postinstall.sh").returncode)
+        self.assertFalse((self.base / "restored").exists())
+
     def test_real_uninstall_restores_tweaks_before_removing_apks(self):
         self.assertEqual(0, self.run_hook("preuninstall.sh").returncode)
         self.assertEqual("restore\n", (self.base / "restored").read_text())
