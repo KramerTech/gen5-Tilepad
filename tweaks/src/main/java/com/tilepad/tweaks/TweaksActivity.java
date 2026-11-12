@@ -742,10 +742,13 @@ public final class TweaksActivity extends Activity {
             showAll.setVisibility(every || total == nemesis ? View.GONE : View.VISIBLE);
             filter.setVisibility(search ? View.VISIBLE : View.GONE);
             String typed = search ? filter.getText().toString().trim() : "";
-            heading.setText(total == 0 ? account.login + " has no public repositories."
-                : !every ? account.login + ", " + nemesis + (nemesis == 1 ? " repository mentions" : " repositories mention") + " NEMESIS:"
-                : nemesis == 0 ? account.login + ", " + total + (total == 1 ? " repository" : " repositories") + " (none mention NEMESIS):"
-                : account.login + ", all " + total + " repositories:");
+            // The user or organization's name in bold, then what's listed.
+            android.text.SpannableString said = new android.text.SpannableString(account.login + (total == 0 ? " has no public repositories."
+                : !every ? ", " + nemesis + (nemesis == 1 ? " repository mentions" : " repositories mention") + " NEMESIS:"
+                : nemesis == 0 ? ", " + total + (total == 1 ? " repository" : " repositories") + " (none mention NEMESIS):"
+                : ", all " + total + " repositories:"));
+            said.setSpan(new android.text.style.StyleSpan(Typeface.BOLD), 0, account.login.length(), 0);
+            heading.setText(said);
             List<Repos.Listed> shown = Repos.matching(account.repos, typed, every);
             hint.setText(!typed.isEmpty() && shown.isEmpty() ? "No repository name contains “" + typed + "”." : "");
             hint.setVisibility(hint.getText().length() == 0 ? View.GONE : View.VISIBLE);
