@@ -23,7 +23,7 @@ A short ★ press still runs whatever Hyundai's Button settings assign to it.
   Auto-Open Phone Projection opens AA/CarPlay when available; Charge-Away switches
   Scheduled Charging off away from Home and back on at Home, preserving off-peak settings.
   Disable OTA Client stops the head unit's OTA checks and downloads.
-  A permanent Tweaks tile sits beside Precondition. All eleven tweaks start off.
+  A permanent Tweaks and Settings tile sits beside Precondition. All eleven tweaks start off.
 - **ADB toggle**: turn ADB over Wi-Fi on and off. While it's on, any computer on the network can connect without approving a key. Turning it on also turns on Wi-Fi (so wireless CarPlay/Android Auto are off).
 - **Nemesis Manager** shortcut.
 - **Reboot Head Unit**, with confirmation.
@@ -40,7 +40,7 @@ the firmware versions it has been checked against; on other firmware the tile wo
 | --- | --- | --- |
 | **Wi-Fi** *(Wi-Fi module only)* | signal bars, Connected / No network / Off, network name, IP, link speed. *Hotspot only* when the client is off | Android's Wi-Fi network picker, or *turn on Wi-Fi* (see below). Long-press: the Wi-Fi MAC address, for a static IP reservation |
 | **Precondition** *(EVs only)* | Off / Waiting / Active / Unavailable…, spinner while waiting, elapsed time, a *Conditioning* pill while the car's own indicator is on | see below |
-| **Tweaks** | On/Off pill (on when any tweak is enabled); how many are enabled and how many are off | opens the bundled `Tweaks.apk`; each feature has a checkbox and detailed explanation |
+| **Tweaks and Settings** | On/Off pill (on when any tweak is enabled); how many are enabled and how many are off | opens the bundled `Tweaks.apk`; each feature has a checkbox and detailed explanation |
 | **ADB** | On/Off pill; the port while on, *Port closed* while off | asks to confirm, then turns ADB over Wi-Fi on or off (see below) |
 | **Nemesis Manager** | | NEMESIS Manager (dimmed if it's not installed) |
 | **Reboot Head Unit** | | asks to confirm, then hard-reboots the head unit (`nemesis root -c reboot`) |
@@ -126,7 +126,7 @@ The TUNE knob also works: turn it to move the highlight and press it to open the
 
 The installer writes `tilepad-install.log` to the drive. **Update** works the same way with
 `Tilepad-update-usb.zip` and keeps your tiles and tweak settings. From 1.2.0 on, Tilepad can also
-update itself: connect the head unit to Wi-Fi (a phone hotspot works), open Tweaks → **Package Manager**
+update itself: connect the head unit to Wi-Fi (a phone hotspot works), open **Tweaks and Settings** → **Package Manager**
 and tap **Check for Updates**. It lists Tilepad and each linked package with its version. It only uses Wi-Fi, never the car's built-in modem, installs only a release
 signed with Tilepad's key, and restarts the head unit when it's done, so do it while parked. Under
 **Configure Other Software** you can link other NEMESIS packages you've installed to the
@@ -159,7 +159,7 @@ image: USA Hyundai `V012.010.240822`, `V015.012.260507` and `V016.010.260903`, a
 example, the IONIQ 5 and EV6). Heaters a trim lacks are skipped. How each tweak works,
 and what it changes, is in [docs/TWEAKS.md](docs/TWEAKS.md).
 
-**Submitting a compatibility report:** open Tweaks, select an unavailable tweak, plug in
+**Submitting a compatibility report:** open **Tweaks and Settings**, select an unavailable tweak, plug in
 a USB drive and tap **Capture Compatibility Log to USB**. Then attach the
 `tilepad-compat-….zip` from the drive to a
 [compatibility issue](https://github.com/KramerTech/gen5-Tilepad/issues/new?template=compatibility.md).
@@ -168,7 +168,7 @@ numeric vehicle-equipment readings; no location, Home or personal names.
 
 **Reporting a problem:** if a tweak doesn't take effect, or something happens that shouldn't, then
 while it's still showing or as soon as you notice (before turning the car off), plug in a USB drive,
-open Tweaks → **Support** and tap **Save Log to USB**. Attach the `tilepad-log-….zip` from the drive
+open **Tweaks and Settings** → **Support** and tap **Save Log to USB**. Attach the `tilepad-log-….zip` from the drive
 to a [problem report](https://github.com/KramerTech/gen5-Tilepad/issues/new?template=problem.md) and
 say what you expected and what you saw instead. Besides what the compatibility report holds, it covers the last few minutes: what was
 on screen, which apps opened, the right-hand panel's and startup screen's messages, Tilepad's

@@ -1,13 +1,13 @@
 # Bundled Tweaks
 
 `Tweaks.apk` (`com.tilepad.tweaks`) is a separate settings app installed with
-Tilepad. The permanent **Tweaks** tile occupies the lower-left corner of the fixed
+Tilepad. The permanent **Tweaks and Settings** tile occupies the lower-left corner of the fixed
 core block on page one, with Precondition and Reboot Head Unit to its right; Wi-Fi,
 ADB and Nemesis Manager occupy the upper row. A thin vertical divider separates the
 block from the user's tiles, which continue on further swipeable pages when they
 don't fit. Existing user-tile order and shortcuts are retained.
 
-The Tweaks tile uses the same status-card format as the other three: glyph,
+The Tweaks and Settings tile uses the same status-card format as the other three: glyph,
 status pill, caption, headline, detail and hint. Any enabled tweak gives an **On**
 status; none gives **Off**. The detail shows the enabled count out of the total.
 The count is read when the launcher resumes through the lightweight root

@@ -119,7 +119,7 @@ public final class TweaksActivity extends Activity {
         muted = night ? 0xffb6c1c8 : 0xff6a6a6a; line = night ? 0xff41494e : 0xffc7c7c7;
         LinearLayout root = column(); root.setBackgroundColor(bg); setContentView(root);
         FrameLayout header = new FrameLayout(this);
-        TextView title = text("Tweaks", 28, ink); title.setTypeface(null, Typeface.BOLD); title.setGravity(Gravity.CENTER);
+        TextView title = text("Tweaks and Settings", 28, ink); title.setTypeface(null, Typeface.BOLD); title.setGravity(Gravity.CENTER);
         header.addView(title, new FrameLayout.LayoutParams(-1, -1));
         String notice = preview ? "Preview" : edits.hasWork() ? "Saving…" : busy ? (capturingHome || savingReport ? "Saving…" : step == Step.CHECKING ? "Checking…" : removing != null ? "Removing…" : updating() ? "Updating…" : "Reading settings…") : "true".equals(values.getProperty("restart")) ? "Restart required" : "";
         TextView state = text(notice, 16, ink); state.setPadding(dp(12), 0, dp(22), 0); state.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
@@ -724,7 +724,7 @@ public final class TweaksActivity extends Activity {
         final boolean[] all = {nemesis == 0};
         LinearLayout top = new LinearLayout(this); top.setGravity(Gravity.CENTER_VERTICAL); top.setPadding(0, dp(4), 0, dp(4));
         top.addView(iconButton(backMark(ink, dp(28)), "Back to the GitHub user", new View.OnClickListener() {
-            @Override public void onClick(View v) { askOwner(stage, account.login); }
+            @Override public void onClick(View v) { askOwner(stage, ""); }
         }), new LinearLayout.LayoutParams(dp(56), dp(52)));
         final TextView heading = text("", 22, ink); heading.setPadding(dp(14), 0, dp(8), 0);
         top.addView(heading, new LinearLayout.LayoutParams(0, -2, 1));
@@ -737,6 +737,15 @@ public final class TweaksActivity extends Activity {
         final TextView hint = text("", 19, muted); hint.setGravity(Gravity.TOP); hint.setPadding(0, dp(8), 0, dp(4)); stage.addView(hint);
         final LinearLayout list = column(); stage.addView(list);
         final TextView more = text("", 19, muted); more.setPadding(0, dp(6), 0, 0); stage.addView(more);
+        // Repositories something here is already linked to get a green link mark.
+        final Map<String, List<String>> linked = new HashMap<>();
+        Map<String, SelfUpdate.Package> installed = Updater.installed();
+        Properties sources = sources();
+        for (String id : new TreeSet<>(sources.stringPropertyNames())) {
+            String repo = sources.getProperty(id).toLowerCase(Locale.US);
+            if (!linked.containsKey(repo)) linked.put(repo, new ArrayList<String>());
+            linked.get(repo).add(installed.containsKey(id) ? installed.get(id).name : id);
+        }
         final Runnable show = new Runnable() { @Override public void run() {
             boolean every = all[0], search = every && total > REPOS_SHOWN;
             showAll.setVisibility(every || total == nemesis ? View.GONE : View.VISIBLE);
@@ -744,7 +753,7 @@ public final class TweaksActivity extends Activity {
             String typed = search ? filter.getText().toString().trim() : "";
             // The user or organization's name in bold, then what's listed.
             android.text.SpannableString said = new android.text.SpannableString(account.login + (total == 0 ? " has no public repositories."
-                : !every ? ", " + nemesis + (nemesis == 1 ? " repository mentions" : " repositories mention") + " NEMESIS:"
+                : !every ? ", " + nemesis + (total > nemesis ? " of " + total + " repositories" : nemesis == 1 ? " repository" : " repositories") + (nemesis == 1 ? " mentions" : " mention") + " NEMESIS:"
                 : nemesis == 0 ? ", " + total + (total == 1 ? " repository" : " repositories") + " (none mention NEMESIS):"
                 : ", all " + total + " repositories:"));
             said.setSpan(new android.text.style.StyleSpan(Typeface.BOLD), 0, account.login.length(), 0);
@@ -758,11 +767,21 @@ public final class TweaksActivity extends Activity {
                 final Repos.Listed l = shown.get(i);
                 // The whole row picks the repository.
                 LinearLayout row = column(); row.setGravity(Gravity.CENTER_VERTICAL); row.setMinimumHeight(dp(64)); row.setPadding(dp(8), dp(6), dp(8), dp(6));
-                row.addView(text(l.name, 22, ink));
+                TextView title = text(l.name, 22, ink);
+                final List<String> already = linked.get((account.login + "/" + l.name).toLowerCase(Locale.US));
+                final boolean isLinked = already != null;
+                if (isLinked) { title.setCompoundDrawablesWithIntrinsicBounds(null, null, linkMark(0xff34d27b, dp(26)), null); title.setCompoundDrawablePadding(dp(10)); }
+                row.addView(title, new LinearLayout.LayoutParams(-2, -2));
                 if (!l.description.isEmpty()) { TextView d = text(l.description, 17, muted); d.setMaxLines(2); d.setEllipsize(android.text.TextUtils.TruncateAt.END); row.addView(d); }
                 row.setBackground(drawable("bt_list_selector", selector(false))); row.setClickable(true); row.setFocusable(true);
-                row.setContentDescription(l.name + (l.description.isEmpty() ? "" : ", " + l.description.replaceFirst("\\.$", "")) + ". Links the packages in its latest release.");
-                row.setOnClickListener(new View.OnClickListener() { @Override public void onClick(View v) { hideKeyboard(filter); confirmLink(account.login, l.name); } });
+                row.setContentDescription(l.name + (l.description.isEmpty() ? "" : ", " + l.description.replaceFirst("\\.$", "")) + (isLinked ? ". Already linked." : ". Links the packages in its latest release."));
+                row.setOnClickListener(new View.OnClickListener() { @Override public void onClick(View v) {
+                    hideKeyboard(filter);
+                    // Already linked: nothing to read from GitHub.
+                    if (isLinked) new Steps("").done("Nothing to Link", join(already) + (already.size() == 1 ? " is" : " are") + " already linked to " + account.login + "/" + l.name
+                        + ". To unlink " + (already.size() == 1 ? "it" : "them") + ", use the bin next to " + (already.size() == 1 ? "it" : "each one") + " in Package Manager.", false, null);
+                    else confirmLink(account.login, l.name);
+                } });
                 list.addView(row);
                 View rule = new View(TweaksActivity.this); rule.setBackgroundColor(line); list.addView(rule, new LinearLayout.LayoutParams(-1, dp(1)));
             }
@@ -807,7 +826,7 @@ public final class TweaksActivity extends Activity {
      * installed here, install what isn't), then does it there and says what happened.
      */
     private void confirmLink(final String owner, final String name) {
-        final Steps w = new Steps(owner + "/" + name);
+        final Steps w = new Steps("Link or Install from " + owner + "/" + name);
         w.working("Reading " + owner + "/" + name + "'s latest release…");
         final String current = installedVersion(); final Properties sources = sources();
         worker.execute(new Runnable() { @Override public void run() {
@@ -827,31 +846,36 @@ public final class TweaksActivity extends Activity {
     }
     private void planLink(final Steps w, final Updater.Repo repo, Map<String, SelfUpdate.Package> installed, Properties sources) {
         final List<Updater.Offer> link = new ArrayList<>(), fresh = new ArrayList<>();
-        StringBuilder said = new StringBuilder();
-        if (repo.packages.isEmpty()) said.append("The latest release of ").append(repo.name).append(" has no NEMESIS package Tilepad can read.");
+        android.text.SpannableStringBuilder said = new android.text.SpannableStringBuilder();
+        if (repo.packages.isEmpty()) bold(said.append("The latest release of "), repo.name).append(" has no NEMESIS package Tilepad can read.");
         for (Updater.Offer o : repo.packages) {
             if (said.length() > 0) said.append("\n\n");
             SelfUpdate.Package p = installed.get(o.id);
             if (o.id.equals(SelfUpdate.TILEPAD)) said.append("That's Tilepad's own repository: Package Manager already updates Tilepad from it.");
             else if (p != null && p.locked) said.append(o.name).append(" is part of NEMESIS and updates with it.");
-            else if (p != null && o.installed != null && repo.name.equals(sources.getProperty(o.id))) said.append(o.name).append(" is already linked to ").append(repo.name).append('.');
+            else if (p != null && o.installed != null && repo.name.equals(sources.getProperty(o.id))) bold(said.append(o.name).append(" is already linked to "), repo.name).append('.');
             else if (p != null && o.installed != null) {
                 link.add(o);
-                said.append(o.name).append(' ').append(o.installed).append(" is already installed on the car. Linking it lets Package Manager update it from ").append(repo.name)
-                    .append(o.newer() ? ", whose latest release is " + o.version + ". Check for Updates will offer it." : ". It's already on the latest release.")
-                    .append(" Nothing new will be installed.");
+                bold(said.append(o.name).append(' ').append(o.installed).append(" is already installed on the car. Linking it lets Package Manager update it from the GitHub repo: "), repo.name)
+                    .append(". Nothing new will be installed.");
             } else if (o.installable()) {
                 // Linked when it's installed, so the check doesn't list what the user only looked at.
                 o.installed = null; fresh.add(o);
-                said.append(o.name).append(' ').append(o.version).append(" isn't installed on the car yet. It will be installed from ").append(repo.name)
-                    .append("'s latest release with root access, so only install software you trust. Package Manager can then keep it up to date.");
+                bold(said.append(o.name).append(' ').append(o.version).append(" isn't installed on the car yet. It will be installed with root access from the latest release of the GitHub repo "), repo.name)
+                    .append(", so only install software you trust. Package Manager can then keep it up to date.");
             } else said.append(o.name).append(" (").append(o.id).append(") isn't installed on the car, and this release can't be installed from Package Manager. Install it from USB instead.");
         }
-        if (link.isEmpty() && fresh.isEmpty()) { w.done("Nothing to Link", said.toString(), false, null); return; }
+        if (link.isEmpty() && fresh.isEmpty()) { w.done("Nothing to Link", said, false, null); return; }
         if (!fresh.isEmpty()) said.append("\n\nInstalling takes a minute or two, then the head unit restarts: the screen, including the rearview camera, "
             + "is off for a minute or two. Do it while parked, and keep the car on until it's back.");
-        w.ask(fresh.isEmpty() ? "Link " + repo.name + "?" : "Install from " + repo.name + "?", said.toString(), fresh.isEmpty() ? "Link" : "Link and Install",
+        w.ask("Link or Install from " + repo.name, said, fresh.isEmpty() ? "Link" : "Link and Install",
             new Runnable() { @Override public void run() { link(w, repo.name, link, fresh); } });
+    }
+    /** Appends a repository's owner/name in bold. */
+    private static android.text.SpannableStringBuilder bold(android.text.SpannableStringBuilder to, String repo) {
+        int at = to.length(); to.append(repo);
+        to.setSpan(new android.text.style.StyleSpan(Typeface.BOLD), at, to.length(), android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        return to;
     }
     private void link(final Steps w, final String repo, final List<Updater.Offer> link, final List<Updater.Offer> fresh) {
         w.working("Linking…");
@@ -1123,8 +1147,8 @@ public final class TweaksActivity extends Activity {
             } });
             dialog.getButton(DialogInterface.BUTTON_NEUTRAL).setOnClickListener(new View.OnClickListener() { @Override public void onClick(View v) { if (other != null) other.run(); } });
         }
-        void ask(String heading, String message, String confirm, Runnable then) { ask(heading, message, confirm, then, null, null); }
-        void ask(String heading, String message, String confirm, Runnable then, String alt, Runnable altThen) {
+        void ask(String heading, CharSequence message, String confirm, Runnable then) { ask(heading, message, confirm, then, null, null); }
+        void ask(String heading, CharSequence message, String confirm, Runnable then, String alt, Runnable altThen) {
             title.setText(heading); say(message, false); confirmed = then; other = altThen;
             buttons(confirm, alt, true);
         }
@@ -1137,13 +1161,13 @@ public final class TweaksActivity extends Activity {
             buttons(null, null, false);
         }
         /** What happened; onClose (or null) runs when the window closes. */
-        void done(String heading, String message, boolean problem, Runnable onClose) {
+        void done(String heading, CharSequence message, boolean problem, Runnable onClose) {
             title.setText(heading); say(message, problem); confirmed = null; other = null; closed = onClose;
             buttons("Close", null, false);
         }
-        private void say(String message, boolean problem) {
+        private void say(CharSequence message, boolean problem) {
             body.removeAllViews();
-            TextView v = text(message, 22, problem ? 0xffb54b30 : ink); v.setGravity(Gravity.TOP); v.setLineSpacing(dp(3), 1f); body.addView(v);
+            TextView v = text("", 22, problem ? 0xffb54b30 : ink); v.setText(message); v.setGravity(Gravity.TOP); v.setLineSpacing(dp(3), 1f); body.addView(v);
         }
         private void buttons(String positive, String neutral, boolean cancel) {
             show(DialogInterface.BUTTON_POSITIVE, positive); show(DialogInterface.BUTTON_NEUTRAL, neutral); show(DialogInterface.BUTTON_NEGATIVE, cancel ? "Cancel" : null);
@@ -1227,6 +1251,27 @@ public final class TweaksActivity extends Activity {
     private StateListDrawable selector(boolean selected) {
         StateListDrawable d = new StateListDrawable(); d.addState(new int[]{android.R.attr.state_pressed}, new ColorDrawable(0x3300b5de));
         d.addState(new int[]{android.R.attr.state_focused}, new ColorDrawable(0x2200b5de)); d.addState(new int[]{}, new ColorDrawable(selected ? 0x1100b5de : 0x00000000)); return d;
+    }
+    /** Already linked: two chain links at an angle. */
+    private Drawable linkMark(final int color, final int size) {
+        return new Drawable() {
+            private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+            private final android.graphics.RectF link = new android.graphics.RectF();
+            @Override public void draw(Canvas canvas) {
+                Rect b = getBounds(); float cx = b.exactCenterX(), cy = b.exactCenterY(), s = b.width() / 2f, h = s * .34f;
+                paint.setColor(color); paint.setStyle(Paint.Style.STROKE); paint.setStrokeWidth(dp(2.5f));
+                canvas.save();
+                canvas.rotate(-45, cx, cy);
+                link.set(cx - s * .95f, cy - h, cx + s * .15f, cy + h); canvas.drawRoundRect(link, h, h, paint);
+                link.set(cx - s * .15f, cy - h, cx + s * .95f, cy + h); canvas.drawRoundRect(link, h, h, paint);
+                canvas.restore();
+            }
+            @Override public int getIntrinsicWidth() { return size; }
+            @Override public int getIntrinsicHeight() { return size; }
+            @Override public void setAlpha(int alpha) { paint.setAlpha(alpha); }
+            @Override public void setColorFilter(ColorFilter filter) { paint.setColorFilter(filter); }
+            @Override public int getOpacity() { return PixelFormat.TRANSLUCENT; }
+        };
     }
     /** Back: a left arrow, in the label's colour. */
     private Drawable backMark(final int color, final int size) {

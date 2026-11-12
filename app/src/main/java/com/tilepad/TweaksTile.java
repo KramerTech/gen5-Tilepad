@@ -3,7 +3,7 @@ package com.tilepad;
 /** Uses the same glyph, status pill and text rows as Wi-Fi, ADB and Precondition. */
 final class TweaksTile extends StatusTile {
     TweaksTile(Ui ui, TileSpec spec, EditListener edits) {
-        super(ui, spec, edits, Glyph.Kind.TWEAKS, "Tweaks");
+        super(ui, spec, edits, Glyph.Kind.TWEAKS, "Tweaks and Settings");
         bind(TweaksSnapshot.checking());
     }
     void bind(TweaksSnapshot s) {
@@ -18,6 +18,6 @@ final class TweaksTile extends StatusTile {
         show(detail, s.enabled < 0 ? "" : s.enabled == 0 ? s.total + " available"
             : s.enabled == s.total ? s.total + " tweaks" : (s.total - s.enabled) + " off");
         show(meta, "Tap to manage");
-        setContentDescription("Tweaks, " + (s.enabled >= 0 ? (s.on() ? "on, " : "off, ") + s.enabled + " of " + s.total + " enabled" : checking ? "checking" : s.problem));
+        setContentDescription("Tweaks and Settings, " + (s.enabled >= 0 ? (s.on() ? "on, " : "off, ") + s.enabled + " of " + s.total + " enabled" : checking ? "checking" : s.problem));
     }
 }

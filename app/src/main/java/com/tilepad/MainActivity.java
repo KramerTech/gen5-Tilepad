@@ -362,7 +362,7 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
 
     private String titleOf(TileView tile) {
         switch (tile.spec.kind) {
-            case TWEAKS: return "Tweaks";
+            case TWEAKS: return "Tweaks and Settings";
             case WIFI: return "Wi-Fi settings";
             case NEMESIS: return "Nemesis Manager";
             default: return shortcutLabel(tile.spec);
