@@ -866,8 +866,8 @@ public final class TweaksActivity extends Activity {
                 for (Updater.Offer o : fresh) installing.add(o.name + " " + o.version);
                 Runnable close = new Runnable() { @Override public void run() { closeSources(); } };
                 if (fresh.isEmpty()) {
-                    w.done("Linked", "Linked " + join(linked) + " to " + repo + ". Package Manager lists " + (linked.size() == 1 ? "it" : "them")
-                        + " now, and Check for Updates includes " + (linked.size() == 1 ? "it." : "them."), false, close);
+                    w.done("Linked", "Linked " + join(linked) + " to " + repo + ". " + (linked.size() == 1 ? "It" : "They")
+                        + " will now show in the Package Manager list and be included in update checks.", false, close);
                     return;
                 }
                 w.done("Installing", (linked.isEmpty() ? "" : "Linked " + join(linked) + ". ") + "Downloading and installing " + join(installing)
