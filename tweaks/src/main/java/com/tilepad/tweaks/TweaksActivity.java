@@ -779,7 +779,7 @@ public final class TweaksActivity extends Activity {
             LinearLayout row = new LinearLayout(this); row.setGravity(Gravity.CENTER_VERTICAL); row.setMinimumHeight(dp(72));
             SelfUpdate.Package p = installed.get(id);
             final String name = p == null ? id : p.name;
-            TextView label = text(name + "\n" + sources.getProperty(id), 20, ink); label.setGravity(Gravity.CENTER_VERTICAL);
+            TextView label = text(name + "\n" + sources.getProperty(id) + (p == null ? " · not installed" : ""), 20, ink); label.setGravity(Gravity.CENTER_VERTICAL);
             row.addView(label, new LinearLayout.LayoutParams(0, -2, 1));
             final Button remove = button("Remove", "Stop checking GitHub for " + name, null); remove.setTextSize(20); enable(remove, true);
             remove.setOnClickListener(new View.OnClickListener() { @Override public void onClick(View v) {
