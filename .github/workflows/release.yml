@@ -57,6 +57,8 @@ jobs:
           base64 -d <<< "$TILEPAD_KEYSTORE_B64" > "$TILEPAD_KEYSTORE"
           sh tools/build_apk.sh
           python3 tools/build_usb_bundles.py
+          # tilepad.zip.sig: what Tweaks › Support checks before installing an update.
+          java tools/sign_update.java dist/tilepad.zip
           (cd dist && sha256sum * > SHA256SUMS)
 
       - name: Release notes

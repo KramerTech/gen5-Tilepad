@@ -12,6 +12,8 @@ keystore/
 *.keystore
 *.p12
 *.pem
+# Public root certificates for Check for Updates (no keys).
+!tweaks/src/main/res/raw/update_roots.pem
 .env
 .env.*
 # Generated APKs and vehicle diagnostics

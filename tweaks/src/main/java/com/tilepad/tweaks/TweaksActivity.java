@@ -18,6 +18,7 @@ import android.view.*;
 import android.widget.*;
 import com.tilepad.tweakcore.Config;
 import com.tilepad.tweakcore.Platform;
+import com.tilepad.tweakcore.SelfUpdate;
 import java.util.*;
 import java.util.concurrent.*;
 
@@ -46,6 +47,13 @@ public final class TweaksActivity extends Activity {
     /** The support log saved from Support this session. */
     private String supportSaved = "";
     private boolean savingReport;
+    /** Support's Check for Updates, this session: how far it got, and the release it found. */
+    private enum Step { NONE, CHECKING, LATEST, AVAILABLE, DOWNLOADING, INSTALLING }
+    private Step step = Step.NONE;
+    private Updater.Release release;
+    /** Why the last check or install didn't work, until the next one. */
+    private String updateNotice;
+    private int downloaded = -1;
     private final SettingsEdits edits = new SettingsEdits();
     private final Runnable saveFlush = new Runnable() { @Override public void run() { flushEdits(); } };
     private int selected, bg, ink, muted, line, accent = 0xff00b5de;
@@ -103,7 +111,7 @@ public final class TweaksActivity extends Activity {
         FrameLayout header = new FrameLayout(this);
         TextView title = text("Tweaks", 28, ink); title.setTypeface(null, Typeface.BOLD); title.setGravity(Gravity.CENTER);
         header.addView(title, new FrameLayout.LayoutParams(-1, -1));
-        String notice = preview ? "Preview" : edits.hasWork() ? "Saving…" : busy ? (capturingHome || savingReport ? "Saving…" : "Reading settings…") : "true".equals(values.getProperty("restart")) ? "Restart required" : "";
+        String notice = preview ? "Preview" : edits.hasWork() ? "Saving…" : busy ? (capturingHome || savingReport ? "Saving…" : step == Step.CHECKING ? "Checking…" : updating() ? "Updating…" : "Reading settings…") : "true".equals(values.getProperty("restart")) ? "Restart required" : "";
         TextView state = text(notice, 16, ink); state.setPadding(dp(12), 0, dp(22), 0); state.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
         header.addView(state, new FrameLayout.LayoutParams(-1, -1));
         root.addView(header, new LinearLayout.LayoutParams(-1, dp(60))); divider(root);
@@ -124,12 +132,12 @@ public final class TweaksActivity extends Activity {
             tab.setPadding(dp(14), dp(10), dp(14), dp(10)); tab.setMinHeight(dp(72));
             if (i == selected) selectedTab[0] = tab;
             tab.setSelected(i == selected); tab.setFocusable(true); tab.setClickable(true);
-            // The capture belongs to this tweak's pane: the others wait until it finishes.
-            if (savingReport && i != selected) { tab.setEnabled(false); tab.setAlpha(.4f); }
+            // The capture or update belongs to this pane: the others wait until it finishes.
+            if ((savingReport || updating()) && i != selected) { tab.setEnabled(false); tab.setAlpha(.4f); }
             tab.setBackground(drawable("bt_list_selector", selector(i == selected)));
             tab.setContentDescription(item.railTitle() + (i == selected ? ", selected" : ""));
             tab.setOnClickListener(new View.OnClickListener() { @Override public void onClick(View v) {
-                if (selected == index || savingReport) return;
+                if (selected == index || savingReport || updating()) return;
                 selected = index; homeNotice = null; reportNotice = null; if (ready) error = null; getPreferences(0).edit().putInt("selected", selected).apply();
                 controlScroll.scrollTo(0, 0); helpScroll.scrollTo(0, 0); render();
             } });
@@ -230,12 +238,11 @@ public final class TweaksActivity extends Activity {
             }
         }
     }
-    /** The middle pane for Support: this head unit's software, then the log button or where the log went. */
+    /** The middle pane for Support: this head unit's software, updates, then the log button or where the log went. */
     private void support() {
         String product = "";
         try { product = Platform.property("ro.build.product"); } catch (Exception ignored) { }
-        String version = "";
-        try { version = getPackageManager().getPackageInfo(getPackageName(), 0).versionName; } catch (Exception ignored) { }
+        String version = installedVersion();
         note("Tilepad " + version + (product.isEmpty() ? "" : " on " + product), false);
         if (!checking) {
             boolean any = false;
@@ -243,6 +250,7 @@ public final class TweaksActivity extends Activity {
             note(any ? "Some tweaks aren't available on this head unit; their entries say why." : "Every tweak is available on this head unit.", false);
         }
         divider(controls);
+        updates(version);
         if (!supportSaved.isEmpty()) {
             note("Log saved to the USB drive as " + supportSaved + ". On a computer, open a new issue at "
                 + "github.com/KramerTech/gen5-Tilepad/issues, say what happened and when, and attach that .zip file.", false);
@@ -254,6 +262,132 @@ public final class TweaksActivity extends Activity {
         });
         save.setTextSize(22); enable(save, ready && !busy && !edits.hasWork());
         controls.addView(save, new LinearLayout.LayoutParams(-1, dp(72))); divider(controls);
+    }
+    /** Support's updates: how the last one went, then the check, what it found, and the install. */
+    private void updates(String current) {
+        String state = values.getProperty("update.state", ""), target = values.getProperty("update.version", "");
+        boolean behind = SelfUpdate.version(target) != null && SelfUpdate.version(current) != null && SelfUpdate.compare(current, target) < 0;
+        long started = 0;
+        try { started = Long.parseLong(values.getProperty("update.started", "0")); } catch (NumberFormatException ignored) { }
+        if (state.equals("installing") && step == Step.NONE) {
+            // Reopened while the install runs: it restarts the head unit itself.
+            progress("Installing Tilepad " + target + ". The head unit restarts by itself when it's done; keep the car on.");
+            divider(controls);
+            return;
+        }
+        if (step == Step.NONE && state.equals("installed") && target.equals(current) && System.currentTimeMillis() - started < 3 * 86400000L)
+            note("Updated to Tilepad " + target + ".", false);
+        if (step == Step.NONE && behind && state.equals("failed"))
+            note("The update to Tilepad " + target + " didn't install: " + values.getProperty("update.detail", "") + " Check again to retry, or update from USB (see the README on GitHub).", true);
+        if (step == Step.NONE && behind && state.equals("interrupted"))
+            note("The update to Tilepad " + target + " was interrupted, maybe by the car turning off. Check again to retry, or update from USB (see the README on GitHub).", true);
+        boolean installable = release != null && release.zip != null && release.signature != null;
+        if (step == Step.CHECKING) progress("Checking GitHub for a newer Tilepad…");
+        else if (step == Step.LATEST) note(SelfUpdate.compare(release.version, current) < 0
+            ? "Tilepad " + current + " is newer than GitHub's latest release, " + release.version + "."
+            : "Tilepad " + current + " is the latest version.", false);
+        else if (step == Step.AVAILABLE) {
+            note("Tilepad " + release.version + " is available.", false);
+            // A failed install says why right under the heading, where the pane opens.
+            if (updateNotice != null) note(updateNotice, true);
+            if (!release.changes.isEmpty()) note(release.changes, false);
+            note(installable
+                ? "Installing takes about a minute, then the head unit restarts: the screen, including the rearview camera, is off for a minute or two. Do it while parked, and keep the car on until it's back."
+                : "This release can't be installed from here. Update from USB instead: see the README at github.com/KramerTech/gen5-Tilepad.", false);
+        } else if (step == Step.DOWNLOADING) progress("Downloading Tilepad " + release.version + (downloaded >= 0 ? "… " + downloaded + "%" : "…"));
+        else if (step == Step.INSTALLING) progress("Installing Tilepad " + release.version + ". The head unit restarts by itself when it's done; keep the car on.");
+        if (updateNotice != null && step != Step.AVAILABLE) note(updateNotice, true);
+        Button b;
+        if (step == Step.AVAILABLE && installable) b = button("Install " + release.version + " and Restart", "Download and install Tilepad " + release.version + ", then restart the head unit", new View.OnClickListener() {
+            @Override public void onClick(View v) { confirmInstall(); }
+        });
+        else if (step == Step.DOWNLOADING || step == Step.INSTALLING) b = button("Installing…", "Installing the update", null);
+        else b = button(step == Step.CHECKING ? "Checking…" : "Check for Updates", "Ask GitHub for a newer Tilepad, over Wi-Fi", new View.OnClickListener() {
+            @Override public void onClick(View v) { checkForUpdates(); }
+        });
+        b.setTextSize(22); enable(b, ready && !busy && !edits.hasWork());
+        controls.addView(b, new LinearLayout.LayoutParams(-1, dp(72))); divider(controls);
+    }
+    private boolean updating() { return step == Step.CHECKING || step == Step.DOWNLOADING || step == Step.INSTALLING; }
+    private String installedVersion() {
+        try { return getPackageManager().getPackageInfo(getPackageName(), 0).versionName; } catch (Exception e) { return ""; }
+    }
+    private void checkForUpdates() {
+        if (!ready || busy || edits.hasWork()) return;
+        final String current = installedVersion();
+        busy = true; step = Step.CHECKING; updateNotice = null; render();
+        worker.execute(new Runnable() { @Override public void run() {
+            Updater.Release found = null; String problem = Updater.networkProblem(TweaksActivity.this);
+            if (problem == null) {
+                try { found = Updater.latest(TweaksActivity.this, current); } catch (Exception e) { problem = failure("check", e); }
+            }
+            final Updater.Release r = found; final String notice = problem;
+            main.post(new Runnable() { @Override public void run() {
+                if (isFinishing() || isDestroyed()) return;
+                busy = false; release = r; updateNotice = notice;
+                step = r == null ? Step.NONE : SelfUpdate.version(current) != null && SelfUpdate.compare(r.version, current) > 0 ? Step.AVAILABLE : Step.LATEST;
+                controlScroll.scrollTo(0, 0); render();
+            } });
+        } });
+    }
+    private void confirmInstall() {
+        new AlertDialog.Builder(this).setTitle("Install Tilepad " + release.version + "?")
+            .setMessage("The head unit restarts when the install finishes, about a minute from now. Keep the car parked and on until Tilepad is back.")
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Install and Restart", new DialogInterface.OnClickListener() {
+                @Override public void onClick(DialogInterface d, int which) { install(); }
+            }).show();
+    }
+    /** Downloads the release, then hands it to the root command, which checks it and installs it without this app. */
+    private void install() {
+        if (!ready || busy || edits.hasWork() || preview) return;
+        final Updater.Release r = release; final String current = installedVersion();
+        busy = true; step = Step.DOWNLOADING; downloaded = -1; updateNotice = null; render();
+        worker.execute(new Runnable() { @Override public void run() {
+            String problem = null;
+            try {
+                java.io.File[] files = Updater.download(TweaksActivity.this, r, current, new Updater.Progress() {
+                    @Override public void percent(final int done) {
+                        if (done % 5 != 0) return;
+                        main.post(new Runnable() { @Override public void run() { if (step == Step.DOWNLOADING) { downloaded = done; render(); } } });
+                    }
+                });
+                main.post(new Runnable() { @Override public void run() { if (isFinishing() || isDestroyed()) return; step = Step.INSTALLING; controlScroll.scrollTo(0, 0); render(); } });
+                Backend.run("self-update", files[0].getPath(), files[1].getPath());
+            } catch (Exception e) { problem = failure("install", e); }
+            finally { Updater.clear(TweaksActivity.this); }
+            if (problem != null) {
+                final String notice = problem;
+                main.post(new Runnable() { @Override public void run() {
+                    if (isFinishing() || isDestroyed()) return;
+                    busy = false; step = Step.AVAILABLE; updateNotice = notice; controlScroll.scrollTo(0, 0); render();
+                } });
+                return;
+            }
+            // The install stops this app and restarts the head unit. Until then, watch for a failure to show.
+            for (int i = 0; i < 120; i++) {
+                try { Thread.sleep(5000); } catch (InterruptedException e) { return; }
+                Properties read;
+                try { read = Backend.run("settings"); } catch (Exception busyInstalling) { continue; }
+                if (!"failed".equals(read.getProperty("update.state"))) continue;
+                final Properties loaded = read;
+                main.post(new Runnable() { @Override public void run() {
+                    if (isFinishing() || isDestroyed()) return;
+                    edits.reset(loaded); busy = false; step = Step.NONE; release = null; controlScroll.scrollTo(0, 0); render();
+                } });
+                return;
+            }
+        } });
+    }
+    /** A check or install failure, in words: the network's own exceptions say little on their own. */
+    private static String failure(String action, Exception e) {
+        String what = action.equals("check") ? "Couldn't check for updates. " : "The update wasn't installed. ";
+        if (e instanceof java.net.UnknownHostException || e instanceof java.net.ConnectException || e instanceof java.net.NoRouteToHostException)
+            return what + "GitHub can't be reached. Check that this Wi-Fi network has internet access.";
+        if (e instanceof java.net.SocketTimeoutException) return what + "GitHub didn't answer in time. Try again.";
+        if (e instanceof javax.net.ssl.SSLException) return what + "The secure connection to GitHub failed (" + e.getMessage() + ").";
+        if (e instanceof org.json.JSONException) return what + "GitHub's answer couldn't be read.";
+        return what + (e.getMessage() == null ? e.toString() : e.getMessage());
     }
     private void checkbox(LinearLayout parent, String label, final String key, boolean checked, boolean allowed) {
         LinearLayout row = new LinearLayout(this); row.setGravity(Gravity.CENTER_VERTICAL); row.setMinimumHeight(dp(72)); row.setPadding(dp(30), dp(8), dp(18), dp(8));

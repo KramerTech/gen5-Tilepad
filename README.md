@@ -125,7 +125,10 @@ The TUNE knob also works: turn it to move the highlight and press it to open the
 4. Reboot the head unit (pinhole button), remove the drive, and hold ★ on the steering wheel.
 
 The installer writes `tilepad-install.log` to the drive. **Update** works the same way with
-`Tilepad-update-usb.zip` and keeps your tiles and tweak settings. **Uninstall** uses
+`Tilepad-update-usb.zip` and keeps your tiles and tweak settings. From 1.2.0 on, Tilepad can also
+update itself: connect the head unit to Wi-Fi (a phone hotspot works), open Tweaks → **Support** and
+tap **Check for Updates**. It only uses Wi-Fi, never the car's built-in modem, installs only a release
+signed with Tilepad's key, and restarts the head unit when it's done, so do it while parked. **Uninstall** uses
 `Tilepad-uninstall-usb.zip`: it undoes any tweaks first, then removes Tilepad and its saved
 settings (including the Charge-Away Home location).
 
@@ -135,6 +138,7 @@ settings (including the Charge-Away Home location).
 | `Tilepad-update-usb.zip` | update an existing install, keeping your tiles |
 | `Tilepad-uninstall-usb.zip` | remove Tilepad |
 | `tilepad.zip` | the NEMESIS package itself, for `nemesis install` over ADB (don't extract it onto a drive) |
+| `tilepad.zip.sig` | its signature, which Check for Updates verifies before installing |
 | `Tilepad.apk`, `Tweaks.apk` | the signed apps, for reference |
 | `SHA256SUMS` | checksums of the files above |
 

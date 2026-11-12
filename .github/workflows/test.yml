@@ -32,3 +32,4 @@ jobs:
             -keypass throwaway -dname CN=throwaway -keyalg RSA -keysize 2048 -validity 1
           sh tools/build_apk.sh
           python3 tools/build_usb_bundles.py
+          java tools/sign_update.java dist/tilepad.zip

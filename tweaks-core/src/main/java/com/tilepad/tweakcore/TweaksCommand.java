@@ -27,6 +27,11 @@ public final class TweaksCommand {
                     } catch (Exception unknown) { }
                     return;
                 }
+                // Tweaks › Support's update, downloaded by the app: checked and started without touching tweak state.
+                if (args.length == 3 && args[0].equals("self-update")) {
+                    System.out.println("installing=" + selfUpdate(new File(args[1]), new File(args[2])));
+                    return;
+                }
                 boolean restoring = args.length == 1 && args[0].equals("restore");
                 // Recovery must still be possible when a pending enable can no longer
                 // complete (e.g. a conflicting file). Restore supersedes that intent.
@@ -70,13 +75,38 @@ public final class TweaksCommand {
                     if (c.needsVehicleCheck(previous)) Platform.requireVehicle();
                     if (c.needsDualZoneCheck(previous)) Platform.requireDualZone();
                     if (c.enabled("dst") && c.dstChanged(previous)) DstRules.baseOffsetMinutes(Platform.property("persist.sys.timezone"));
-                } else throw new IllegalArgumentException("Usage: settings | summary | status | report | support | home | restore | reconcile | set/update/options KEY VALUE [KEY VALUE…]");
+                } else throw new IllegalArgumentException("Usage: settings | summary | status | report | support | home | restore | reconcile | self-update ZIP SIGNATURE | set/update/options KEY VALUE [KEY VALUE…]");
                 // Intent survives termination between a /system write and config commit.
                 if (restoring) transaction().commitFull(c); else transaction().commit(c);
                 if (args[0].equals("update")) { printStatus(c, false); return; }
                 System.out.println("Saved. Static file changes take effect after a head-unit restart.");
             }
         } catch (Exception e) { System.err.println("Tweaks: " + e.getMessage()); System.exit(1); }
+    }
+    /**
+     * Stages a release the app downloaded, checks it (SelfUpdate.stage) and starts its install, which
+     * runs on after this command and the app have gone and restarts the head unit. Returns its version.
+     */
+    private static String selfUpdate(File zip, File signature) throws Exception {
+        File dir = SelfUpdate.DIR; String boot = Platform.boot(); long now = System.currentTimeMillis();
+        if (SelfUpdate.installing(dir, boot, now)) throw new IOException("An update is already installing. The head unit restarts when it's done.");
+        String installed = installedVersion();
+        if (installed == null) throw new IOException("Can't read the installed Tilepad version.");
+        if (!dir.isDirectory() && !dir.mkdirs()) throw new IOException("Cannot create " + dir);
+        Platform.exec("chmod", "0700", dir.getPath());
+        String version = SelfUpdate.stage(zip, signature, installed, dir, SelfUpdate.releaseCertificate().getPublicKey());
+        File script = new File(dir, SelfUpdate.SCRIPT);
+        Files.write(script, SelfUpdate.script(dir).getBytes("UTF-8"));
+        SelfUpdate.started(dir, version, installed, boot, now);
+        // Its own process, reparented to init when this one exits; output goes to its log, not to the app.
+        Platform.exec("sh", "-c", "trap '' HUP; sh '" + script.getPath() + "' </dev/null >/dev/null 2>&1 &");
+        return version;
+    }
+    /** package-version of the Tilepad package NEMESIS has installed. */
+    private static String installedVersion() {
+        try {
+            return SelfUpdate.version(SelfUpdate.descriptor(new String(Files.read(new File(Platform.HOME, "NEMESIS.data")), "UTF-8")).getProperty("package-version"));
+        } catch (IOException e) { return null; }
     }
     public static Config load() throws IOException { return transaction().load(); }
     public static void recover() throws Exception { transaction().recover(); }
@@ -154,6 +184,7 @@ public final class TweaksCommand {
                 runtime = "Tweak listeners are not running. Restart the head unit or Tilepad’s longstar service.";
         } catch (Exception e) { runtime = "Tweak listeners are not running. Restart the head unit or Tilepad’s longstar service."; }
         out.setProperty("runtime", runtime);
+        try { out.putAll(SelfUpdate.result(SelfUpdate.DIR, Platform.boot(), installedVersion(), System.currentTimeMillis())); } catch (IOException ignored) { }
         return out;
     }
     private TweaksCommand() { }
