@@ -48,6 +48,8 @@ public final class TweaksActivity extends Activity {
     /** The support log saved from Support this session. */
     private String supportSaved = "";
     private boolean savingReport;
+    /** Configure Updates for Other Software, while it's open. */
+    private AlertDialog sourcesDialog;
     /** Update Manager's Check for Updates, this session: how far it got, and what it found (Tilepad, then linked packages). */
     private enum Step { NONE, CHECKING, CHECKED, DOWNLOADING, INSTALLING }
     private Step step = Step.NONE;
@@ -292,11 +294,12 @@ public final class TweaksActivity extends Activity {
         if (step == Step.NONE && updateNotice == null && last.equals("done")) for (String id : ids) {
             String p = "update." + id + ".", name = values.getProperty(p + "name", id), version = values.getProperty(p + "version", ""), state = values.getProperty(p + "state", "");
             boolean current = "true".equals(values.getProperty(p + "current"));
+            boolean fresh = values.getProperty(p + "from", "").isEmpty();
             if (state.equals("installed") && current && System.currentTimeMillis() - started < 3 * 86400000L)
-                note("Updated " + name + " to " + version + ".", false);
+                note(fresh ? "Installed " + name + " " + version + "." : "Updated " + name + " to " + version + ".", false);
             else if (!current && (state.equals("failed") || state.equals("interrupted"))) {
                 // NEMESIS removes the old version first, so a failed update can leave none.
-                boolean gone = values.getProperty(p + "installed", "x").isEmpty();
+                boolean gone = !fresh && values.getProperty(p + "installed", "x").isEmpty();
                 note(name + " " + version + (state.equals("failed") ? " didn't install: " + values.getProperty(p + "detail", "")
                     : " didn't finish installing, maybe because the car turned off.")
                     + (gone ? " NEMESIS had already removed " + name + " " + values.getProperty(p + "from", "") + ", so it isn't installed now. Install it from USB."
@@ -365,8 +368,9 @@ public final class TweaksActivity extends Activity {
         LinearLayout words = column(); words.setPadding(dp(10), 0, dp(8), 0);
         TextView title = text(o.name + (o.newer() ? " " + o.version : ""), 24, ink); words.addView(title);
         String detail; boolean problem = false;
-        if (o.installed == null) { detail = "Not installed here any more. Install it from USB, or remove its link under Configure Updates for Other Software."; problem = true; }
-        else if (o.problem != null) { detail = "Couldn't check: " + o.problem; problem = true; }
+        if (o.problem != null) { detail = "Couldn't check: " + o.problem; problem = true; }
+        else if (o.fresh() && can) detail = "Not installed here · " + o.repo + ". Tick to install it.";
+        else if (o.fresh()) { detail = "Not installed here, and this release can't be installed from here. Install it from USB, or remove its link under Configure Updates for Other Software."; problem = true; }
         else if (can) detail = "Installed: " + o.installed + (o.id.equals(SelfUpdate.TILEPAD) ? "" : " · " + o.repo);
         else if (o.newer()) { detail = "Installed: " + o.installed + ". This release can't be installed from here; install it from USB (see its page on GitHub)."; problem = true; }
         else if (SelfUpdate.version(o.installed) == null) detail = "Latest release: " + o.version + ". The installed version can't be read.";
@@ -445,7 +449,8 @@ public final class TweaksActivity extends Activity {
                 busy = false; updateNotice = problem;
                 if (list != null) {
                     offers = list; chosen.clear(); step = Step.CHECKED;
-                    for (Updater.Offer o : list) if (o.installable()) chosen.add(o.id);
+                    // New installs wait to be ticked; updates start ticked.
+                    for (Updater.Offer o : list) if (o.installable() && !o.fresh()) chosen.add(o.id);
                 } else step = before == Step.CHECKED ? Step.CHECKED : Step.NONE;
                 controlScroll.scrollTo(0, 0); render();
                 if (wifi != null) networkProblem(wifi);
@@ -456,7 +461,8 @@ public final class TweaksActivity extends Activity {
         final List<Updater.Offer> picked = picked();
         if (picked.isEmpty()) return;
         StringBuilder list = new StringBuilder();
-        for (Updater.Offer o : picked) list.append("• ").append(o.name).append(' ').append(o.installed).append(" → ").append(o.version).append('\n');
+        for (Updater.Offer o : picked)
+            list.append("• ").append(o.name).append(' ').append(o.fresh() ? o.version + " (new)" : o.installed + " → " + o.version).append('\n');
         dialog(picked.size() == 1 ? "Install " + picked.get(0).name + " " + picked.get(0).version + "?" : "Install " + picked.size() + " Updates?",
                 words(list + "\nThe head unit restarts when the installs finish, a minute or two from now. Keep the car parked and on until it's back."))
             .setNegativeButton("Cancel", null)
@@ -534,11 +540,12 @@ public final class TweaksActivity extends Activity {
         final LinearLayout result = column(); box.addView(result);
         final LinearLayout linked = column(); box.addView(linked);
         ScrollView scroll = new ScrollView(this); scroll.setScrollbarFadingEnabled(false); scroll.addView(box);
-        final AlertDialog dialog = dialog("Updates for Other Software", scroll).setPositiveButton("Close", null).create();
+        final AlertDialog dialog = sourcesDialog = dialog("Updates for Other Software", scroll).setPositiveButton("Close", null).create();
         dialog.getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE | WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN);
         dialog.setOnDismissListener(new DialogInterface.OnDismissListener() { @Override public void onDismiss(DialogInterface d) {
             // What the last check found may not match the links any more.
             if (step == Step.CHECKED) { step = Step.NONE; offers = new ArrayList<>(); }
+            if (sourcesDialog == dialog) sourcesDialog = null;
             render();
         } });
         final Runnable showLinks = new Runnable() { @Override public void run() { links(linked, result); } };
@@ -688,6 +695,7 @@ public final class TweaksActivity extends Activity {
         worker.execute(new Runnable() { @Override public void run() {
             Updater.NetworkProblem offline = Updater.networkProblem(TweaksActivity.this);
             final StringBuilder said = new StringBuilder(); boolean problem = true; Properties read = null;
+            final List<Updater.Offer> fresh = new ArrayList<>();
             if (offline == null) try {
                 Updater.Repo repo = Updater.find(TweaksActivity.this, current, owner, name);
                 Map<String, SelfUpdate.Package> installed = Updater.installed();
@@ -697,7 +705,14 @@ public final class TweaksActivity extends Activity {
                     if (said.length() > 0) said.append("\n\n");
                     SelfUpdate.Package p = installed.get(o.id);
                     if (o.id.equals(SelfUpdate.TILEPAD)) said.append("That's Tilepad's own repository: Tilepad already checks it.");
-                    else if (o.installed == null || p == null) said.append(o.name).append(" (").append(o.id).append(") is in this release but isn't installed here. Install it from USB first, then link it.");
+                    else if ((o.installed == null || p == null) && o.installable()) {
+                        // Linked when it's installed, so the check doesn't list what the user only looked at.
+                        o.installed = null;
+                        said.append(o.name).append(' ').append(o.version).append(" isn't installed here. Install it from ").append(repo.name)
+                            .append(", and Update Manager keeps it up to date.");
+                        fresh.add(o); problem = false;
+                    }
+                    else if (o.installed == null || p == null) said.append(o.name).append(" (").append(o.id).append(") is in this release but isn't installed here, and this release can't be installed from here. Install it from USB.");
                     else if (p.locked) said.append(o.name).append(" is part of NEMESIS and updates with it.");
                     else {
                         read = Backend.run("update-source", "add", o.id, repo.name);
@@ -715,9 +730,39 @@ public final class TweaksActivity extends Activity {
                 lock(lock, false);
                 if (wifi != null) { result.removeAllViews(); networkProblem(wifi); }
                 else message(result, said.toString(), bad);
+                if (wifi == null) for (final Updater.Offer o : fresh) {
+                    Button add = button("Install " + o.name + " " + o.version, "Install " + o.name + " from GitHub, then restart the head unit", new View.OnClickListener() {
+                        @Override public void onClick(View v) { confirmFresh(o); }
+                    });
+                    add.setTextSize(22); enable(add, ready && !busy && !edits.hasWork());
+                    result.addView(add, new LinearLayout.LayoutParams(-1, dp(72)));
+                }
                 showLinks.run();
             } });
         } });
+    }
+    /** Installs a package that isn't on this head unit yet: links it, closes the dialog, and installs it like an update. */
+    private void confirmFresh(final Updater.Offer o) {
+        dialog("Install " + o.name + " " + o.version + "?", words(o.name + " installs from " + o.repo + "'s latest release on GitHub, with root access: "
+                + "only install software you trust. Update Manager then checks it for updates with Tilepad.\n\n"
+                + "The head unit restarts when the install finishes, a minute or two from now. Keep the car parked and on until it's back."))
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Install and Restart", new DialogInterface.OnClickListener() {
+                @Override public void onClick(DialogInterface d, int which) {
+                    worker.execute(new Runnable() { @Override public void run() {
+                        Properties read = null; String failed = null;
+                        try { read = Backend.run("update-source", "add", o.id, o.repo); } catch (Exception e) { failed = e.getMessage(); }
+                        final Properties loaded = read; final String problem = failed;
+                        main.post(new Runnable() { @Override public void run() {
+                            if (isFinishing() || isDestroyed()) return;
+                            if (loaded == null) { dialog("Couldn't Install " + o.name, words(problem)).setPositiveButton("Close", null).show(); return; }
+                            edits.reset(loaded);
+                            if (sourcesDialog != null) sourcesDialog.dismiss();
+                            install(Collections.singletonList(o));
+                        } });
+                    } });
+                }
+            }).show();
     }
     /** The linked packages, each with Remove. */
     private void links(final LinearLayout into, final LinearLayout result) {

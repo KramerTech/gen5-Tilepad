@@ -93,6 +93,11 @@ public class SelfUpdateTest {
         assertEquals(java.util.Arrays.asList("media.codecs"), item.depends);
         assertTrue(new File(dir, "dashcam.zip").isFile());
         new File(dir, "dashcam.zip").delete();
+        // Not installed here: any version installs fresh.
+        item = new SelfUpdate.Item("dashcam", zip, Files.hash(zip), null);
+        SelfUpdate.stage(item, dir, null, null);
+        assertNull(item.from); assertEquals("1.2.8", item.version);
+        new File(dir, "dashcam.zip").delete();
 
         refused(new SelfUpdate.Item("dashcam", zip, Files.hash(new byte[]{1}), null), "1.2.7", "doesn't match GitHub's checksum");
         refused(new SelfUpdate.Item("smarttube", zip, Files.hash(zip), null), "1.0", "isn't the smarttube package");
@@ -147,14 +152,17 @@ public class SelfUpdateTest {
         assertNull(SelfUpdate.installedVersion(apps, "smarttube"));
     }
 
-    @Test public void onlyAnInstalledUnlockedPackageCanBeLinked() throws Exception {
+    @Test public void anyPackageButNemesisOwnAndTilepadCanBeLinked() throws Exception {
         File apps = new File(dir, "apps"), db = new File(dir, "packages.db"), sources = new File(dir, "sources");
         installed(apps, "dashcam", "1.2.7"); installed(apps, "usb-handler", "1.16.7");
         Files.write(db, "usb-handler|USB Handler|1|service|1.16.7|x\ndashcam|Rear Dashcam|0|application|1.2.7|x\n".getBytes("UTF-8"));
         SelfUpdate.setSource(sources, apps, db, "dashcam", "KramerTech/gen5-RearDashcam");
         assertEquals("KramerTech/gen5-RearDashcam", Files.properties(sources).getProperty("dashcam"));
         linkRefused(sources, apps, db, "usb-handler", "a/b", "part of NEMESIS");
-        linkRefused(sources, apps, db, "smarttube", "a/b", "isn't installed");
+        // Not installed yet: Update Manager installs it fresh.
+        SelfUpdate.setSource(sources, apps, db, "smarttube", "KramerTech/gen5-SmartTube");
+        assertEquals("KramerTech/gen5-SmartTube", Files.properties(sources).getProperty("smarttube"));
+        SelfUpdate.setSource(sources, apps, db, "smarttube", null);
         linkRefused(sources, apps, db, "tilepad", "a/b", "own repository");
         linkRefused(sources, apps, db, "dashcam", "not a repo", "isn't a GitHub repository");
         linkRefused(sources, apps, db, "../x", "a/b", "isn't a NEMESIS package id");
@@ -221,7 +229,8 @@ public class SelfUpdateTest {
         assertEquals("done", runScript(0, 0));
         Properties r = Files.properties(new File(dir, SelfUpdate.RESULT));
         assertEquals("installed", r.getProperty("item.dashcam.state")); assertEquals("installed", r.getProperty("item.tilepad.state"));
-        assertEquals("install --update " + new File(dir, "dashcam.zip").getPath() + "\ninstall --update " + new File(dir, SelfUpdate.ZIP).getPath()
+        // Dashcam is new here, so it installs without --update.
+        assertEquals("install " + new File(dir, "dashcam.zip").getPath() + "\ninstall --update " + new File(dir, SelfUpdate.ZIP).getPath()
             + "\nroot 1000 -c setprop sys.powerctl reboot\n", new String(Files.read(new File(dir, "calls")), "UTF-8"));
         assertFalse(new File(dir, SelfUpdate.ZIP).exists());
         assertFalse(new File(dir, SelfUpdate.SIGNATURE).exists());
@@ -244,17 +253,17 @@ public class SelfUpdateTest {
 
     /** SelfUpdate.script for dashcam then Tilepad, with /system/xbin/nemesis replaced by a fake that records its arguments. */
     private String runScript(int dashcam, int tilepad) throws Exception {
-        java.util.List<SelfUpdate.Item> items = java.util.Arrays.asList(staged("dashcam", "1.2.8", "1.2.7"), staged("tilepad", "1.2.0", "1.1.10"));
+        java.util.List<SelfUpdate.Item> items = java.util.Arrays.asList(staged("dashcam", "1.2.8", null), staged("tilepad", "1.2.0", "1.1.10"));
         SelfUpdate.started(dir, items, "boot-a", 1000);
         Files.write(new File(dir, "dashcam.zip"), new byte[]{1});
         Files.write(new File(dir, SelfUpdate.ZIP), new byte[]{1}); Files.write(new File(dir, SelfUpdate.SIGNATURE), new byte[]{2});
         File fake = new File(dir, "nemesis");
         Files.write(fake, ("#!/bin/sh\necho \"$*\" >> " + dir + "/calls\n[ \"$1\" = install ] && echo 'nemesis says no'\n"
-            + "case \"$3\" in *dashcam.zip) exit " + dashcam + ";; *tilepad.zip) exit " + tilepad + ";; esac\nexit 0\n").getBytes("UTF-8"));
+            + "case \"$*\" in *dashcam.zip) exit " + dashcam + ";; *tilepad.zip) exit " + tilepad + ";; esac\nexit 0\n").getBytes("UTF-8"));
         assertTrue(fake.setExecutable(true));
         File script = new File(dir, SelfUpdate.SCRIPT);
         String text = SelfUpdate.script(dir, items);
-        assertTrue(text.contains("/system/xbin/nemesis install --update"));
+        assertTrue(text.contains("update_one dashcam\nupdate_one tilepad --update\n"));
         Files.write(script, text.replace("/system/xbin/nemesis", fake.getPath()).replace("sleep 2", ":")
             .replace("export PATH=", "export PATH=" + System.getenv("PATH") + ":").getBytes("UTF-8"));
         Process p = new ProcessBuilder("sh", script.getPath()).redirectErrorStream(true).start();

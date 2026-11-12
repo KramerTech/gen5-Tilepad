@@ -131,7 +131,8 @@ and tap **Check for Updates**. It only uses Wi-Fi, never the car's built-in mode
 signed with Tilepad's key, and restarts the head unit when it's done, so do it while parked. Under
 **Configure Updates for Other Software** you can link other NEMESIS packages you've installed to the
 GitHub repositories they come from, and the same check updates them too, straight from their
-developers' releases, even packages that aren't in the NEMESIS Package Store. **Uninstall** uses
+developers' releases, even packages that aren't in the NEMESIS Package Store. A package in that
+repository that isn't installed yet can be installed from there too. **Uninstall** uses
 `Tilepad-uninstall-usb.zip`: it undoes any tweaks first, then removes Tilepad and its saved
 settings (including the Charge-Away Home location).
 

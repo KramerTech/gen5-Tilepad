@@ -137,9 +137,9 @@ public final class SelfUpdate {
         else {
             if (id.equals(TILEPAD)) throw new IOException("Tilepad already updates from its own repository.");
             if (!validRepo(repo)) throw new IOException("That isn't a GitHub repository (owner/name).");
+            // A package that isn't installed yet can be linked too: Update Manager installs it fresh.
             Package installed = installedPackage(db, id);
-            if (installed == null || installedVersion(apps, id) == null) throw new IOException(id + " isn't installed. Install it from USB first.");
-            if (installed.locked) throw new IOException(installed.name + " is part of NEMESIS and updates with it.");
+            if (installed != null && installed.locked) throw new IOException(installed.name + " is part of NEMESIS and updates with it.");
             p.setProperty(id, repo);
         }
         Files.store(sources, p);
@@ -320,7 +320,7 @@ public final class SelfUpdate {
         StringBuilder ids = new StringBuilder();
         for (Item i : items) {
             ids.append(ids.length() == 0 ? "" : ",").append(i.id);
-            r.setProperty("item." + i.id + ".version", i.version); r.setProperty("item." + i.id + ".from", i.from);
+            r.setProperty("item." + i.id + ".version", i.version); r.setProperty("item." + i.id + ".from", i.from == null ? "" : i.from);
             r.setProperty("item." + i.id + ".name", i.name);
         }
         r.setProperty("state", "installing"); r.setProperty("items", ids.toString());
@@ -350,7 +350,7 @@ public final class SelfUpdate {
             + "R=\"$D/" + RESULT + "\"\n"
             + "ANY=0\n"
             + "update_one() {\n"
-            + "    /system/xbin/nemesis install --update \"$D/$1.zip\" > \"$D/$1.log\" 2>&1\n"
+            + "    /system/xbin/nemesis install $2 \"$D/$1.zip\" > \"$D/$1.log\" 2>&1\n"
             + "    CODE=$?\n"
             + "    rm -f \"$D/$1.zip\" \"$D/$1.zip.sig\"\n"
             + "    if [ \"$CODE\" = 0 ]; then ANY=1; STATE=installed; else STATE=failed; fi\n"
@@ -359,7 +359,8 @@ public final class SelfUpdate {
             + "    sync\n"
             + "}\n");
         // Ids are NEMESIS ids (validId): nothing in them the shell would read.
-        for (Item i : items) s.append("update_one ").append(i.id).append('\n');
+        // A package new to this head unit installs without --update.
+        for (Item i : items) s.append("update_one ").append(i.id).append(i.from == null ? "" : " --update").append('\n');
         return s.append("echo state=done >> \"$R\"\n"
             + "sync\n"
             // New APKs register at boot (docs/TWEAKS.md); when nothing installed, the screen stays up to say why.

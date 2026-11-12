@@ -41,7 +41,7 @@ final class Updater {
     /** One package's latest release, against what's installed. */
     static final class Offer {
         String id, name, repo, installed;
-        /** The release's package-version; null when it couldn't be checked, and problem says why. installed is null when it's gone. */
+        /** The release's package-version; null when it couldn't be checked, and problem says why. installed is null when it isn't installed here. */
         String version, problem;
         /** The release asset holding the package, GitHub's SHA-256 of it, and the package's path inside it when it is a USB bundle. */
         String url, digest, inner;
@@ -49,8 +49,14 @@ final class Updater {
         String signature;
         long size;
         String tag = "", notes = "";
-        boolean newer() { return version != null && SelfUpdate.version(installed) != null && SelfUpdate.compare(version, installed) > 0; }
-        /** Newer, and the release has what the root side checks it against. */
+        /** Not installed here: the release installs fresh. */
+        boolean fresh() { return installed == null && !id.equals(SelfUpdate.TILEPAD); }
+        boolean newer() {
+            if (version == null) return false;
+            if (fresh()) return SelfUpdate.version(version) != null;
+            return SelfUpdate.version(installed) != null && SelfUpdate.compare(version, installed) > 0;
+        }
+        /** Newer (or not installed yet), and the release has what the root side checks it against. */
         boolean installable() { return newer() && url != null && digest != null && (!id.equals(SelfUpdate.TILEPAD) || signature != null); }
     }
     /** A Wi-Fi or clock problem: nothing is downloaded. settings: whether Wi-Fi settings can fix it. */

@@ -112,14 +112,15 @@ public final class TweaksCommand {
                 for (SelfUpdate.Item other : items) if (other.id.equals(id)) throw new IOException(id + " is listed twice.");
                 boolean tilepad = id.equals(SelfUpdate.TILEPAD);
                 if (!tilepad) {
-                    // Only what the user linked, still installed, and not NEMESIS's own.
+                    // Only what the user linked, and not NEMESIS's own. One not installed yet installs fresh.
                     if (sources.getProperty(id) == null) throw new IOException(id + " isn't linked to a GitHub repository.");
                     SelfUpdate.Package p = SelfUpdate.installedPackage(SelfUpdate.PACKAGES, id);
-                    if (p == null || p.locked) throw new IOException(id + " can't be updated from here.");
+                    if (p != null && p.locked) throw new IOException(id + " can't be updated from here.");
                     if (!check.matches("[0-9a-fA-F]{64}")) throw new IOException("GitHub gave no checksum for " + id + ".");
                 } else if (inner != null) throw new IOException("Tilepad updates from tilepad.zip.");
                 String installed = SelfUpdate.installedVersion(SelfUpdate.APPS, id);
-                if (installed == null) throw new IOException("Can't read the installed " + (tilepad ? "Tilepad" : id) + " version.");
+                if (installed == null && (tilepad || SelfUpdate.installedPackage(SelfUpdate.PACKAGES, id) != null))
+                    throw new IOException("Can't read the installed " + (tilepad ? "Tilepad" : id) + " version.");
                 SelfUpdate.Item item = new SelfUpdate.Item(id, new File(args[i + 1]), check, inner);
                 SelfUpdate.stage(item, dir, installed, tilepad ? SelfUpdate.releaseCertificate().getPublicKey() : null);
                 items.add(item);

@@ -444,7 +444,11 @@ repository out of the 60 an hour GitHub allows without signing in. A pasted `own
 github.com address skips the list. Given the repository, it reads it and its latest release, finds which
 NEMESIS package each `.zip` asset holds, and links each one installed here (`packages.db`, which is
 world-readable; NEMESIS 1.16.7 writes `id|name|locked|types` there, so versions come from each
-package's `apps/<id>/NEMESIS.data`). The locked core packages and Tilepad itself can't be linked.
+package's `apps/<id>/NEMESIS.data`). A package that isn't installed gets an **Install** button
+instead: confirming links it and installs it through the same batch as an update, with plain
+`nemesis install` rather than `--update`, and Check for Updates then offers it like any other (a
+linked package that isn't installed shows unticked, as a new install). The locked core packages and
+Tilepad itself can't be linked.
 Links live root-side in `/data/nemesis/backup/tilepad/update-sources.properties` (`id=owner/repo`,
 written by `update-source add|remove`), so they survive Tilepad's updates; `settings` reports them as
 `source.<id>`. `ZipProbe.java` reads an asset's `NEMESIS.data` with HTTP range requests (the central
