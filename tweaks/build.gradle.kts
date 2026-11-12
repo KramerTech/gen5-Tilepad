@@ -6,8 +6,8 @@ android {
         applicationId = "com.tilepad.tweaks"
         minSdk = 19
         targetSdk = 19
-        versionCode = 11
-        versionName = "1.1.9"
+        versionCode = 13
+        versionName = "1.2.0"
     }
     sourceSets["main"].java.srcDir("../tweaks-core/src/main/java")
     compileOptions {
