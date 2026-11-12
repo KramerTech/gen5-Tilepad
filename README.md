@@ -126,8 +126,8 @@ The TUNE knob also works: turn it to move the highlight and press it to open the
 
 The installer writes `tilepad-install.log` to the drive. **Update** works the same way with
 `Tilepad-update-usb.zip` and keeps your tiles and tweak settings. From 1.2.0 on, Tilepad can also
-update itself: connect the head unit to Wi-Fi (a phone hotspot works), open Tweaks → **Support** and
-tap **Check for Updates**. It only uses Wi-Fi, never the car's built-in modem, installs only a release
+update itself: connect the head unit to Wi-Fi (a phone hotspot works), open Tweaks → **Update Manager**
+and tap **Check for Updates**. It only uses Wi-Fi, never the car's built-in modem, installs only a release
 signed with Tilepad's key, and restarts the head unit when it's done, so do it while parked. Under
 **Configure Updates for Other Software** you can link other NEMESIS packages you've installed to the
 GitHub repositories they come from, and the same check updates them too. **Uninstall** uses

@@ -11,7 +11,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
 /**
- * Tweaks › Support's Check for Updates, root side. The app downloads, over Wi-Fi, Tilepad's release
+ * Tweaks › Update Manager's Check for Updates, root side. The app downloads, over Wi-Fi, Tilepad's release
  * (tilepad.zip and its signature) and the releases of other installed packages linked to a GitHub
  * repository. This checks root-owned copies (Tilepad's against the release key, the others against
  * GitHub's SHA-256) and the installed versions, then leaves NEMESIS's installs to a script that runs
@@ -343,7 +343,7 @@ public final class SelfUpdate {
      */
     static String script(File dir, List<Item> items) {
         StringBuilder s = new StringBuilder("#!/system/bin/sh\n"
-            + "# Written by Tweaks > Support (SelfUpdate.java). Runs on its own: an update stops the app that started it.\n"
+            + "# Written by Tweaks > Update Manager (SelfUpdate.java). Runs on its own: an update stops the app that started it.\n"
             + "export PATH=/sbin:/vendor/bin:/system/sbin:/system/bin:/system/xbin\n"
             + "export LD_LIBRARY_PATH=/vendor/lib:/system/lib\n"
             + "D=" + dir.getPath() + "\n"

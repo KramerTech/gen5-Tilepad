@@ -150,7 +150,7 @@ final class UsbReport {
             for (String line : tailFile(new File("/data/nemesis/nemesis.log"), 512 << 10).split("\n"))
                 if (line.contains("tilepad")) lines.append(line).append('\n');
             return lines.toString(); } })));
-        // The last update started from Support, if any: its record and NEMESIS's output for each package.
+        // The last update started from Update Manager, if any: its record and NEMESIS's output for each package.
         if (new File(SelfUpdate.DIR, SelfUpdate.RESULT).isFile())
             out.put("self-update.txt", utf8(capture(new Capture() { @Override public String run() throws Exception {
                 StringBuilder s = new StringBuilder(new String(Files.read(new File(SelfUpdate.DIR, SelfUpdate.RESULT)), "UTF-8"));

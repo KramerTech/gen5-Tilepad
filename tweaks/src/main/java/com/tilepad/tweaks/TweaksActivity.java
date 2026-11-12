@@ -9,6 +9,7 @@ import android.content.res.Resources;
 import android.graphics.Canvas;
 import android.graphics.ColorFilter;
 import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.PixelFormat;
 import android.graphics.Rect;
 import android.graphics.Typeface;
@@ -47,7 +48,7 @@ public final class TweaksActivity extends Activity {
     /** The support log saved from Support this session. */
     private String supportSaved = "";
     private boolean savingReport;
-    /** Support's Check for Updates, this session: how far it got, and what it found (Tilepad, then linked packages). */
+    /** Update Manager's Check for Updates, this session: how far it got, and what it found (Tilepad, then linked packages). */
     private enum Step { NONE, CHECKING, CHECKED, DOWNLOADING, INSTALLING }
     private Step step = Step.NONE;
     private List<Updater.Offer> offers = new ArrayList<>();
@@ -128,9 +129,10 @@ public final class TweaksActivity extends Activity {
         for (int i = 0; i < TweakInfo.RAIL.length; i++) {
             final int index = i; TweakInfo item = TweakInfo.RAIL[i];
             TextView tab = text(item.railTitle(), 26, i == selected ? accent : ink);
-            // Support isn't a tweak: a help mark sets it apart.
-            if (item == TweakInfo.SUPPORT) {
-                tab.setCompoundDrawablesWithIntrinsicBounds(helpMark(i == selected ? accent : ink, dp(28)), null, null, null);
+            // Support and Update Manager aren't tweaks: a mark sets each apart.
+            if (item == TweakInfo.SUPPORT || item == TweakInfo.UPDATES) {
+                int c = i == selected ? accent : ink;
+                tab.setCompoundDrawablesWithIntrinsicBounds(item == TweakInfo.SUPPORT ? helpMark(c, dp(28)) : updateMark(c, dp(28)), null, null, null);
                 tab.setCompoundDrawablePadding(dp(12));
             }
             tab.setPadding(dp(14), dp(10), dp(14), dp(10)); tab.setMinHeight(dp(72));
@@ -150,7 +152,7 @@ public final class TweaksActivity extends Activity {
         controlScroll = scroller("Selected tweak controls"); controls = column(); controlScroll.addView(controls);
         panes.addView(controlScroll, new LinearLayout.LayoutParams(dp(600 * scale), -1)); verticalDivider(panes);
         final TweakInfo item = TweakInfo.RAIL[selected];
-        if (item == TweakInfo.SUPPORT) support(); else tweak(item);
+        if (item == TweakInfo.SUPPORT) support(); else if (item == TweakInfo.UPDATES) updateManager(); else tweak(item);
         helpScroll = scroller("Feature explanation"); LinearLayout help = column(); helpScroll.addView(help);
         panes.addView(helpScroll, new LinearLayout.LayoutParams(0, -1, 1));
         TextView description = text(item.help, 24, ink); description.setGravity(Gravity.TOP); description.setLineSpacing(dp(3), 1f);
@@ -242,7 +244,7 @@ public final class TweaksActivity extends Activity {
             }
         }
     }
-    /** The middle pane for Support: this head unit's software, updates, then the log button or where the log went. */
+    /** The middle pane for Support: this head unit's software, then the log button or where the log went. */
     private void support() {
         String product = "";
         try { product = Platform.property("ro.build.product"); } catch (Exception ignored) { }
@@ -254,7 +256,6 @@ public final class TweaksActivity extends Activity {
             note(any ? "Some tweaks aren't available on this head unit; their entries say why." : "Every tweak is available on this head unit.", false);
         }
         divider(controls);
-        updates();
         if (!supportSaved.isEmpty()) {
             note("Log saved to the USB drive as " + supportSaved + ". On a computer, open a new issue at "
                 + "github.com/KramerTech/gen5-Tilepad/issues, say what happened and when, and attach that .zip file.", false);
@@ -267,7 +268,13 @@ public final class TweaksActivity extends Activity {
         save.setTextSize(22); enable(save, ready && !busy && !edits.hasWork());
         controls.addView(save, new LinearLayout.LayoutParams(-1, dp(72))); divider(controls);
     }
-    /** Support's updates: how the last install went, then the check, what it found, and the install. */
+    /** The middle pane for Update Manager: what's installed, then the updates. */
+    private void updateManager() {
+        note("Tilepad " + installedVersion() + " is installed.", false);
+        divider(controls);
+        updates();
+    }
+    /** Update Manager's updates: how the last install went, then the check, what it found, and the install. */
     private void updates() {
         String last = values.getProperty("update.state", "");
         String[] ids = values.getProperty("update.items", "").split(",");
@@ -888,6 +895,30 @@ public final class TweaksActivity extends Activity {
         d.addState(new int[]{android.R.attr.state_focused}, new ColorDrawable(0x2200b5de)); d.addState(new int[]{}, new ColorDrawable(selected ? 0x1100b5de : 0x00000000)); return d;
     }
     /** A circled question mark in the label's colour, drawn so it follows the theme and selection. */
+    /** Update Manager's mark: a down arrow onto a tray, in the help mark's circle. */
+    private Drawable updateMark(final int color, final int size) {
+        return new Drawable() {
+            private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+            private final Path path = new Path();
+            @Override public void draw(Canvas canvas) {
+                Rect b = getBounds(); float stroke = dp(2.5f), cx = b.exactCenterX(), cy = b.exactCenterY(), r = b.width() / 2f - stroke;
+                paint.setColor(color); paint.setStyle(Paint.Style.STROKE); paint.setStrokeWidth(stroke);
+                paint.setStrokeCap(Paint.Cap.ROUND); paint.setStrokeJoin(Paint.Join.ROUND);
+                canvas.drawCircle(cx, cy, r, paint);
+                float top = cy - r * .5f, tip = cy + r * .22f, wing = r * .3f, tray = cy + r * .5f;
+                path.reset();
+                path.moveTo(cx, top); path.lineTo(cx, tip);
+                path.moveTo(cx - wing, tip - wing); path.lineTo(cx, tip); path.lineTo(cx + wing, tip - wing);
+                path.moveTo(cx - r * .42f, tray); path.lineTo(cx + r * .42f, tray);
+                canvas.drawPath(path, paint);
+            }
+            @Override public int getIntrinsicWidth() { return size; }
+            @Override public int getIntrinsicHeight() { return size; }
+            @Override public void setAlpha(int alpha) { paint.setAlpha(alpha); }
+            @Override public void setColorFilter(ColorFilter filter) { paint.setColorFilter(filter); }
+            @Override public int getOpacity() { return PixelFormat.TRANSLUCENT; }
+        };
+    }
     private Drawable helpMark(final int color, final int size) {
         return new Drawable() {
             private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
