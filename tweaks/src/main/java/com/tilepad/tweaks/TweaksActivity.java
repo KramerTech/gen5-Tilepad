@@ -841,7 +841,7 @@ public final class TweaksActivity extends Activity {
                 // Linked when it's installed, so the check doesn't list what the user only looked at.
                 o.installed = null; fresh.add(o);
                 said.append(o.name).append(' ').append(o.version).append(" isn't installed on the car yet. It will be installed from ").append(repo.name)
-                    .append("'s latest release with root access, so only install software you trust. Package Manager will then keep it up to date.");
+                    .append("'s latest release with root access, so only install software you trust. Package Manager can then keep it up to date.");
             } else said.append(o.name).append(" (").append(o.id).append(") isn't installed on the car, and this release can't be installed from Package Manager. Install it from USB instead.");
         }
         if (link.isEmpty() && fresh.isEmpty()) { w.done("Nothing to Link", said.toString(), false, null); return; }
