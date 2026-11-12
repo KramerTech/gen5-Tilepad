@@ -222,17 +222,17 @@ public final class TweaksActivity extends Activity {
                 home ? "Replace Home with the current GPS location" : "Save the current GPS location as Home", new View.OnClickListener() {
                 @Override public void onClick(View v) { captureHome(false); }
             });
-            mark.setTextSize(21); enable(mark, ready && !busy && !edits.hasWork());
+            mark.setTextSize(20); enable(mark, ready && !busy && !edits.hasWork());
             if (home) {
                 note(String.format(Locale.US, "Home: %.6f, %.6f", Double.parseDouble(values.getProperty("homeLat")), Double.parseDouble(values.getProperty("homeLon"))), false);
                 Button clear = button("Clear Home", "Remove the saved Home location", new View.OnClickListener() {
                     @Override public void onClick(View v) { confirmClearHome(); }
                 });
-                clear.setTextSize(21); enable(clear, ready && !busy && !edits.hasWork());
-                columns(mark, clear);
+                clear.setTextSize(20); enable(clear, ready && !busy && !edits.hasWork());
+                columns(mark, 1.7f, clear, 1f);
             } else {
                 TextView none = text("No Home location set.", 22, muted);
-                columns(none, mark);
+                columns(none, 1f, mark, 1.5f);
             }
         } else if (!blocked && enabled && item.options && !absent) {
             if (item.id.equals("dst")) {
@@ -1034,11 +1034,13 @@ public final class TweaksActivity extends Activity {
     private Button button(String label, String description, View.OnClickListener click) {
         Button b = new Button(this); b.setText(label); b.setTextColor(ink); b.setTextSize(26); b.setAllCaps(false); b.setBackground(buttonBackground()); b.setContentDescription(description); enable(b, ready && !busy); b.setOnClickListener(click); return b;
     }
-    /** Two halves of one row in the middle pane, each a button or a line of text. */
-    private void columns(View left, View right) {
+    /** Two columns of one row in the middle pane, each a button or a line of text, sized by weight. */
+    private void columns(View left, float leftWeight, View right, float rightWeight) {
         LinearLayout row = new LinearLayout(this); row.setGravity(Gravity.CENTER_VERTICAL); row.setPadding(dp(24), dp(4), dp(24), dp(8));
-        for (View v : new View[]{left, right}) {
-            LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(0, v instanceof Button ? dp(64) : -2, 1);
+        View[] views = {left, right}; float[] weights = {leftWeight, rightWeight};
+        for (int i = 0; i < 2; i++) {
+            View v = views[i];
+            LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(0, v instanceof Button ? dp(64) : -2, weights[i]);
             p.setMargins(dp(6), dp(6), dp(6), dp(6));
             if (!(v instanceof Button)) v.setPadding(0, 0, dp(8), 0);
             row.addView(v, p);
