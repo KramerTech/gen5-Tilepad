@@ -15,8 +15,10 @@ to close Tilepad. A short press of ★ still does whatever Hyundai's Button sett
 ## Features
 
 - **Wi-Fi status**, on head units that have a Wi-Fi module. The tile shows the network, the IP
-  address and the signal strength. Tap it to pick a network. On a unit whose Wi-Fi only runs the
-  CarPlay and Android Auto hotspot, tap it to turn on the Wi-Fi client instead.
+  address and the signal strength. Tap it to pick a network. Some head units can't join a Wi-Fi
+  network as they come, because they only use Wi-Fi as the hotspot that phones connect to for
+  wireless CarPlay and Android Auto. On those, tapping the tile offers to turn on the Wi-Fi
+  client, which lets the head unit join a network.
 - **Manual battery preconditioning**, on cars that support it. One tap starts it and one tap stops
   it.
 - **Bundled Tweaks app**, opened from the permanent **Tweaks and Settings** tile beside
@@ -81,12 +83,13 @@ checked against. On other firmware the tile won't send commands.
 The tile only shows Active when the car's own indicator says so, never just because enough time
 has passed. The request keeps going after you close Tilepad.
 
-**Turning on the Wi-Fi client.** On stock US firmware, the Wi-Fi radio is used only for the
-CarPlay and Android Auto hotspot. The same is true of wireless CarPlay and Android Auto mods that
-were installed without their Wi-Fi client option, such as HMG Leafia Plus without
-`LEAFIA-WIFI-CLIENT`. On those units the Wi-Fi tile reads *Hotspot only*, and tapping it offers to
-turn the Wi-Fi client on. Once you agree, the popup offers a reboot, and the tile reads *Reboot to
-finish* until the head unit has restarted.
+**Turning on the Wi-Fi client.** The Wi-Fi client is the part of Android that joins a Wi-Fi
+network. On stock US firmware it is turned off, and the head unit only uses Wi-Fi as the hotspot
+that phones connect to for wireless CarPlay and Android Auto. The same is true of wireless CarPlay
+and Android Auto mods that were installed without their Wi-Fi client option, such as HMG Leafia
+Plus without `LEAFIA-WIFI-CLIENT`. On those units the Wi-Fi tile reads *Hotspot only*, and tapping
+it offers to turn the Wi-Fi client on. Once you agree, the popup offers a reboot, and the tile
+reads *Reboot to finish* until the head unit has restarted.
 
 - The head unit has one Wi-Fi radio. While it is connected to a network, wireless CarPlay and
   Android Auto may not connect.
@@ -111,8 +114,8 @@ you to confirm, because turning ADB on has serious consequences:
 - Turning ADB **on** makes the head unit listen for ADB on port 5555, now and after every reboot,
   until you turn it off. Connect from your computer with `adb connect <head-unit-ip>:5555`.
 - ADB needs the head unit on the same network as your computer. So while ADB is on, Tilepad turns
-  on Wi-Fi and joins your saved network, right away and again at every boot. On a unit whose
-  Wi-Fi only runs the CarPlay hotspot, turn on the Wi-Fi client from the Wi-Fi tile first.
+  on Wi-Fi and joins your saved network, right away and again at every boot. If the Wi-Fi tile
+  reads *Hotspot only*, turn on the Wi-Fi client from that tile first.
 - Turning ADB **off** stops the head unit from listening. It leaves Wi-Fi as it is.
 - The head unit serves **one computer at a time**. While one computer is connected, another
   computer's `adb connect` hangs and shows `offline` or `unauthorized` until the first one
