@@ -206,7 +206,7 @@ public final class TweaksActivity extends Activity {
             boolean hidden = enabled || new Config(values).enabled(second.id);
             checkbox(controls, second.title, second.id, hidden, ready && !busy && !enabled && (hidden || (!checking && secondUnavailable.isEmpty())));
             String secondState = !ready ? null : enabled && !pending(second.id)
-                ? "The nav handle is always hidden while the right-hand pop-over is disabled." : second.state(hidden, pending(second.id));
+                ? "The nav handle is always hidden, and **Split Screen** kept off, while the right-hand pop-over is disabled." : second.state(hidden, pending(second.id));
             if (secondState != null) note(secondState, false);
             if (!secondUnavailable.isEmpty() && !enabled && saved.isEmpty()) note("Compatibility issue: " + secondUnavailable, true);
         }

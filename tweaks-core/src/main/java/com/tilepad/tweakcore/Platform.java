@@ -40,8 +40,8 @@ public final class Platform {
     /** Ignition from the BCM (ACC reads off): Driver Only, Automatic Heaters' passenger seat and projection. */
     public static boolean ignitionOn() throws Exception { return integer("com.hkmc.micom.bcm", "com.hkmc.bcm.IBCMService", 0x11) != 0; }
     public static String boot() throws IOException { return new String(Files.read(new File("/proc/sys/kernel/random/boot_id")), "UTF-8").trim(); }
-    public static int integer(String service, String descriptor, int transaction) throws Exception {
-        return transact(service, descriptor, transaction, true);
+    public static int integer(String service, String descriptor, int transaction, int... args) throws Exception {
+        return transact(service, descriptor, transaction, true, args);
     }
     public static void command(String service, String descriptor, int transaction, int... values) throws Exception {
         transact(service, descriptor, transaction, false, values);

@@ -26,13 +26,14 @@ final class TweakInfo {
         return pending && offPending != null ? offPending : off;
     }
 
-    private static final TweakInfo NAV = new TweakInfo("nav", "Hide Right-Hand Nav Handle", "Hides the nav handle at the right edge of most screens.", false, true,
-            "The nav handle is the semicircle on the right edge of the screen that shows in most apps and opens the nav pop-over. Hiding it stops the handle from appearing at all, rather than closing it each time it shows up. Without it, use the car's physical buttons to get to navigation.\n\n"
+    private static final TweakInfo NAV = new TweakInfo("nav", "Hide Right-Hand Nav Handle", "Hides the nav handle at the right edge of most screens and keeps **Split Screen** off.", false, true,
+            "The nav handle is the semicircle on the right edge of the screen that shows in most apps. Tapping it opens **Split Screen**: a panel over the right third of the screen that stays on top of every app, showing navigation, media, a clock or whichever page you picked in its settings. The right-hand pop-over is part of the same panel. Hiding the handle stops it from appearing at all, rather than closing it each time it shows up.\n\n"
+            + "The handle is also the only way to close **Split Screen**, so hiding it turns **Split Screen** off completely. Tilepad turns it off after every startup and whenever a driver logs in, since each driver keeps their own setting, so the panel can't get stuck open with nothing to close it. Without the handle, use the car's physical buttons to get to navigation.\n\n"
             + "The handle is always hidden while the right-hand pop-over is disabled. With the pop-over allowed, you can hide the handle on its own. Both settings change the same system file and share one backup of the original, so changing one doesn't undo the other. Turning either on or off takes effect after the head unit restarts. If your firmware isn't supported, or another mod has already changed that file, Tilepad says so before changing anything.").states(
-            "The nav handle (the semicircle on the right edge that opens the nav pop-over) is globally hidden.",
-            "The nav handle, the semicircle on the right side of the screen that opens the system nav as a pop-over, shows in most apps.",
-            "The nav handle will be hidden after the next head-unit restart. Until then, it still shows.",
-            "The nav handle comes back after the next head-unit restart. Until then, it stays hidden.");
+            "The nav handle (the semicircle on the right edge that opens **Split Screen**) is globally hidden, and **Split Screen** is kept off.",
+            "The nav handle, the semicircle on the right side of the screen that opens **Split Screen**, shows in most apps.",
+            "The nav handle will be hidden and **Split Screen** turned off after the next head-unit restart. Until then, the handle still shows.",
+            "The nav handle comes back after the next head-unit restart. Until then, it stays hidden and **Split Screen** stays off.");
 
     /** Under the Automatic Heaters passenger-seat checkbox, whether it's on or off. */
     static final String PASSENGER_HEAT = "The passenger seat only heats once someone buckles its seat belt, even partway through a drive, so it's safe to leave on if you usually drive alone.";
@@ -69,7 +70,8 @@ final class TweakInfo {
             "The buttons will be swapped after the next head-unit restart. Until then, they still work the default way.",
             "The buttons go back to Hyundai's default after the next head-unit restart. Until then, they stay swapped."),
         new TweakInfo("popover", "Disable Right-Hand Pop-Over", "Stops transient media and information panels covering your screen.", false, true,
-            "Stops the panel that slides in on the right side of the screen, for example when the track changes. This includes the media and information pop-over and the notices that physical buttons force onto it. It's blocked before it shows, not closed after it covers your screen. Disabling the pop-over also hides the nav handle.\n\n"
+            "Stops the panel that slides in on the right side of the screen, for example when the track changes. This includes the media and information pop-over and the notices that physical buttons force onto it. It's blocked before it shows, not closed after it covers your screen.\n\n"
+            + "The pop-over is part of Hyundai's **Split Screen**, the right-hand panel the nav handle opens. Disabling the pop-over also hides the nav handle, which turns **Split Screen** off completely, as described below.\n\n"
             + "The car's Display settings have a Media change notifications option, but it still lets button presses show notices. This tweak blocks those too, and leaves your Display setting as it was for when you turn the tweak off.\n\n"
             + "This blocks everything that uses that right-hand panel, not just track changes. It doesn't affect the HUD, media playback, full-screen navigation or the reversing camera.\n\n"
             + "Works only with supported firmware. Restart the head unit after turning it on or off. Tilepad backs up the original file, and turning this off restores it while keeping your nav handle choice. If you already have another mod that changes this panel, turn it off before turning this one on.\n\n"

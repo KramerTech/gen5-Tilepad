@@ -32,8 +32,13 @@ public final class TweaksRuntime {
         reload.run();
     } };
     private final Runnable dst = new Runnable() { @Override public void run() { syncDst(); } };
-    private final Runnable agreement = new Runnable() { @Override public void run() { resendAgreement(); } };
-    private boolean bootSettled;
+    private final Runnable startup = new Runnable() { @Override public void run() { afterStartup(); } };
+    private final Runnable splitOff = new Runnable() { @Override public void run() { closeSplitScreen(); } };
+    private boolean bootSettled, consentApplied, handleHidden;
+    private int splitTries;
+    // Hyundai's split screen (RightScreenHome): the panel the right-hand handle opens. Same interface on every supported image.
+    private static final String SPLIT = "com.mobis.splitscreen.right.SplitScreenHome", SPLIT_INTERFACE = "com.hkmc.split.manager.ISplitScreenInterfaces";
+    private static final int SPLIT_IS_READY = 0x28, SPLIT_REQUEST_ON = 0xa;
     private final Runnable reload = new Runnable() { @Override public void run() { handler.removeCallbacks(dst); dstFailures = 0; syncDst(); } };
     private TweaksRuntime() { }
     public static void start() {
@@ -84,7 +89,15 @@ public final class TweaksRuntime {
         }
         Files.store(new File(Platform.STATE, "runtime.properties"), live);
         Platform.status("runtime", "Listening in Tilepad's key-listener process; no separate tweaks service.");
-        if (Boolean.parseBoolean(live.getProperty("applied.consent"))) handler.post(agreement);
+        consentApplied = Boolean.parseBoolean(live.getProperty("applied.consent"));
+        handleHidden = Boolean.parseBoolean(live.getProperty("applied.nav"));
+        if (consentApplied || handleHidden) handler.post(startup);
+        if (handleHidden) {
+            // Each driver keeps their own split-screen setting, so a driver change can bring the panel back.
+            registerRootReceiver(new BroadcastReceiver() {
+                @Override public void onReceive(Context c, Intent i) { splitTries = 0; handler.removeCallbacks(splitOff); handler.postDelayed(splitOff, 3000); }
+            }, new IntentFilter("com.hkmc.intent.action.USER_LOGGED_IN"));
+        }
         syncDst();
         beginHeaters();
         climate = new ClimateController(handler);
@@ -103,11 +116,17 @@ public final class TweaksRuntime {
      * screen stays in day mode at night. Once startup has finished, send it again, once per boot,
      * as pressing Confirm would.
      */
+    private void afterStartup() {
+        try {
+            if (!"1".equals(Platform.property("sys.boot_completed"))) { handler.postDelayed(startup, 2000); return; }
+        } catch (Exception e) { handler.postDelayed(startup, 2000); return; }
+        // A margin past boot_completed for the HKMC services' own startup.
+        if (!bootSettled) { bootSettled = true; handler.postDelayed(startup, 10000); return; }
+        if (consentApplied) resendAgreement();
+        if (handleHidden) closeSplitScreen();
+    }
     private void resendAgreement() {
         try {
-            if (!"1".equals(Platform.property("sys.boot_completed"))) { handler.postDelayed(agreement, 2000); return; }
-            // A margin past boot_completed for the HKMC services' own startup.
-            if (!bootSettled) { bootSettled = true; handler.postDelayed(agreement, 10000); return; }
             // Set by the patched agreement path: the brief really was skipped this boot.
             if (!"true".equals(Platform.property("sys.boot.confirm_screen"))) return;
             File sent = new File(Platform.STATE, "agreement-boot");
@@ -116,6 +135,22 @@ public final class TweaksRuntime {
             Platform.exec("am", "broadcast", "-a", "com.hkmc.intent.action.AGREE_USER_LICENSE");
             Files.write(sent, boot.getBytes("UTF-8"));
         } catch (Exception e) { Platform.status("consent", "Could not repeat the startup agreement: " + e.getMessage()); }
+    }
+    /**
+     * Hide Right-Hand Nav Handle hides the handle, which is also the only control that closes
+     * Hyundai's split screen: the panel it opens stays on over every app, across restarts (#13).
+     * So while the handle is hidden, turn the split screen off the way tapping the handle does
+     * (requestSplitScreenOn(isOn false, isUser true, useAni false)), after startup and when a
+     * driver logs in. Turning it off when it's already off changes nothing.
+     */
+    private void closeSplitScreen() {
+        try {
+            if (Platform.integer(SPLIT, SPLIT_INTERFACE, SPLIT_IS_READY) == 0) throw new IOException("the split screen isn't ready");
+            Platform.integer(SPLIT, SPLIT_INTERFACE, SPLIT_REQUEST_ON, 0, 1, 0);
+        } catch (Exception e) {
+            if (++splitTries < 15) { handler.postDelayed(splitOff, 2000); return; }
+            Platform.status("split", "Could not turn off the split screen: " + e.getMessage());
+        }
     }
     private void registerRootReceiver(BroadcastReceiver receiver, IntentFilter filter) throws Exception {
         // app_process is not attached to ActivityManager as an ordinary app.

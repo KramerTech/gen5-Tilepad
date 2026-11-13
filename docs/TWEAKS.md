@@ -62,7 +62,7 @@ The older heater-only `options` command remains supported for compatibility.
 | Skip Startup Safety Brief | Uses the OEM agreement path instead of building the consent screen at boot; every later request (driver picker, profile password, post-update notice) still opens it | None | Yes |
 | Automatic Heaters | One cold-boot request to selected heaters; the passenger seat waits for the front passenger's belt (polled once a second until the car is turned off); never continuously overrides manual settings | Threshold, °F/°C, driver/wheel/passenger checkboxes, independent seat levels 1–3 | Next head-unit boot |
 | Swap Steering-Wheel Track Buttons | Reverses keys 34/35; up advances, down goes back | None | Yes |
-| Hide Right-Hand Nav Handle | Forces the stock handle controller's hidden path; shown under the pop-over entry and always on while the pop-over is disabled | None | Yes |
+| Hide Right-Hand Nav Handle | Forces the stock handle controller's hidden path, and keeps Split Screen off (the handle is its only off switch); shown under the pop-over entry and always on while the pop-over is disabled | None | Yes |
 | Disable Right-Hand Pop-Over | Blocks the shared right-side OSD request path and renderer | None | Yes |
 | Maintain Climate Sync | A passenger temperature change moves the driver temperature to match, then turns Sync back on | None | No |
 | Automatic Driver Only | Driver Only every time the car is turned on; Sync once the passenger belt is buckled (one way, until the next car start) | None | No |
@@ -548,6 +548,15 @@ file, or its stock backup once patched. A file no recipe matches is reported as 
   `T(I)` sent it again whenever the system asked for the brief later, which hid this.
 - Navigation handle: the two previously researched branches in
   `k.r.f(ZZ)Z`, byte-identical to the existing local patch when enabled alone.
+  The handle (`SS_Button_Window`) is what turns Hyundai's split screen on and off: the panel
+  (`com.mobis.splitscreen.right`, 644 px at x=1276, type 2045) sits over every app and is saved
+  per driver (`split_screen_on`, `_dr1`, `_dr2` in Settings.System). With the handle hidden,
+  a panel left on can't be closed (issue #13), so while the patch is in effect (`applied.nav`) the
+  runtime calls the split-screen service's own `requestSplitScreenOn(false, isUser true, useAni
+  false)` (`com.mobis.splitscreen.right.SplitScreenHome`, `ISplitScreenInterfaces` 0xa, after
+  `isReady` 0x28), 10 s after `sys.boot_completed` and 3 s after each `USER_LOGGED_IN`. The
+  interface, its codes and the method are the same on every supported image (`corpus.py stubs`,
+  `corpus.py method`).
 - Pop-over: `k.r.canShowSSOsd(ZZZ)Z` returns false; shared `r.i.d(IIZ)V` and
   `r.i.handleShow()` return before queuing/rendering the OSD. The rest of the
   split-screen application remains installed and running.
