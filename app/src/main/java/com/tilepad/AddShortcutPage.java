@@ -148,7 +148,7 @@ final class AddShortcutPage extends LinearLayout {
         appsOnly = apps;
         for (TextView tab : new TextView[]{appsTab, allTab}) {
             boolean selected = (tab == appsTab) == apps;
-            Ui.background(tab, ui.pressable(selected ? Ui.ACCENT : Ui.TILE, selected ? Ui.ACCENT : Ui.TILE_PRESSED, 24));
+            Ui.background(tab, ui.pressable(selected ? Ui.ACCENT_SOLID : Ui.TILE, selected ? Ui.ACCENT_SOLID_PRESSED : Ui.TILE_PRESSED, 24));
             tab.setTextColor(selected ? Ui.TEXT : Ui.MUTED);
         }
         refresh();
