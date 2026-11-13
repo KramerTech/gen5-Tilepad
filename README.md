@@ -188,3 +188,28 @@ How Tilepad works, building and releasing: [docs/TECHNICAL.md](docs/TECHNICAL.md
 Credits: [NEMESIS](https://github.com/xwtk/hmg_nemesis), Launchpad by paytondev,
 [Ioniq5_CAN](https://github.com/tylerharvey/Ioniq5_CAN),
 [gen5w-utils](https://github.com/Helloyunho/gen5w-utils).
+
+## Contributing
+
+Pull requests are welcome. Each one should be a single bug fix or feature, tested on a car, with a
+support log attached, screenshots for anything on screen, and a clean uninstall. The details, and
+the rules the code follows, are in [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## License
+
+Copyright © 2026 Sean Kramer. Tilepad is free software under the
+[GNU General Public License v3.0](LICENSE). You can use, change, share and sell it, as long as
+anything you distribute that's built from it is also under GPLv3 and comes with its source.
+
+These parts aren't Tilepad's to license, and aren't covered:
+
+- The preconditioning backend comes from [Launchpad](https://github.com/paytondevs/gen5w-preconditioning)
+  by paytondev, which has no license, so paytondev keeps all rights to it. That covers
+  `OemVehicleClient`, `PreconditioningController`, `PreconditioningProfile`,
+  `PreconditioningService`, `PreconditioningSnapshot` and `VehiclePort` in
+  `app/src/main/java/com/tilepad/`, and `PreconditioningControllerTest` and
+  `PreconditioningProfileTest` in `app/src/test/java/com/tilepad/`.
+- The patch recipes in `tune-service/tweaks/patches/` contain hashes, offsets and short runs of
+  bytes from Hyundai's and Kia's own software, which belong to them.
+- Code based on [Cabinwright tweaks](https://github.com/cabinwright/tweaks) keeps its MIT license,
+  in `tune-service/notices/Cabinwright-MIT.txt`.
