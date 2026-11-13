@@ -31,6 +31,8 @@ public final class SelfUpdate {
     public static final File APPS = new File("/data/nemesis/apps"), PACKAGES = new File("/data/nemesis/packages.db");
     public static final String TILEPAD = "tilepad", ZIP = "tilepad.zip", SIGNATURE = "tilepad.zip.sig";
     static final String RESULT = "result.properties", SCRIPT = "install.sh";
+    /** InstallScreen writes it once its window is up; the script removes it with the rest of screen/. */
+    static final String SCREEN_SHOWN = "screen/shown";
     /** A Tilepad release zip is under a megabyte; anything near this isn't one. */
     static final long MAX_BYTES = 32L << 20;
     /** Other packages can carry big APKs (SmartTube's is 25 MB). */
@@ -412,7 +414,7 @@ public final class SelfUpdate {
     }
 
     /**
-     * update.* lines for the Tweaks screen, from the last install: update.state (installing or done),
+     * update.* lines for the Tweaks screen, from the last install: update.state (installing or done), update.screen (InstallScreen is up),
      * update.started (ms), update.items (ids, in install order), and for each id its name, version,
      * from, state (installing, installed, failed or interrupted), current (whether that version or a
      * newer one is installed now), installed (the version now, empty when none) and, on failure, the end of NEMESIS's output. A package with no
@@ -450,6 +452,8 @@ public final class SelfUpdate {
             }
         }
         out.setProperty("update.items", items); out.setProperty("update.state", any ? "installing" : "done");
+        // Tweaks covers the screen itself until the install's own window is up.
+        out.setProperty("update.screen", Boolean.toString(new File(dir, SCREEN_SHOWN).isFile()));
         out.setProperty("update.started", r.getProperty("started", ""));
         return out;
     }

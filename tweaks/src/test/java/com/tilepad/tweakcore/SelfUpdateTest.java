@@ -224,6 +224,11 @@ public class SelfUpdateTest {
         assertEquals("dashcam,tilepad", r.getProperty("update.items"));
         assertEquals("installing", r.getProperty("update.tilepad.state"));
         assertEquals("Rear Dashcam", r.getProperty("update.dashcam.name"));
+        // Tweaks keeps its own copy of the install screen up until InstallScreen says it's showing.
+        assertEquals("false", r.getProperty("update.screen"));
+        assertTrue(new File(dir, "screen").mkdirs());
+        Files.write(new File(dir, SelfUpdate.SCREEN_SHOWN), "boot-a".getBytes("UTF-8"));
+        assertEquals("true", SelfUpdate.result(dir, apps, "boot-a", 2000).getProperty("update.screen"));
         // Still unfinished long after it started this boot: the script died.
         assertEquals("interrupted", SelfUpdate.result(dir, apps, "boot-a", 1000 + SelfUpdate.INSTALL_MS).getProperty("update.tilepad.state"));
         // Restarted before the script wrote an outcome (a package's own postinstall can do that): the installed version says how far it got.

@@ -19,6 +19,7 @@ import android.view.*;
 import android.widget.*;
 import com.tilepad.tweakcore.Config;
 import com.tilepad.tweakcore.Platform;
+import com.tilepad.tweakcore.InstallScreen;
 import com.tilepad.tweakcore.SelfUpdate;
 import java.util.*;
 import java.util.concurrent.*;
@@ -55,6 +56,8 @@ public final class TweaksActivity extends Activity {
     private enum Step { NONE, CHECKING, CHECKED, DOWNLOADING, INSTALLING }
     private Step step = Step.NONE;
     private List<Updater.Offer> offers = new ArrayList<>();
+    /** The install's full-screen window, shown from here while downloading, until the root one (InstallScreen) is up. */
+    private InstallScreen.Panel installPanel;
     /** The ids ticked for install. */
     private final Set<String> chosen = new HashSet<>();
     /** What Install downloads, and which one it's on and how far. */
@@ -85,7 +88,7 @@ public final class TweaksActivity extends Activity {
         if (edits.hasWork()) flushEdits();
         super.onPause();
     }
-    @Override protected void onDestroy() { main.removeCallbacksAndMessages(null); worker.shutdown(); super.onDestroy(); }
+    @Override protected void onDestroy() { hideInstallPanel(); main.removeCallbacksAndMessages(null); worker.shutdown(); super.onDestroy(); }
     private int dp(float n) { return Math.round(n * getResources().getDisplayMetrics().density); }
     private int stockId(String type, String name) { return stock == null ? 0 : stock.getIdentifier(name, type, "com.hkmc.daudio.app.ev3"); }
     private int color(String name, int fallback) {
@@ -294,8 +297,8 @@ public final class TweaksActivity extends Activity {
         boolean installingAlready = last.equals("installing") && step == Step.NONE;
         boolean checked = !offers.isEmpty() && (step == Step.CHECKED || step == Step.DOWNLOADING || step == Step.INSTALLING);
         List<Updater.Offer> rows = checked ? offers : Updater.listed(installedVersion(), sources());
-        boolean pending = false;
-        for (Updater.Offer o : rows) pending |= checked && o.installable();
+        boolean pending = false, unchecked = false;
+        for (Updater.Offer o : rows) { pending |= checked && o.installable(); unchecked |= o.problem != null; }
         boolean idle = ready && !busy && !edits.hasWork() && !installingAlready;
         note("Installed software (linked to GitHub):", false);
         divider(controls);
@@ -315,11 +318,12 @@ public final class TweaksActivity extends Activity {
             else if (pending) left = button("Install " + picked.size() + (picked.size() == 1 ? " Update" : " Updates"), "Download and install the ticked updates, then restart the head unit", new View.OnClickListener() {
                 @Override public void onClick(View v) { confirmInstall(); }
             });
+            else if (checked && !unchecked) left = button("Up to Date", "Every package is on its latest release", null);
             else left = button("Check for Updates", "Ask GitHub for newer releases, over Wi-Fi", new View.OnClickListener() {
                 @Override public void onClick(View v) { checkForUpdates(); }
             });
         }
-        left.setTextSize(20); enable(left, !spinning && idle);
+        left.setTextSize(20); enable(left, !spinning && idle && !(checked && !pending && !unchecked));
         Button configure = button("Configure Other Software", "Link a NEMESIS package to the GitHub repository it comes from, or install one from there", new View.OnClickListener() {
             @Override public void onClick(View v) { dismissUpdates(); configureSources(); }
         });
@@ -546,16 +550,17 @@ public final class TweaksActivity extends Activity {
         if (!ready || busy || edits.hasWork() || preview) return;
         final String current = installedVersion();
         busy = true; step = Step.DOWNLOADING; installing = picked; downloading = 0; downloaded = -1; render();
+        showInstallPanel();
         worker.execute(new Runnable() { @Override public void run() {
             String problem = null; Updater.NetworkProblem offline = null;
             try {
                 List<String> args = Updater.download(TweaksActivity.this, picked, current, new Updater.Progress() {
                     @Override public void at(final int index, final int percent) {
                         if (percent >= 0 && percent % 5 != 0) return;
-                        main.post(new Runnable() { @Override public void run() { if (step == Step.DOWNLOADING) { downloading = index; downloaded = percent; render(); } } });
+                        main.post(new Runnable() { @Override public void run() { if (step == Step.DOWNLOADING) { downloading = index; downloaded = percent; render(); showInstallPanel(); } } });
                     }
                 });
-                main.post(new Runnable() { @Override public void run() { if (isFinishing() || isDestroyed()) return; step = Step.INSTALLING; controlScroll.scrollTo(0, 0); render(); } });
+                main.post(new Runnable() { @Override public void run() { if (isFinishing() || isDestroyed()) return; step = Step.INSTALLING; controlScroll.scrollTo(0, 0); render(); showInstallPanel(); } });
                 args.add(0, "self-update");
                 Backend.run(args.toArray(new String[0]));
             } catch (Updater.NetworkProblem e) { offline = e; problem = "Wi-Fi went away while downloading. Tap “Check for Updates” to try again."; }
@@ -566,17 +571,18 @@ public final class TweaksActivity extends Activity {
                 main.post(new Runnable() { @Override public void run() {
                     if (isFinishing() || isDestroyed()) return;
                     // Retrying starts with a fresh check: GitHub's addresses and checksums may have changed.
-                    busy = false; step = Step.NONE; offers = new ArrayList<>(); render();
+                    hideInstallPanel(); busy = false; step = Step.NONE; offers = new ArrayList<>(); render();
                     if (wifi != null) networkProblem(wifi);
                     else new Steps("").done("Nothing Was Installed", notice.replace("Nothing was installed. ", ""), true, null);
                 } });
                 return;
             }
             // The installs restart the head unit when any of them worked. Until then, watch for all of them failing.
-            for (int i = 0; i < 360; i++) {
-                try { Thread.sleep(5000); } catch (InterruptedException e) { return; }
+            for (int i = 0; i < 600; i++) {
+                try { Thread.sleep(3000); } catch (InterruptedException e) { return; }
                 Properties read;
                 try { read = Backend.run("settings"); } catch (Exception busyInstalling) { continue; }
+                if (Boolean.parseBoolean(read.getProperty("update.screen"))) main.post(new Runnable() { @Override public void run() { hideInstallPanel(); } });
                 if (!"done".equals(read.getProperty("update.state"))) continue;
                 boolean restarting = false;
                 for (String id : read.getProperty("update.items", "").split(",")) restarting |= "installed".equals(read.getProperty("update." + id + ".state"));
@@ -584,11 +590,40 @@ public final class TweaksActivity extends Activity {
                 final Properties loaded = read;
                 main.post(new Runnable() { @Override public void run() {
                     if (isFinishing() || isDestroyed()) return;
-                    edits.reset(loaded); busy = false; step = Step.NONE; offers = new ArrayList<>(); controlScroll.scrollTo(0, 0); render();
+                    hideInstallPanel(); edits.reset(loaded); busy = false; step = Step.NONE; offers = new ArrayList<>(); controlScroll.scrollTo(0, 0); render();
                 } });
                 return;
             }
         } });
+    }
+    /** The install screen while this app downloads: the same window InstallScreen shows once the install itself starts. */
+    private void showInstallPanel() {
+        if (installing == null || installing.isEmpty() || isFinishing() || isDestroyed()) return;
+        boolean added = installPanel != null;
+        if (!added) installPanel = new InstallScreen.Panel(this, null);
+        boolean fresh = true;
+        List<Object[]> rows = new ArrayList<>();
+        for (int i = 0; i < installing.size(); i++) {
+            Updater.Offer o = installing.get(i);
+            fresh &= o.fresh();
+            String status = "Waiting"; int color = InstallScreen.MUTED;
+            if (step == Step.DOWNLOADING && i < downloading) status = "Downloaded";
+            else if (step == Step.DOWNLOADING && i == downloading) { status = "Downloading" + (downloaded >= 0 ? " " + downloaded + "%" : "…"); color = InstallScreen.INK; }
+            rows.add(new Object[]{o.name + " " + o.version, status, color});
+        }
+        String doing = step == Step.DOWNLOADING
+            ? "Downloading " + installing.get(Math.min(downloading, installing.size() - 1)).name + InstallScreen.Panel.of(downloading, installing.size()) + ". "
+            : "Starting the install. ";
+        installPanel.show(InstallScreen.Panel.title(fresh), doing + InstallScreen.Panel.RESTART_NOTE, rows, false);
+        if (!added) {
+            try { getWindowManager().addView(installPanel.view, InstallScreen.Panel.params()); }
+            catch (RuntimeException e) { installPanel = null; }
+        }
+    }
+    private void hideInstallPanel() {
+        if (installPanel == null) return;
+        try { getWindowManager().removeView(installPanel.view); } catch (RuntimeException ignored) { }
+        installPanel = null;
     }
     /** A check or install failure, in words: the network's own exceptions say little on their own. */
     private static String failure(String action, Exception e) {
@@ -895,18 +930,16 @@ public final class TweaksActivity extends Activity {
                 if (isFinishing() || isDestroyed()) return;
                 if (loaded != null) edits.reset(loaded);
                 if (problem != null) { w.done("Couldn't Link", problem, true, null); render(); return; }
-                List<String> linked = new ArrayList<>(), installing = new ArrayList<>();
+                List<String> linked = new ArrayList<>();
                 for (Updater.Offer o : link) linked.add(o.name);
-                for (Updater.Offer o : fresh) installing.add(o.name + " " + o.version);
                 Runnable close = new Runnable() { @Override public void run() { closeSources(); } };
                 if (fresh.isEmpty()) {
                     w.done("Linked", "Linked " + join(linked) + " to " + repo + ". " + (linked.size() == 1 ? "It" : "They")
                         + " will now show in the Package Manager list and be included in update checks.", false, close);
                     return;
                 }
-                w.done("Installing", (linked.isEmpty() ? "" : "Linked " + join(linked) + ". ") + "Downloading and installing " + join(installing)
-                    + " now. When installation is complete, the screen will restart on its own. Keep the car on until then.", false, null);
-                closeSources();
+                // Straight to the install screen: it says what's downloading and installing.
+                w.dialog.dismiss(); closeSources();
                 install(fresh);
             } });
         } });
