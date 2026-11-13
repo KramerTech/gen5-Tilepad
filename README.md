@@ -15,9 +15,7 @@ to close Tilepad. A short press of ★ still does whatever Hyundai's Button sett
 ## Features
 
 - **Wi-Fi status**, on head units that have a Wi-Fi module. The tile shows the network, the IP
-  address and the signal strength. Tap it to pick a network. If the Wi-Fi radio is still in its
-  stock configuration, where it only runs as the hotspot for wireless CarPlay and Android Auto,
-  the tile offers to turn on client mode first (see below).
+  address and the signal strength. Tap it to turn Wi-Fi on or off and to pick a network.
 - **Manual battery preconditioning**, on cars that support it. One tap starts it and one tap stops
   it.
 - **Bundled Tweaks app**, opened from the permanent **Tweaks and Settings** tile beside
@@ -60,7 +58,7 @@ checked against. On other firmware the tile won't send commands.
 
 | Tile | Shows | Tap |
 | --- | --- | --- |
-| **Wi-Fi** *(only on units with a Wi-Fi module)* | Signal bars, the status (Connected, No network or Off), the network name, the IP address and the link speed. It reads *Hotspot only* while client mode is turned off. | Opens Android's Wi-Fi network picker, or offers to turn on client mode (see below). A long press shows the Wi-Fi MAC address, which you need to reserve a static IP on your router. |
+| **Wi-Fi** *(only on units with a Wi-Fi module)* | Signal bars, the status (Connected, No network or Off), the network name, the IP address and the link speed. | Opens Android's Wi-Fi settings, where you turn Wi-Fi on or off and pick a network (see below). A long press shows the Wi-Fi MAC address, which you need to reserve a static IP on your router. |
 | **Precondition** *(EVs only)* | The state (Off, Waiting, Active, Unavailable and so on), a spinner while waiting, and the elapsed time. A *Conditioning* pill (a small rounded label) appears while the car's own indicator is on. | See below. |
 | **Tweaks and Settings** | An On/Off pill, which is on when any tweak is enabled, and a count of the tweaks that are on and off. | Opens the bundled `Tweaks.apk`. Each tweak has a checkbox and a detailed explanation, and Support and Package Manager come after the tweaks. |
 | **ADB** | An On/Off pill, with the port number while ADB is on and *Port closed* while it is off. | Asks you to confirm, then turns ADB over Wi-Fi on or off (see below). |
@@ -85,19 +83,12 @@ has passed. The request keeps going after you close Tilepad.
 **Hotspot mode and client mode.** The head unit has one Wi-Fi radio, and it runs in one of two
 modes. In hotspot mode, your phone connects to the head unit for wireless CarPlay and Android
 Auto. In client mode, the head unit connects to a Wi-Fi network, such as your home network or
-your phone's hotspot. The radio can't be in both modes at once.
+your phone's hotspot. Turning Wi-Fi on switches the radio to client mode, and turning it off
+switches it back to the hotspot. The radio can't be in both modes at once, so wireless CarPlay and
+Android Auto may not connect while Wi-Fi is on.
 
-By default, stock US firmware has client mode turned off, so the radio only ever runs the hotspot.
-The same is true of wireless CarPlay and Android Auto mods that were installed without their Wi-Fi
-client option, such as HMG Leafia Plus without `LEAFIA-WIFI-CLIENT`. On those units the Wi-Fi tile
-reads *Hotspot only*, and tapping it offers to turn client mode on. Once you agree, the popup
-offers a reboot, and the tile reads *Reboot to finish* until the head unit has restarted. After
-that, tapping the tile opens the network picker.
-
-- While the head unit is connected to a Wi-Fi network, wireless CarPlay and Android Auto may not
-  connect.
-- This works alongside HMG Leafia Plus's own Wi-Fi client option, which makes the same change.
-- If Tilepad turned client mode on, uninstalling Tilepad turns it back off after the next reboot.
+The first time you tap the Wi-Fi tile, it may read *Hotspot only* and offer to set Wi-Fi up. That
+takes one reboot, and you only do it once.
 
 **ADB over Wi-Fi.** The ADB tile turns ADB over Wi-Fi on and off. Tapping it while ADB is off asks
 you to confirm, because turning ADB on has serious consequences:
@@ -117,7 +108,7 @@ you to confirm, because turning ADB on has serious consequences:
   until you turn it off. Connect from your computer with `adb connect <head-unit-ip>:5555`.
 - ADB needs the head unit on the same network as your computer. So while ADB is on, Tilepad turns
   on Wi-Fi and joins your saved network, right away and again at every boot. If the Wi-Fi tile
-  reads *Hotspot only*, turn on client mode from that tile first.
+  reads *Hotspot only*, tap it and set Wi-Fi up first.
 - Turning ADB **off** stops the head unit from listening. It leaves Wi-Fi as it is.
 - The head unit serves **one computer at a time**. While one computer is connected, another
   computer's `adb connect` hangs and shows `offline` or `unauthorized` until the first one
@@ -208,10 +199,10 @@ install with root access.
 
 Use `Tilepad-uninstall-usb.zip` the same way as the install, then restart the head unit. The
 uninstaller first undoes every tweak, putting each changed system file back exactly as it was.
-Then it removes Tilepad and its saved settings, including the Charge-Away Home location. It also
-turns ADB and Wi-Fi client mode back off if Tilepad turned them on. If a tweak can't be restored,
-the uninstaller stops before removing Tilepad's apps and backups, so the car is never left
-half-patched, and `tilepad-uninstall.log` on the drive says why.
+Then it removes Tilepad and its saved settings, including the Charge-Away Home location. If
+Tilepad turned ADB on or set Wi-Fi up, the uninstaller undoes that too. If a tweak can't be
+restored, the uninstaller stops before removing Tilepad's apps and backups, so the car is never
+left half-patched, and `tilepad-uninstall.log` on the drive says why.
 
 ## Release files
 
