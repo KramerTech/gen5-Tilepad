@@ -133,13 +133,9 @@ is the whole uninstall, and anything your change creates or changes has to be un
 
 ### On-screen text
 
-Drivers read Tilepad's text at a glance, so write it the way you'd say it out loud.
-
-- Use full, natural sentences, not clipped phrases chained with colons.
-- Name places concretely ("on the car", "in Package Manager"), never "here".
-- Write the car's own setting and button names in bold: `**Scheduled Charging**`. Put Tilepad's
-  own buttons in curly quotes when telling someone to press one: Tap “Check for Updates”.
-- Show a result in a window, not as a line of text under the buttons.
+Drivers read Tilepad's text at a glance, so write it the way you'd say it out loud: plain,
+complete sentences that make sense on their own, without abbreviations or jargon. Follow how
+the existing screens word and format things, and how they show results.
 
 ## License
 
