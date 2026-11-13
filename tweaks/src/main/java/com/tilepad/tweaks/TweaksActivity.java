@@ -68,6 +68,8 @@ public final class TweaksActivity extends Activity {
     private final SettingsEdits edits = new SettingsEdits();
     private final Runnable saveFlush = new Runnable() { @Override public void run() { flushEdits(); } };
     private int selected, bg, ink, muted, line, accent = 0xff00b5de;
+    /** A left-pane entry was just chosen: the next render scrolls it fully into view. */
+    private boolean revealSelection;
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         selected = getPreferences(0).getInt("selected", 0);
@@ -161,7 +163,7 @@ public final class TweaksActivity extends Activity {
             tab.setOnClickListener(new View.OnClickListener() { @Override public void onClick(View v) {
                 if (selected == index || savingReport || updating()) return;
                 selected = index; reportNotice = null; if (ready) error = null; getPreferences(0).edit().putInt("selected", selected).apply();
-                controlScroll.scrollTo(0, 0); helpScroll.scrollTo(0, 0); render();
+                controlScroll.scrollTo(0, 0); helpScroll.scrollTo(0, 0); revealSelection = true; render();
             } });
             rail.addView(tab, new LinearLayout.LayoutParams(-1, -2)); divider(rail);
         }
@@ -174,7 +176,13 @@ public final class TweaksActivity extends Activity {
         TextView description = text(item.help, 24, ink); description.setGravity(Gravity.TOP); description.setLineSpacing(dp(3), 1f);
         description.setPadding(dp(30), dp(24), dp(30), dp(30)); help.addView(description, new LinearLayout.LayoutParams(-1, -2));
         final ScrollView railView = railScroll, controlView = controlScroll, helpView = helpScroll;
-        railView.post(new Runnable() { @Override public void run() { railView.scrollTo(0, firstLayout ? selectedTab[0].getTop() : railY); controlView.scrollTo(0, controlY); helpView.scrollTo(0, helpY); } });
+        final boolean reveal = revealSelection; revealSelection = false;
+        railView.post(new Runnable() { @Override public void run() {
+            int y = firstLayout ? selectedTab[0].getTop() : railY;
+            // Only when an entry was just chosen, so a refresh never moves a pane being scrolled.
+            if (reveal) y = Math.max(Math.min(y, selectedTab[0].getTop()), selectedTab[0].getBottom() - railView.getHeight());
+            railView.scrollTo(0, y); controlView.scrollTo(0, controlY); helpView.scrollTo(0, helpY);
+        } });
     }
     /** The middle pane for a tweak: its checkbox, state, compatibility issue and settings. */
     private void tweak(TweakInfo item) {
