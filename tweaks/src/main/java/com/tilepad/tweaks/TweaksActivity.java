@@ -693,12 +693,8 @@ public final class TweaksActivity extends Activity {
                 list.addView(pick);
                 View rule = new View(this); rule.setBackgroundColor(line); list.addView(rule, new LinearLayout.LayoutParams(-1, dp(1)));
             }
-            ScrollView history = new ScrollView(this); history.setScrollbarFadingEnabled(false); history.addView(list);
-            // It scrolls by itself, inside the window's own scroll.
-            history.setOnTouchListener(new View.OnTouchListener() { @Override public boolean onTouch(View v, MotionEvent e) {
-                v.getParent().requestDisallowInterceptTouchEvent(true); return false;
-            } });
-            stage.addView(history, new LinearLayout.LayoutParams(-1, used.size() > 3 ? dp(61 * 3 + 30) : -2));
+            // Part of the window's own scroll, so on a short screen one drag reaches every name.
+            stage.addView(list);
         }
         next.setOnClickListener(new View.OnClickListener() { @Override public void onClick(View v) {
             String t = owner.getText().toString().trim();
