@@ -145,10 +145,13 @@ service, boot receiver, alarm receiver, or store/broker dependency.
   the same process isolates fresh charging-feedback waits from climate/DST and
   settings saves. No new Android or NEMESIS service or GPS listener is registered.
   See [Projection and Charge-Away details](#projection-and-charge-away-details).
-- The steering-wheel ★ hold: Tilepad's manifest `StarHoldReceiver` (priority 1000)
-  aborts stock's long-press broadcast and forwards it only to NEMESIS Manager. A
-  receiver registered by the longstar daemon can't do this: Android skips ordered
-  broadcasts to it ("process crashing"), since it isn't an attached app.
+- The steering-wheel ★ hold: the longstar daemon times the hold from the key device. A
+  hold makes at most three Binder calls to the mode service (read ★'s action, then
+  block it and allow it again), and only the first with ★ set to None. With None, the
+  car sends its long-press broadcast at the hold; Tilepad's manifest `StarHoldReceiver`
+  (priority 1000) aborts it and forwards it only to NEMESIS Manager. A receiver
+  registered by the longstar daemon can't do this: Android skips ordered broadcasts to
+  it ("process crashing"), since it isn't an attached app.
 - A kernel file observer reloads atomically saved configuration. Saving settings
   runs a short root command through NEMESIS; it exits when done.
 
@@ -219,12 +222,14 @@ longstar restart mid-drive doesn't repeat a step, and reset to new as soon as th
 ignition reads off. It acts only while the ignition is on, and waits for the
 climate to be on.
 
-The ★ hold: at ~800 ms the MICOM marks the press long (`flags=0x80`) and
-`ModeManagerService` sends the ordered broadcast
-`com.mobis.intent.action.SWRC_CUSTOM_SHORTCUT`. Its receivers are ButtonSettings'
-`HardKeyReceiver` (opens Button Settings), VoiceMemo, and NEMESIS Manager's
-`SetupReceiver` (press-count trigger). A short release sends the assigned action
-(here `CONNECTIVITY_SHORTCUT`) instead, which is left alone.
+The ★ hold: at ~800 ms the MICOM marks the press long (`flags=0x80`). With ★ set to
+None in Button settings, `ModeManagerService` then sends the ordered broadcast
+`com.mobis.intent.action.SWRC_CUSTOM_SHORTCUT`, and only with None. Its receivers are
+ButtonSettings' `HardKeyReceiver` (opens Button Settings), VoiceMemo, and NEMESIS
+Manager's `SetupReceiver` (press-count trigger). With ★ set to an action (here
+`CONNECTIVITY_SHORTCUT`), the car runs that action on the release instead, after a
+short press and after a hold alike. A short press is left alone; during a hold the
+longstar daemon blocks the action (see TECHNICAL.md).
 
 ## Projection and Charge-Away details
 

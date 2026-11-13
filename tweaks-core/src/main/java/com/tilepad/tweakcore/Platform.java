@@ -46,6 +46,30 @@ public final class Platform {
     public static void command(String service, String descriptor, int transaction, int... values) throws Exception {
         transact(service, descriptor, transaction, false, values);
     }
+    /** A read taking ints and returning a string, which may be null (IModeManager.getKeyAction). */
+    public static String string(String service, String descriptor, int transaction, int... args) throws Exception {
+        IBinder binder = service(service, descriptor);
+        Parcel data = Parcel.obtain(), reply = Parcel.obtain();
+        try {
+            data.writeInterfaceToken(descriptor); for (int n : args) data.writeInt(n);
+            if (!binder.transact(transaction, data, reply, 0)) throw new IOException("OEM request refused");
+            reply.readException();
+            String value = reply.readString();
+            if (reply.dataAvail() != 0) throw new IOException("Unexpected OEM reply");
+            return value;
+        } finally { data.recycle(); reply.recycle(); }
+    }
+    /** A command taking an int and a string array and returning nothing (IModeManager.disableKeyAction). */
+    public static void command(String service, String descriptor, int transaction, int value, String[] strings) throws Exception {
+        IBinder binder = service(service, descriptor);
+        Parcel data = Parcel.obtain(), reply = Parcel.obtain();
+        try {
+            data.writeInterfaceToken(descriptor); data.writeInt(value); data.writeStringArray(strings);
+            if (!binder.transact(transaction, data, reply, 0)) throw new IOException("OEM request refused");
+            reply.readException();
+            if (reply.dataAvail() != 0) throw new IOException("Unexpected OEM reply");
+        } finally { data.recycle(); reply.recycle(); }
+    }
     /** register*Listener(listener, token) taking two strong binders and returning nothing. Returns the service. */
     public static IBinder register(String service, String descriptor, int transaction, IBinder listener, IBinder token) throws Exception {
         IBinder binder = service(service, descriptor);

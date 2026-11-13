@@ -37,6 +37,7 @@ wifi_client_xml() {
     echo '</permissions>'
 }
 setprop() { echo "$1=$2" >> "$FIXTURE/props"; }
+service() { echo "$*" >> "$FIXTURE/service-calls"; echo "${SERVICE_REPLY-Result: Parcel(00000000    '....')}"; }
 DEXCACHE="$FIXTURE/dexcache"
 APP_PACKAGE=com.tilepad
 NEMESIS="$FIXTURE/nemesis"
@@ -204,7 +205,7 @@ mv() {
         self.assertEqual(0, self.run_hook("postinstall.sh").returncode)
         self.assertFalse((self.base / "restored").exists())
 
-    def usb_uninstall(self):
+    def usb_uninstall(self, **extra):
         """The real USB uninstall, lib.sh and remove.sh, with fixture paths and a drive-side runtime stand-in."""
         usb = self.base / "usb/tilepad"
         usb.mkdir(parents=True)
@@ -212,8 +213,8 @@ mv() {
         (usb / "lib.sh").write_text((ROOT / "usb/tilepad/lib.sh").read_text())
         (usb / "uninstall.sh").write_text((ROOT / "usb/tilepad/uninstall.sh").read_text())
         (usb / "remove.sh").write_text(self.remove_script())
-        (usb / "restore-tweaks.sh").write_text('echo restore > "$FIXTURE/restored"\n')
-        env = dict(os.environ, FIXTURE=str(self.base))
+        (usb / "restore-tweaks.sh").write_text('echo restore > "$FIXTURE/restored"\n[ "$RESTORE_FAIL" != 1 ]\n')
+        env = dict(os.environ, FIXTURE=str(self.base), **extra)
         return subprocess.run(["sh", str(usb / "uninstall.sh")], env=env, capture_output=True, text=True)
 
     def test_usb_uninstall_removes_everything_when_the_package_is_missing(self):
@@ -261,6 +262,61 @@ mv() {
         self.assertEqual(0, self.run_hook("preuninstall.sh").returncode)
         self.assertIn("persist.service.adb.tcp.enable=0", self.props())
         self.assertIn("ctl.stop=adbd", self.props())
+
+    STAR_UNBLOCK = "call com.hkmc.micom.mode 45 i32 5\n"
+
+    def service_calls(self):
+        path = self.base / "service-calls"
+        return path.read_text() if path.exists() else ""
+
+    def test_uninstall_allows_the_star_action_a_stopped_daemon_left_blocked(self):
+        self.write("backup/star.blocked", b"")
+        result = self.run_hook("preuninstall.sh")
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        self.assertEqual(self.STAR_UNBLOCK, self.service_calls())
+        self.assertIn("star block: the car's star action is allowed again", result.stdout)
+        self.assertFalse((self.base / "backup").exists())
+
+    def test_update_allows_the_star_action_and_changes_nothing_else(self):
+        self.write("stage/NEMESIS.data", b"update")
+        self.write("backup/star.blocked", b"")
+        self.write("backup/adb.on", b"")
+        result = self.run_hook("preuninstall.sh")
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        self.assertEqual(self.STAR_UNBLOCK, self.service_calls())
+        self.assertNotIn("remove:", result.stdout)
+        self.assertFalse((self.base / "backup/star.blocked").exists())
+        self.assertTrue((self.base / "backup/adb.on").exists())
+        self.assertTrue((self.base / "system/app/Tilepad.apk").exists())
+
+    def test_a_star_unblock_that_threw_says_so(self):
+        self.write("stage/NEMESIS.data", b"update")
+        self.write("backup/star.blocked", b"")
+        result = self.run_hook("preuninstall.sh", SERVICE_REPLY="Result: Parcel(ffffffb5 00000000 '........')")
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        self.assertIn("star block: couldn't allow the car's star action again: Result: Parcel(ffffffb5", result.stdout)
+        self.assertNotIn("is allowed again", result.stdout)
+        self.assertFalse((self.base / "backup/star.blocked").exists())
+
+    def test_usb_uninstall_allows_the_star_action_a_stopped_daemon_left_blocked(self):
+        self.write("backup/star.blocked", b"")
+        result = self.usb_uninstall()
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        self.assertEqual(self.STAR_UNBLOCK, self.service_calls())
+        self.assertFalse((self.base / "backup").exists())
+
+    def test_usb_uninstall_allows_the_star_action_even_when_the_restore_fails(self):
+        self.write("backup/star.blocked", b"")
+        self.write("state/config.properties", b"ota=true\n")
+        result = self.usb_uninstall(RESTORE_FAIL="1")
+        self.assertNotEqual(0, result.returncode, result.stdout + result.stderr)
+        self.assertEqual(self.STAR_UNBLOCK, self.service_calls())
+        self.assertFalse((self.base / "backup/star.blocked").exists())
+        self.assertTrue((self.base / "state").exists(), "the recovery files stay")
+
+    def test_uninstall_leaves_the_star_action_alone_without_a_block(self):
+        self.assertEqual(0, self.run_hook("preuninstall.sh").returncode)
+        self.assertEqual("", self.service_calls())
 
     def test_uninstall_leaves_adb_it_did_not_turn_on(self):
         self.assertEqual(0, self.run_hook("preuninstall.sh").returncode)

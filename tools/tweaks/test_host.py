@@ -22,7 +22,7 @@ def main():
     sources = [core / (n + ".java") for n in ("Config", "Files", "DstRules", "HeaterPolicy", "PatchManager", "ClimatePolicy", "VehicleLocation", "ChargeAwayPolicy", "ProjectionPolicy", "CompatReport", "Firmware", "Transaction", "OtaClient", "SelfUpdate", "ZipProbe")]
     pure_names = ("AdbSnapshot", "TweaksSnapshot", "ConnectionSnapshot", "TileSpec", "TileOrder", "TileSupport", "GridMath", "PagedGridMath", "LabelWrap", "SearchFilter", "PreconPresenter", "BatteryTemperature", "PreconditioningProfile", "PreconditioningSnapshot", "PreconditioningController", "VehiclePort")
     sources += [ROOT / "app/src/main/java/com/tilepad" / (n + ".java") for n in pure_names]
-    sources += [ROOT / "app/src/main/java/com/tilepad/longstar" / (n + ".java") for n in ("Evdev", "HoldDetector")]
+    sources += [ROOT / "app/src/main/java/com/tilepad/longstar" / (n + ".java") for n in ("Evdev", "HoldDetector", "StarHold")]
     tests = sorted((ROOT / "app/src/test/java").rglob("*Test.java")) + sorted((ROOT / "tweaks/src/test/java").rglob("*Test.java"))
     sources.append(ROOT / "tweaks/src/main/java/com/tilepad/tweaks/SettingsEdits.java")
     sources.append(ROOT / "tweaks/src/main/java/com/tilepad/tweaks/Repos.java")

@@ -1,6 +1,8 @@
 package com.tilepad.longstar;
 
+import com.tilepad.tweakcore.Platform;
 import java.io.DataInputStream;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileReader;
 import java.io.IOException;
@@ -14,30 +16,45 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Root daemon started by the NEMESIS service (svc/longstar.sh) through app_process.
- * Passively reads the head unit's key device and starts Tilepad when the steering-wheel
- * star button is held. It never grabs the device or injects events, so the stock handling
- * of every key, including the star, is unchanged.
+ * Reads the head unit's key device and starts Tilepad when the steering-wheel star button is held.
+ * It never grabs the device or injects events. A hold isn't one of the car's own star options, so
+ * during a qualifying hold it asks the car's mode service to skip the star action Button settings
+ * assign (Home, for example), which the car would otherwise run on the release and cover Tilepad
+ * with (StarHold). A short press is never touched.
  *
  * Usage: LongStarDaemon DEVICE_NAME KEY_CODE HOLD_MS COMPONENT [--device=PATH]
  */
 public final class LongStarDaemon {
-    private static final long COOLDOWN_MS = 1500;
     private static final long RETRY_MS = 3000;
+    /**
+     * Exists while this daemon has the car's star action blocked, so a daemon restarted mid-hold
+     * (or the uninstall hook) knows to allow it again, and never does so for a block it didn't make.
+     */
+    private static final File BLOCK_MARK = new File("/data/nemesis/backup/tilepad/star.blocked");
+    // IModeManager on com.hkmc.micom.mode (head-unit framework): SWRCCUSTOMKEY = 5. disableKeyAction
+    // makes ModeKeyDispatcher log "swrc Custom Key Action is blocked by app" and skip the action.
+    // Every call goes through Platform's checks: the supported vehicle files, the service's
+    // interface descriptor, the transaction and the reply.
+    private static final String MODE_SERVICE = "com.hkmc.micom.mode";
+    private static final String MODE_DESCRIPTOR = "com.hkmc.mode.IModeManager";
+    private static final int SWRC_CUSTOM_KEY = 5;
+    private static final int TX_GET_KEY_ACTION = 0x2b;
+    private static final int TX_DISABLE_KEY_ACTION = 0x2c;
+    private static final int TX_ENABLE_KEY_ACTION = 0x2d;
 
     private final String deviceName;
     private final int keyCode;
     private final String component;
     private final String deviceOverride;
-    private final HoldDetector detector;
     private final ScheduledThreadPoolExecutor timer = new ScheduledThreadPoolExecutor(1);
-    private ScheduledFuture<?> pending;
+    private final StarHold hold;
 
     private LongStarDaemon(String deviceName, int keyCode, long holdMs, String component, String deviceOverride) {
         this.deviceName = deviceName;
         this.keyCode = keyCode;
         this.component = component;
         this.deviceOverride = deviceOverride;
-        this.detector = new HoldDetector(holdMs, COOLDOWN_MS);
+        this.hold = new StarHold(new CarHost(), holdMs);
     }
 
     public static void main(String[] args) {
@@ -49,15 +66,21 @@ public final class LongStarDaemon {
         for (int i = 4; i < args.length; i++) {
             if (args[i].startsWith("--device=")) override = args[i].substring(9);
         }
-        // Shared listeners live in this process, alongside the passive key reader.
-        // Test input streams do not bootstrap Android or touch tweak configuration.
-        if (override == null) com.tilepad.tweakcore.TweaksRuntime.start();
+        // Shared listeners live in this process, alongside the key reader. Test input streams do
+        // not bootstrap Android, touch tweak configuration or the car's star action.
+        if (override == null) {
+            com.tilepad.tweakcore.TweaksRuntime.start();
+            checkFirmware();
+        }
         new LongStarDaemon(args[0], Integer.parseInt(args[1]), Long.parseLong(args[2]), args[3], override).run();
     }
 
     private void run() {
-        log("start device=\"" + deviceName + "\" code=" + keyCode + " hold=" + detector.holdMs()
+        log("start device=\"" + deviceName + "\" code=" + keyCode + " hold=" + hold.holdMs()
             + "ms target=" + component);
+        // A restart mid-hold must never leave the car's star action blocked. Only a block this
+        // daemon made (its mark is there) is undone at start.
+        if (deviceOverride == null) hold.start();
         String lastProblem = null;
         while (true) {
             String path = null;
@@ -76,13 +99,28 @@ public final class LongStarDaemon {
                 }
                 throw new IOException("end of stream");
             } catch (IOException e) {
-                synchronized (this) { cancelPending(); detector.reset(); }
+                hold.deviceLost();
                 String problem = (path == null ? "" : path + ": ") + e.getMessage();
                 if (!problem.equals(lastProblem)) log("waiting: " + problem);  // don't spam the log
                 lastProblem = problem;
                 sleep(RETRY_MS);
             }
         }
+    }
+
+    /**
+     * Checks the vehicle files now, in the background, rather than at the first hold, whose mode
+     * service calls need them; says so if this firmware's star action can't be blocked.
+     */
+    private static void checkFirmware() {
+        Thread t = new Thread(new Runnable() {
+            @Override public void run() {
+                try { Platform.requireVehicle(); }
+                catch (Exception e) { log("hold: the car's star action can't be blocked on this firmware, so Tilepad opens after the release: " + e.getMessage()); }
+            }
+        }, "tilepad-star-check");
+        t.setDaemon(true);
+        t.start();
     }
 
     private String locate() throws IOException {
@@ -106,7 +144,7 @@ public final class LongStarDaemon {
                     return;
                 }
                 if (Evdev.type(ev, 0) == Evdev.EV_KEY && Evdev.code(ev, 0) == keyCode) {
-                    onKey(Evdev.value(ev, 0));
+                    hold.onKey(Evdev.value(ev, 0));
                 }
             }
         } finally {
@@ -114,31 +152,41 @@ public final class LongStarDaemon {
         }
     }
 
-    private synchronized void onKey(int value) {
-        int action = detector.onKey(value, now());
-        if (action == HoldDetector.ARM) {
-            cancelPending();
-            final int generation = detector.generation();
-            pending = timer.schedule(new Runnable() {
-                @Override public void run() { onTimer(generation); }
-            }, detector.holdMs(), TimeUnit.MILLISECONDS);
-        } else if (action == HoldDetector.DISARM) {
-            cancelPending();
+    /** The car side of StarHold: the mode service through Platform, the timer, the mark and Tilepad. */
+    private final class CarHost implements StarHold.Host {
+        @Override public String action() throws Exception {
+            if (deviceOverride != null) throw new IOException("test input");
+            return Platform.string(MODE_SERVICE, MODE_DESCRIPTOR, TX_GET_KEY_ACTION, SWRC_CUSTOM_KEY);
         }
-    }
-
-    private void onTimer(int generation) {
-        synchronized (this) {
-            if (!detector.onTimer(generation, now())) return;
+        @Override public void disable(String[] actions) throws Exception {
+            Platform.command(MODE_SERVICE, MODE_DESCRIPTOR, TX_DISABLE_KEY_ACTION, SWRC_CUSTOM_KEY, actions);
         }
-        launch();
-    }
-
-    private void cancelPending() {
-        if (pending != null) {
-            pending.cancel(false);
-            pending = null;
+        @Override public void enable() throws Exception {
+            Platform.command(MODE_SERVICE, MODE_DESCRIPTOR, TX_ENABLE_KEY_ACTION, SWRC_CUSTOM_KEY);
         }
+        @Override public StarHold.Task after(long ms, Runnable r) {
+            final ScheduledFuture<?> task = timer.schedule(r, ms, TimeUnit.MILLISECONDS);
+            return new StarHold.Task() {
+                @Override public void cancel() { task.cancel(false); }
+            };
+        }
+        @Override public boolean marked() { return BLOCK_MARK.exists(); }
+        @Override public void mark(boolean blocked) {
+            if (!blocked) {
+                if (BLOCK_MARK.exists() && !BLOCK_MARK.delete()) log("couldn't remove " + BLOCK_MARK);
+                return;
+            }
+            try {
+                File dir = BLOCK_MARK.getParentFile();
+                if (dir != null) dir.mkdirs();
+                if (!BLOCK_MARK.exists() && !BLOCK_MARK.createNewFile()) log("couldn't create " + BLOCK_MARK);
+            } catch (IOException e) {
+                log("couldn't create " + BLOCK_MARK + ": " + e.getMessage());
+            }
+        }
+        @Override public void open() { launch(); }
+        @Override public long now() { return LongStarDaemon.now(); }
+        @Override public void log(String line) { LongStarDaemon.log(line); }
     }
 
     private void launch() {
