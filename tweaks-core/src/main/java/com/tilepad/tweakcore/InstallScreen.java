@@ -41,7 +41,8 @@ public final class InstallScreen {
         Looper.loop();
     }
     private InstallScreen(Context context, File dir) throws Exception {
-        this.context = context; this.dir = dir; boot = Platform.boot();
+        // The same theme, and so the same spinner, as Tweaks; the system context's default theme draws Hyundai's.
+        this.context = new ContextThemeWrapper(context, android.R.style.Theme_Holo_NoActionBar); this.dir = dir; boot = Platform.boot();
         windows = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
     }
 
@@ -53,7 +54,7 @@ public final class InstallScreen {
         root.setBackgroundColor(BG);
         LinearLayout column = new LinearLayout(context); column.setOrientation(LinearLayout.VERTICAL);
         column.setGravity(Gravity.CENTER_HORIZONTAL);
-        spinner = new ProgressBar(context, null, android.R.attr.progressBarStyleLarge);
+        spinner = new ProgressBar(this.context); spinner.setIndeterminate(true);
         column.addView(spinner, new LinearLayout.LayoutParams(dp(64), dp(64)));
         title = text(34, INK); title.setGravity(Gravity.CENTER_HORIZONTAL); title.setPadding(0, dp(22), 0, dp(10)); column.addView(title);
         body = text(22, MUTED); body.setGravity(Gravity.CENTER_HORIZONTAL); body.setLineSpacing(dp(3), 1f); column.addView(body);
