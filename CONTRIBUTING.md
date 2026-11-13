@@ -79,7 +79,7 @@ useful it is.
 
 ### Leave nothing behind
 
-Uninstalling Tilepad has to put the car back exactly the way it was. `tune-service/scripts/remove.sh`
+Uninstalling Tilepad has to put the car back exactly the way it was. `nemesis-package/scripts/remove.sh`
 is the whole uninstall, and anything your change creates or changes has to be undone there:
 
 - Before changing a system file, keep a verified backup of the stock file, and restore from that

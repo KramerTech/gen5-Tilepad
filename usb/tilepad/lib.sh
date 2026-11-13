@@ -1,6 +1,6 @@
 # Shared by the USB install/update/uninstall scripts. NEMESIS runs them as
 # `/system/bin/sh <USB>/tilepad/<action>.sh` (root, cwd = USB root).
-# common.sh is a copy of tune-service/scripts/common.sh added by the bundle builder.
+# common.sh is a copy of nemesis-package/scripts/common.sh added by the bundle builder.
 LIBDIR=${0%/*}
 . "$LIBDIR/common.sh"
 USBROOT=${LIBDIR%/*}

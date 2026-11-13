@@ -188,7 +188,7 @@ if __name__ == "__main__":
     parser.add_argument("firmware", type=Path, help="A captured /system, or a compatibility log's system/ folder")
     parser.add_argument("release", choices=sorted(RELEASES), help="Which release it is (names the recipes)")
     parser.add_argument("--compat-log", type=Path, help="tilepad-compat.txt, for APK hashes the folder lacks")
-    parser.add_argument("--out", type=Path, default=ROOT / "tune-service/tweaks/patches")
+    parser.add_argument("--out", type=Path, default=ROOT / "nemesis-package/tweaks/patches")
     args = parser.parse_args()
     hashes = {}
     if args.compat_log:

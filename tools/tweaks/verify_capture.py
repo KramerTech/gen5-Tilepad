@@ -15,7 +15,7 @@ def main():
     parser.add_argument("--release", default="v015", help="Which release the capture is (default v015, the IONIQ 5 capture)")
     parser.add_argument("--baksmali", type=Path, default=Path.home() / ".local/share/smali/baksmali-2.5.2.jar")
     args = parser.parse_args()
-    recipes = ROOT / "tune-service/tweaks/patches"
+    recipes = ROOT / "nemesis-package/tweaks/patches"
     with tempfile.TemporaryDirectory(prefix="tilepad-recipes-") as directory:
         generated = Path(directory)
         subprocess.run([sys.executable, str(ROOT / "tools/tweaks/firmware_patches.py"), str(args.firmware), args.release, "--out", str(generated)], check=True)

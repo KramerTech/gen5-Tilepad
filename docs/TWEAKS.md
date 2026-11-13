@@ -663,7 +663,7 @@ theme behavior; it does not reproduce the full OEM window manager or actuators.
 ## Sources and attribution
 
 - [Cabinwright tweaks](https://github.com/cabinwright/tweaks): consent and handle
-  patch research; MIT notice shipped in `tune-service/notices/Cabinwright-MIT.txt`.
+  patch research; MIT notice shipped in `nemesis-package/notices/Cabinwright-MIT.txt`.
 - Local `gen5-disable-nav-overlay` research: verified handle controller branches.
 - [Auto-DST-Gen5W](https://github.com/ntwm787/Auto-DST-Gen5W): OEM clock-service
   behavior reference; this implementation replaces its periodic shell loop with

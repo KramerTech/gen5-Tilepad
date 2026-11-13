@@ -22,7 +22,7 @@ set -- $(classes "$REFS") $(classes "$NEWS")
 REF_RIGHT=$1 REF_OSD=$2 NEW_RIGHT=$3 NEW_OSD=$4
 for side in ref new; do
     if [ $side = ref ]; then sys=$REF suffix=$REFS right=$REF_RIGHT osd=$REF_OSD; else sys=$NEW suffix=$NEWS right=$NEW_RIGHT osd=$NEW_OSD; fi
-    java -cp "$CLASSES:$WORK/classes" PatchCheck "$sys" tune-service/tweaks/patches "$WORK/patched-$side" \
+    java -cp "$CLASSES:$WORK/classes" PatchCheck "$sys" nemesis-package/tweaks/patches "$WORK/patched-$side" \
         "consent-$suffix.properties" "right-$suffix.properties"
     java -jar "$BJ" d -a 18 --allow-odex-opcodes --classes "$right,$osd" \
         -o "$WORK/dis-$side/RightScreenHome" "$WORK/patched-$side/RightScreenHome.odex" 2>/dev/null

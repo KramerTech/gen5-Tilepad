@@ -32,7 +32,7 @@ for name, body in re.findall(r'new Release\("([^"]+)",(.*?)\)', firmware, re.S):
     for field, h in zip(fields, hashes):
         known.setdefault(h, []).append(f"Firmware {name} {field}")
 recipes = {}
-for path in sorted((repo / "tune-service/tweaks/patches").glob("*.properties")):
+for path in sorted((repo / "nemesis-package/tweaks/patches").glob("*.properties")):
     props = dict(l.split("=", 1) for l in path.read_text().splitlines() if "=" in l and not l.startswith("#"))
     if "stockSha256" in props:
         recipes[path.name] = props

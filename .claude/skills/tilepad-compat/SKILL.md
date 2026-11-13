@@ -97,7 +97,7 @@ are OEM code: never commit them.
 7. **Edit the repo.**
    - `Firmware.java`: a `new Release("<Brand> <REGION> <release>", automotive, automotive-service,
      framework, framework2, HKMC_TAppEV3.apk)` entry with hashes from the log.
-   - Copy the two new recipes into `tune-service/tweaks/patches/`.
+   - Copy the two new recipes into `nemesis-package/tweaks/patches/`.
    - `FirmwareTest`: add an assertion that a mixed pair is refused.
    - `docs/TWEAKS.md`: a row in the supported-images table and a short evidence paragraph next to the
      V016 and Kia ones.
@@ -110,7 +110,7 @@ are OEM code: never commit them.
 9. **Release** (only when asked):
    - Commit the change.
    - Bump `versionCode`/`versionName` in `app/build.gradle.kts` and `tweaks/build.gradle.kts`, and
-     `package-version` in `tune-service/NEMESIS.data`, and commit that as `Release X.Y.Z`.
+     `package-version` in `nemesis-package/NEMESIS.data`, and commit that as `Release X.Y.Z`.
    - Tag with an annotated, short changelog. The tag message is the whole release notes: a subject
      line, then `- Added:` / `- Fixed:` bullets in plain words. No install steps; the README has them.
    - `git push origin main vX.Y.Z`, then confirm with `gh run list` and `gh release view vX.Y.Z`.

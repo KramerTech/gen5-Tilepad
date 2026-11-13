@@ -251,7 +251,7 @@ These parts aren't Tilepad's to license, and aren't covered:
   `PreconditioningService`, `PreconditioningSnapshot` and `VehiclePort` in
   `app/src/main/java/com/tilepad/`, and `PreconditioningControllerTest` and
   `PreconditioningProfileTest` in `app/src/test/java/com/tilepad/`.
-- The patch recipes in `tune-service/tweaks/patches/` contain hashes, offsets and short runs of
+- The patch recipes in `nemesis-package/tweaks/patches/` contain hashes, offsets and short runs of
   bytes from Hyundai's and Kia's own software, which belong to them.
 - Code based on [Cabinwright tweaks](https://github.com/cabinwright/tweaks) keeps its MIT license,
-  in `tune-service/notices/Cabinwright-MIT.txt`.
+  in `nemesis-package/notices/Cabinwright-MIT.txt`.

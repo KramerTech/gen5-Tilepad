@@ -75,9 +75,9 @@ def main():
         shutil.rmtree(stage)
     package = stage / "package"
     package.mkdir(parents=True)
-    for path in sorted((ROOT / "tune-service").rglob("*")):
+    for path in sorted((ROOT / "nemesis-package").rglob("*")):
         if path.is_file():
-            target = package / path.relative_to(ROOT / "tune-service")
+            target = package / path.relative_to(ROOT / "nemesis-package")
             target.parent.mkdir(parents=True, exist_ok=True)
             copy_lf(path, target)
     (package / "app").mkdir()
@@ -94,16 +94,16 @@ def main():
         usb = stage / action
         scripts = usb / "tilepad"
         scripts.mkdir(parents=True)
-        copy_lf(ROOT / "tune-service/scripts/common.sh", scripts / "common.sh")
+        copy_lf(ROOT / "nemesis-package/scripts/common.sh", scripts / "common.sh")
         copy_lf(ROOT / "usb/tilepad/lib.sh", scripts / "lib.sh")
         copy_lf(ROOT / f"usb/tilepad/{action}.sh", scripts / f"{action}.sh")
         if action == "uninstall":
             copy_lf(ROOT / "usb/tilepad/restore-tweaks.sh", scripts / "restore-tweaks.sh")
-            copy_lf(ROOT / "tune-service/scripts/remove.sh", scripts / "remove.sh")
+            copy_lf(ROOT / "nemesis-package/scripts/remove.sh", scripts / "remove.sh")
             recovery = scripts / "recovery"
             recovery.mkdir()
             shutil.copy2(apk, recovery / "Tilepad.apk")
-            shutil.copytree(ROOT / "tune-service/tweaks/patches", recovery / "patches")
+            shutil.copytree(ROOT / "nemesis-package/tweaks/patches", recovery / "patches")
         if action != "uninstall":
             (usb / "packages").mkdir()
             shutil.copy2(package_zip, usb / f"packages/{PACKAGE_ID}.zip")

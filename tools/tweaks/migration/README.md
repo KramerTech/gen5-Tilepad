@@ -38,7 +38,7 @@ javac --release 8 -cp build/tweaks-host-tests -d build/nav-migration/classes \
 # Use a NEW scratch directory for each run; the check intentionally retains state.
 java -cp build/nav-migration/classes:build/tweaks-host-tests \
   com.tilepad.migration.MigrationCheck /path/to/captured/system \
-  build/nav-migration/new-check tune-service/tweaks/patches
+  build/nav-migration/new-check nemesis-package/tweaks/patches
 java -Xmx64m -cp build/nav-migration/classes:build/tweaks-host-tests \
   com.tilepad.migration.HashCheck /path/to/captured/system/app/RightScreenHome.apk \
   d1af15e34c71f06b8689c8bfc2e422d017a5ab12ffd9ac478dc1fc4dde5dd391

@@ -74,12 +74,12 @@ mv() {
 
     def remove_script(self):
         """The real remove.sh with /system under the fixture."""
-        source = (ROOT / "tune-service/scripts/remove.sh").read_text()
+        source = (ROOT / "nemesis-package/scripts/remove.sh").read_text()
         return source.replace("/system/", str(self.base / "system") + "/")
 
     def run_hook(self, name, parent=None, **extra):
         """Runs a hook, directly or (parent) as a child of a stand-in `nemesis <parent...>` process."""
-        source = (ROOT / "tune-service/scripts" / name).read_text()
+        source = (ROOT / "nemesis-package/scripts" / name).read_text()
         source = source.replace(". /data/nemesis/apps/tilepad/scripts/common.sh", '. "$FIXTURE/common.sh"')
         source = source.replace(". /data/nemesis/apps/tilepad/scripts/remove.sh", '. "$FIXTURE/remove.sh"')
         source = source.replace("/system/app/", str(self.base / "system/app") + "/")
@@ -98,12 +98,12 @@ mv() {
         """The real preinstall and common.sh, with car paths under the fixture and a stand-in NEMESIS."""
         stage = self.base / "pre"
         (stage / "scripts").mkdir(parents=True, exist_ok=True)
-        common = (ROOT / "tune-service/scripts/common.sh").read_text()
+        common = (ROOT / "nemesis-package/scripts/common.sh").read_text()
         for car in ("/data/hmgapi/", "/system/bin/", "/system/app/", "/data/nemesis/apps/"):
             common = common.replace(car, str(self.base) + car)
         common += '\nexport PATH="$HOST_PATH"\nNEMESIS="$FIXTURE/nemesis"\n'
         (stage / "scripts/common.sh").write_text(common)
-        (stage / "scripts/preinstall.sh").write_text((ROOT / "tune-service/scripts/preinstall.sh").read_text())
+        (stage / "scripts/preinstall.sh").write_text((ROOT / "nemesis-package/scripts/preinstall.sh").read_text())
         nemesis = self.base / "nemesis"
         nemesis.write_text('#!/bin/sh\n[ "$1" = pkg-list ] && for id in $REGISTERED; do echo "$id|Name|0|application|1.0|x"; done\n')
         nemesis.chmod(0o755)
