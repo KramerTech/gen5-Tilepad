@@ -538,6 +538,14 @@ file, or its stock backup once patched. A file no recipe matches is reported as 
   and `FORCE_SHOW_CONSENTSCREEN` (`T(4)`) follows a software update. Releases up to 1.1.8 also
   replaced `T(I)`'s entry, which left no way to switch drivers (issue #14); updating rewrites
   the file through the postinstall reconcile (below).
+  That agreement goes out as SystemUI starts, which is before the HKMC services that act on it
+  register for it (they do in `HkmcSystemServer.systemReady`, later in system_server's boot):
+  `ThemeScheduleService` never activates, so the screen stays in day mode at night, and
+  `DisplaySettingFwService`, `BluelightService`, `ModeManagerService` and `LockScreenService` miss
+  it too. So while the patch is in effect (`applied.consent` and `sys.boot.confirm_screen=true`),
+  the runtime sends `AGREE_USER_LICENSE` again 10 s after `sys.boot_completed`, once per boot
+  (`agreement-boot` holds the boot id), as pressing Confirm would. Up to 1.1.8, the replaced
+  `T(I)` sent it again whenever the system asked for the brief later, which hid this.
 - Navigation handle: the two previously researched branches in
   `k.r.f(ZZ)Z`, byte-identical to the existing local patch when enabled alone.
 - Pop-over: `k.r.canShowSSOsd(ZZZ)Z` returns false; shared `r.i.d(IIZ)V` and

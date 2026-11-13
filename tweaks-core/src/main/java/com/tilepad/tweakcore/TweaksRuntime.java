@@ -32,6 +32,8 @@ public final class TweaksRuntime {
         reload.run();
     } };
     private final Runnable dst = new Runnable() { @Override public void run() { syncDst(); } };
+    private final Runnable agreement = new Runnable() { @Override public void run() { resendAgreement(); } };
+    private boolean bootSettled;
     private final Runnable reload = new Runnable() { @Override public void run() { handler.removeCallbacks(dst); dstFailures = 0; syncDst(); } };
     private TweaksRuntime() { }
     public static void start() {
@@ -82,6 +84,7 @@ public final class TweaksRuntime {
         }
         Files.store(new File(Platform.STATE, "runtime.properties"), live);
         Platform.status("runtime", "Listening in Tilepad's key-listener process; no separate tweaks service.");
+        if (Boolean.parseBoolean(live.getProperty("applied.consent"))) handler.post(agreement);
         syncDst();
         beginHeaters();
         climate = new ClimateController(handler);
@@ -91,6 +94,28 @@ public final class TweaksRuntime {
         chargeAway = new ChargeAwayController(context);
         projection.configure(config.enabled("projection")); chargeAway.configure(config);
         Looper.loop();
+    }
+    /**
+     * Skip Startup Safety Brief's patch sends the brief's agreement (AGREE_USER_LICENSE) as SystemUI
+     * starts, before the HKMC services that act on it have registered for it: they start later in
+     * system_server's boot (HkmcSystemServer.systemReady). Without it the day/night theme schedule
+     * stays off (ThemeScheduleService) and the driver's display settings aren't applied, so the
+     * screen stays in day mode at night. Once startup has finished, send it again, once per boot,
+     * as pressing Confirm would.
+     */
+    private void resendAgreement() {
+        try {
+            if (!"1".equals(Platform.property("sys.boot_completed"))) { handler.postDelayed(agreement, 2000); return; }
+            // A margin past boot_completed for the HKMC services' own startup.
+            if (!bootSettled) { bootSettled = true; handler.postDelayed(agreement, 10000); return; }
+            // Set by the patched agreement path: the brief really was skipped this boot.
+            if (!"true".equals(Platform.property("sys.boot.confirm_screen"))) return;
+            File sent = new File(Platform.STATE, "agreement-boot");
+            String boot = Platform.boot();
+            if (sent.isFile() && boot.equals(new String(Files.read(sent), "UTF-8").trim())) return;
+            Platform.exec("am", "broadcast", "-a", "com.hkmc.intent.action.AGREE_USER_LICENSE");
+            Files.write(sent, boot.getBytes("UTF-8"));
+        } catch (Exception e) { Platform.status("consent", "Could not repeat the startup agreement: " + e.getMessage()); }
     }
     private void registerRootReceiver(BroadcastReceiver receiver, IntentFilter filter) throws Exception {
         // app_process is not attached to ActivityManager as an ordinary app.
