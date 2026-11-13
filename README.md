@@ -17,13 +17,17 @@ A short ★ press still runs whatever Hyundai's Button settings assign to it.
   On a unit whose Wi-Fi only runs the CarPlay/Android Auto hotspot, tap to turn on the Wi-Fi client.
 - **Manual battery preconditioning** (if available on the vehicle): one-tap start and stop.
 - **Bundled Tweaks app**: automatic DST, startup-brief bypass, configurable cold-boot
-  heaters, track-button swap, independent right-handle/pop-over suppression, and
+  heaters, track-button swap, hiding the right-hand nav handle (which also keeps Split Screen
+  off) and the right-hand pop-over, and
   climate tweaks: Maintain Climate Sync (passenger and driver temperatures move together) and
   Automatic Driver Only (Driver Only at start, Sync once the passenger buckles up).
   Auto-Open Phone Projection opens AA/CarPlay when available; Charge-Away switches
   Scheduled Charging off away from Home and back on at Home, preserving off-peak settings.
   Disable OTA Client stops the head unit's OTA checks and downloads.
   A permanent Tweaks and Settings tile sits beside Precondition. All eleven tweaks start off.
+- **Package Manager** (in Tweaks and Settings): updates Tilepad over Wi-Fi, and installs and
+  updates other NEMESIS packages straight from their GitHub releases.
+- **Support** (in Tweaks and Settings): saves a log to a USB drive for reporting a problem.
 - **ADB toggle**: turn ADB over Wi-Fi on and off. While it's on, any computer on the network can connect without approving a key. Turning it on also turns on Wi-Fi (so wireless CarPlay/Android Auto are off).
 - **Nemesis Manager** shortcut.
 - **Reboot Head Unit**, with confirmation.
@@ -40,7 +44,7 @@ the firmware versions it has been checked against; on other firmware the tile wo
 | --- | --- | --- |
 | **Wi-Fi** *(Wi-Fi module only)* | signal bars, Connected / No network / Off, network name, IP, link speed. *Hotspot only* when the client is off | Android's Wi-Fi network picker, or *turn on Wi-Fi* (see below). Long-press: the Wi-Fi MAC address, for a static IP reservation |
 | **Precondition** *(EVs only)* | Off / Waiting / Active / Unavailable…, spinner while waiting, elapsed time, a *Conditioning* pill while the car's own indicator is on | see below |
-| **Tweaks and Settings** | On/Off pill (on when any tweak is enabled); how many are enabled and how many are off | opens the bundled `Tweaks.apk`; each feature has a checkbox and detailed explanation |
+| **Tweaks and Settings** | On/Off pill (on when any tweak is enabled); how many are enabled and how many are off | opens the bundled `Tweaks.apk`; each tweak has a checkbox and a detailed explanation, followed by Support and Package Manager |
 | **ADB** | On/Off pill; the port while on, *Port closed* while off | asks to confirm, then turns ADB over Wi-Fi on or off (see below) |
 | **Nemesis Manager** | | NEMESIS Manager (dimmed if it's not installed) |
 | **Reboot Head Unit** | | asks to confirm, then hard-reboots the head unit (`nemesis root -c reboot`) |
@@ -124,20 +128,43 @@ The TUNE knob also works: turn it to move the highlight and press it to open the
    **Yes** on the NEMESIS prompt. Wait for the result dialog.
 4. Reboot the head unit (pinhole button), remove the drive, and hold ★ on the steering wheel.
 
-The installer writes `tilepad-install.log` to the drive. **Update** works the same way with
-`Tilepad-update-usb.zip` and keeps your tiles and tweak settings. From 1.2.0 on, Tilepad can also
-update itself: connect the head unit to Wi-Fi (a phone hotspot works), open **Tweaks and Settings** → **Package Manager**
-and tap **Check for Updates**. It lists Tilepad and each linked package with its version. It only uses Wi-Fi, never the car's built-in modem, installs only a release
-signed with Tilepad's key, and restarts the head unit when installation is complete, so do it while parked. While it installs, a full-screen window shows each package's progress until the restart. Under
-**Configure Other Software** you can link other NEMESIS packages you've installed to the
-GitHub repositories they come from, and the same check updates them too, straight from their
-developers' releases, even packages that aren't in the NEMESIS Package Store. A package in that
-repository that isn't installed yet can be installed from there too. Package Manager only manages
-Tilepad and the packages linked there: a package you installed from NEMESIS Manager and didn't link
-keeps updating through NEMESIS Manager. The bin beside a linked package uninstalls it, or only unlinks
-it. **Uninstall** uses
-`Tilepad-uninstall-usb.zip`: it undoes any tweaks first, then removes Tilepad and its saved
-settings (including the Charge-Away Home location).
+The installer writes `tilepad-install.log` to the drive. If the install is refused or fails, that
+log says why.
+
+## Update
+
+Updates keep your tiles, tweak settings and ADB state. There are three ways to update:
+
+- **Package Manager, over Wi-Fi** (Tilepad 1.2.0 and later). Connect the head unit to Wi-Fi (a
+  phone hotspot works), open **Tweaks and Settings** → **Package Manager** and tap **Check for
+  Updates**. If there's an update, tick it and tap **Install**. A full-screen window shows the
+  download and install, and the head unit restarts on its own when installation is complete, so do
+  it while parked. It only uses Wi-Fi, never the car's built-in modem, and only installs a release
+  signed with Tilepad's key.
+- **USB** (any version, and the only way up from 1.1.9 or older). Use `Tilepad-update-usb.zip`
+  exactly like the install above, then restart the head unit.
+- **ADB.** `adb push tilepad.zip /data/local/tmp/`, then on the head unit run
+  `/system/xbin/nemesis install --update /data/local/tmp/tilepad.zip`, then restart the head unit.
+
+**Other NEMESIS packages.** Package Manager can also install and update other NEMESIS packages
+straight from their developers' GitHub releases, including ones that aren't in the NEMESIS Package
+Store. Under **Configure Other Software**, link a package to the GitHub repository it comes from:
+one that's already on the car is only linked, and one that isn't gets installed. **Check for
+Updates** then covers it along with Tilepad. Package Manager only manages Tilepad and the packages
+linked there, so a package you installed from NEMESIS Manager and didn't link keeps updating
+through NEMESIS Manager. The bin beside a linked package uninstalls it, or only unlinks it. Only
+link repositories you trust: their releases install with root access.
+
+## Uninstall
+
+Use `Tilepad-uninstall-usb.zip` the same way as the install, then restart the head unit. It undoes
+every tweak first, putting each changed system file back exactly as it was, then removes Tilepad
+and its saved settings (including the Charge-Away Home location). It also turns ADB and the Wi-Fi
+client back off if Tilepad turned them on. If a tweak can't be restored, it stops before removing
+Tilepad's apps and backups, so the car is never left half-patched, and `tilepad-uninstall.log` on
+the drive says why.
+
+## Release files
 
 | Release file | Use |
 | --- | --- |
@@ -177,9 +204,24 @@ messages are left out.
 
 ## Troubleshooting
 
-- Holding ★ does nothing: check NEMESIS Manager → Services → `tilepad/longstar`.
-- Anything else: NEMESIS Manager → Logs → Copy to USB, or `adb logcat | grep -i tilepad` with ADB
-  on, and attach it to an [issue](https://github.com/KramerTech/gen5-Tilepad/issues).
+- **Holding ★ does nothing:** check NEMESIS Manager → Services → `tilepad/longstar`.
+- **A tweak's change hasn't happened yet:** the tweaks that change system files take effect at the
+  next head-unit restart. The line under the checkbox says when a change is still waiting for one.
+- **A tweak is unavailable:** your firmware isn't supported yet, or another mod has already changed
+  the same file. Select the tweak to see which. For unsupported firmware, submit a compatibility
+  report (above). For another mod, turn off its matching patch first.
+- **Check for Updates fails:** it needs Wi-Fi with internet access, and the head unit's clock has
+  to be set before GitHub's certificate can be checked. The message in Package Manager says which.
+- **The install window says “Restart Needed”:** the updates installed but the head unit didn't
+  restart on its own. Tap “Close”, then turn the car off and on again.
+- **The install window says “Nothing Was Installed”:** tap “Close”, then open Package Manager to
+  see what went wrong with each package.
+- **A USB install, update or uninstall fails:** read the `tilepad-install.log`,
+  `tilepad-update.log` or `tilepad-uninstall.log` it wrote to the drive. NEMESIS's own log is in
+  NEMESIS Manager → Logs → Copy to USB.
+- **Anything else:** save a support log (Tweaks and Settings → Support → **Save Log to USB**) and
+  open a [problem report](https://github.com/KramerTech/gen5-Tilepad/issues/new?template=problem.md),
+  as described above.
 
 ## More
 
