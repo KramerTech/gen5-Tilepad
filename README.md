@@ -29,7 +29,8 @@ is the one set to HOME); the same goes for its action.
     your region.
   - **Skip Startup Safety Brief** goes straight past the confirmation screen when the head unit
     starts.
-  - **Automatic Heaters** turns on the heaters you choose when you turn the car on in the cold.
+  - **Automatic Heaters** turns on the heaters you choose when you turn the car on in the cold,
+    and can cool ventilated seats in warm weather.
   - **Swap Steering-Wheel Track Buttons** makes the up button select the next track and the down
     button the previous one.
   - **Hide Right-Hand Nav Handle** hides the handle at the right edge of most screens, and also

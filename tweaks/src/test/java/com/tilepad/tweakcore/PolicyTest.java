@@ -9,8 +9,10 @@ public class PolicyTest {
     private static long utc(String date) throws Exception { SimpleDateFormat f = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US); f.setTimeZone(TimeZone.getTimeZone("UTC")); return f.parse(date).getTime(); }
     @Test public void everyTweakDefaultsOffAndOptionsAreValidated() {
         Config c = new Config(new Properties()); for (String id : Config.IDS) assertFalse(c.enabled(id));
-        assertEquals(100, c.number("threshold")); assertEquals("us", c.get("region"));
-        for (String[] pair : new String[][]{{"threshold", "601"}, {"driverLevel", "0"}, {"region", "$(reboot)"}, {"dst", "1"}, {"path", "/system"}}) {
+        assertEquals(100, c.number("threshold")); assertEquals(270, c.number("coolLow"));
+        assertEquals(300, c.number("coolMed")); assertEquals(320, c.number("coolHigh"));
+        assertFalse(c.checked("cooling")); assertEquals("us", c.get("region"));
+        for (String[] pair : new String[][]{{"threshold", "601"}, {"coolLow", "-401"}, {"coolMed", "601"}, {"coolHigh", "601"}, {"cooling", "1"}, {"driverLevel", "0"}, {"region", "$(reboot)"}, {"dst", "1"}, {"path", "/system"}}) {
             try { c.set(pair[0], pair[1]); fail("Accepted invalid config"); } catch (IllegalArgumentException expected) { }
         }
     }
@@ -50,7 +52,30 @@ public class PolicyTest {
         assertTrue(HeaterPolicy.cold(9.99, 100)); assertTrue(HeaterPolicy.cold(10.0, 100));
         assertFalse(HeaterPolicy.cold(10.01, 100));
     }
-    @Test public void seatLevelsMapToActuatorEnums() { assertEquals(6, HeaterPolicy.seatRequest(1)); assertEquals(7, HeaterPolicy.seatRequest(2)); assertEquals(8, HeaterPolicy.seatRequest(3)); }
+    @Test public void seatLevelsMapToActuatorEnums() {
+        assertEquals(6, HeaterPolicy.seatRequest(1)); assertEquals(7, HeaterPolicy.seatRequest(2)); assertEquals(8, HeaterPolicy.seatRequest(3));
+        assertEquals(3, HeaterPolicy.coolRequest(1)); assertEquals(4, HeaterPolicy.coolRequest(2)); assertEquals(5, HeaterPolicy.coolRequest(3));
+        try { HeaterPolicy.coolRequest(0); fail(); } catch (IllegalArgumentException expected) { }
+        try { HeaterPolicy.coolRequest(4); fail(); } catch (IllegalArgumentException expected) { }
+    }
+    @Test public void coolingLevelsAndPerSeatEquipmentCheckFollowThresholdsAndOptionCode() {
+        assertEquals(0, HeaterPolicy.coolingLevel(26.99, 270, 300, 320));
+        assertEquals(1, HeaterPolicy.coolingLevel(27.0, 270, 300, 320));
+        assertEquals(1, HeaterPolicy.coolingLevel(29.99, 270, 300, 320));
+        assertEquals(2, HeaterPolicy.coolingLevel(30.0, 270, 300, 320));
+        assertEquals(2, HeaterPolicy.coolingLevel(31.99, 270, 300, 320));
+        assertEquals(3, HeaterPolicy.coolingLevel(32.0, 270, 300, 320));
+        assertEquals(3, HeaterPolicy.coolingLevel(30.0, 300, 300, 300));
+        assertFalse(HeaterPolicy.isFitted("driver", 0)); assertFalse(HeaterPolicy.isCoolingFitted("driver", 0));
+        assertTrue(HeaterPolicy.isFitted("driver", 2)); assertFalse(HeaterPolicy.isCoolingFitted("driver", 2));
+        assertTrue(HeaterPolicy.isFitted("driver", 6)); assertTrue(HeaterPolicy.isCoolingFitted("driver", 6));
+        assertTrue(HeaterPolicy.isFitted("passenger", 6)); assertTrue(HeaterPolicy.isCoolingFitted("passenger", 6));
+        assertTrue(HeaterPolicy.isFitted("wheel", 6)); assertFalse(HeaterPolicy.isCoolingFitted("wheel", 6));
+        HeaterPolicy.PassengerWait heat = HeaterPolicy.parsePassengerWait("boot-1 A outcome");
+        assertEquals("boot-1", heat.boot); assertEquals(0, heat.coolLevel); assertEquals("A outcome", heat.outcome);
+        HeaterPolicy.PassengerWait cool = HeaterPolicy.parsePassengerWait(HeaterPolicy.passengerWaitRecord("boot-2", 2, "Driver seat cooling: ok. "));
+        assertEquals("boot-2", cool.boot); assertEquals(2, cool.coolLevel); assertEquals("Driver seat cooling: ok. ", cool.outcome);
+    }
     @Test public void vehicleAndDstChecksAreLimitedToTheirOwnChanges() {
         Config before = new Config(new java.util.Properties()); before.set("dst", "true"); before.set("tracks", "true"); before.set("heaters", "true");
         Config next = new Config((java.util.Properties) before.values.clone()); next.set("nav", "true");
@@ -62,7 +87,8 @@ public class PolicyTest {
     }
     @Test public void explicitDefaultsAreSemanticallyUnchanged() {
         Config before = new Config(new java.util.Properties()), next = new Config(new java.util.Properties());
-        next.set("threshold", "100"); next.set("region", "us"); next.set("driver", "true"); next.set("nav", "false");
+        next.set("threshold", "100"); next.set("cooling", "false"); next.set("coolLow", "270"); next.set("coolMed", "300"); next.set("coolHigh", "320");
+        next.set("region", "us"); next.set("driver", "true"); next.set("nav", "false");
         assertTrue(next.sameSettings(before));
     }
 

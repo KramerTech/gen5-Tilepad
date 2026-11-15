@@ -22,9 +22,11 @@ public class TransactionOptionsTest {
         Files.store(new File(state, "config.properties"), initial.values);
     }
     @Test public void savesOptionsWithoutPatchesAndPreservesOtherSettings() throws Exception {
-        Config saved = transaction.updateHeaterOptions("threshold", "106", "driverLevel", "1", "units", "F", "passenger", "true");
+        Config saved = transaction.updateHeaterOptions("threshold", "106", "cooling", "true", "coolLow", "260", "coolMed", "290", "coolHigh", "330", "driverLevel", "1", "units", "F", "passenger", "true");
         assertEquals(0, patchCalls);
-        assertEquals(106, saved.number("threshold")); assertEquals(1, saved.number("driverLevel")); assertTrue(saved.checked("passenger"));
+        assertEquals(106, saved.number("threshold")); assertTrue(saved.checked("cooling"));
+        assertEquals(260, saved.number("coolLow")); assertEquals(290, saved.number("coolMed")); assertEquals(330, saved.number("coolHigh"));
+        assertEquals(1, saved.number("driverLevel")); assertTrue(saved.checked("passenger"));
         Config loaded = transaction.load(); assertEquals(saved.values, loaded.values);
         assertTrue(loaded.enabled("nav")); assertTrue(loaded.enabled("popover")); assertTrue(loaded.enabled("dst")); assertEquals("eu", loaded.get("region"));
         assertFalse(new File(state, "pending.properties").exists());
@@ -39,7 +41,7 @@ public class TransactionOptionsTest {
     }
     @Test public void invalidOptionsNeverPartiallyCommit() throws Exception {
         Properties before = transaction.load().values;
-        for (String[] pairs : new String[][]{{"threshold", "106", "driverLevel", "4"}, {"threshold", "601"}, {"units", "K"}, {"driver", "yes"}, {"threshold"}, {}}) {
+        for (String[] pairs : new String[][]{{"threshold", "106", "driverLevel", "4"}, {"threshold", "601"}, {"coolHigh", "601"}, {"cooling", "yes"}, {"units", "K"}, {"driver", "yes"}, {"threshold"}, {}}) {
             try { transaction.updateHeaterOptions(pairs); fail(); } catch (IllegalArgumentException expected) { }
             assertEquals(before, transaction.load().values);
         }

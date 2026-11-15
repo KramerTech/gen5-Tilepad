@@ -265,14 +265,10 @@ public final class TweaksActivity extends Activity {
                 note("Daylight-saving schedule", false);
                 choice("region", new String[]{"us", "eu", "none"}, new String[]{"US / Canada", "Europe", "No daylight saving"});
             } else {
-                note("Turn the heaters on when the car is turned on and the outside temperature is at or below:", false);
-                LinearLayout temp = new LinearLayout(this); temp.setGravity(Gravity.CENTER_VERTICAL); temp.setPadding(dp(18), 0, dp(18), 0);
-                temp.addView(button("−", "Lower temperature threshold", new View.OnClickListener() { @Override public void onClick(View v) { adjustThreshold(-1); } }), new LinearLayout.LayoutParams(dp(72), dp(60)));
-                TextView reading = text(thresholdLabel(), 24, ink); reading.setGravity(Gravity.CENTER); temp.addView(reading, new LinearLayout.LayoutParams(0, dp(64), 1));
-                temp.addView(button("+", "Raise temperature threshold", new View.OnClickListener() { @Override public void onClick(View v) { adjustThreshold(1); } }), new LinearLayout.LayoutParams(dp(72), dp(60)));
-                controls.addView(temp); divider(controls);
+                temperatureControl("threshold", "Turn the heaters on when the car is turned on and the outside temperature is at or below:");
                 choice("units", new String[]{"F", "C"}, new String[]{"Fahrenheit (°F)", "Celsius (°C)"});
                 heater("driver", "Driver seat", "driverLevel"); heater("wheel", "Steering wheel", null); heater("passenger", "Passenger seat (only with a passenger)", "passengerLevel");
+                coolingOptions();
             }
         }
     }
@@ -1040,14 +1036,39 @@ public final class TweaksActivity extends Activity {
         TextView v = text(label, problem ? 20 : 22, problem ? problemInk : muted); int spacing = entries[selected].id.equals("dst") && !problem ? 7 : 16;
         v.setPadding(dp(30), dp(spacing), dp(24), dp(spacing)); controls.addView(v);
     }
-    private String thresholdLabel() {
-        Config config = new Config(values); double c = config.number("threshold") / 10.0, f = c * 9 / 5 + 32;
+    private void coolingOptions() {
+        boolean driverBlocked = "false".equals(audit.getProperty("fitted.driverCooling"));
+        boolean passengerBlocked = "false".equals(audit.getProperty("fitted.passengerCooling"));
+        if (driverBlocked && passengerBlocked) {
+            note("This car doesn't have ventilated seats.", false); divider(controls);
+            return;
+        }
+        Config config = new Config(values);
+        checkbox(controls, "Cool ventilated seats in warm weather", "cooling", config.checked("cooling"), ready && !busy);
+        if (driverBlocked) note("The driver seat isn't ventilated on this car.", false);
+        if (passengerBlocked) note("The passenger seat isn't ventilated on this car.", false);
+        if (!config.checked("cooling")) return;
+        note("Warm-weather seat cooling uses the seats checked above; the outside temperature picks 1 Low, 2 Medium or 3 High:", false);
+        temperatureControl("coolLow", "1 Low at or above:");
+        temperatureControl("coolMed", "2 Medium at or above:");
+        temperatureControl("coolHigh", "3 High at or above:");
+    }
+    private void temperatureControl(final String key, String prompt) {
+        note(prompt, false);
+        LinearLayout temp = new LinearLayout(this); temp.setGravity(Gravity.CENTER_VERTICAL); temp.setPadding(dp(18), 0, dp(18), 0);
+        temp.addView(button("−", "Lower " + prompt, new View.OnClickListener() { @Override public void onClick(View v) { adjustThreshold(key, -1); } }), new LinearLayout.LayoutParams(dp(72), dp(60)));
+        TextView reading = text(thresholdLabel(key), 24, ink); reading.setGravity(Gravity.CENTER); temp.addView(reading, new LinearLayout.LayoutParams(0, dp(64), 1));
+        temp.addView(button("+", "Raise " + prompt, new View.OnClickListener() { @Override public void onClick(View v) { adjustThreshold(key, 1); } }), new LinearLayout.LayoutParams(dp(72), dp(60)));
+        controls.addView(temp); divider(controls);
+    }
+    private String thresholdLabel(String key) {
+        Config config = new Config(values); double c = config.number(key) / 10.0, f = c * 9 / 5 + 32;
         return config.get("units").equals("F") ? String.format(Locale.US, "%.0f°F  (%.1f°C)", f, c) : String.format(Locale.US, "%.1f°C  (%.0f°F)", c, f);
     }
-    private void adjustThreshold(int delta) {
-        Config config = new Config(values); double c = config.number("threshold") / 10.0;
-        int next = config.get("units").equals("C") ? config.number("threshold") + delta * 10 : (int) Math.round(((Math.round(c * 9 / 5 + 32) + delta) - 32) * 50.0 / 9);
-        save("set", "threshold", Integer.toString(Math.max(-400, Math.min(600, next))));
+    private void adjustThreshold(String key, int delta) {
+        Config config = new Config(values); double c = config.number(key) / 10.0;
+        int next = config.get("units").equals("C") ? config.number(key) + delta * 10 : (int) Math.round(((Math.round(c * 9 / 5 + 32) + delta) - 32) * 50.0 / 9);
+        save("set", key, Integer.toString(Math.max(-400, Math.min(600, next))));
     }
     private void refresh() {
         if (preview) { busy = false; ready = true; checking = false; render(); return; }
