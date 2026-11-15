@@ -12,8 +12,11 @@ public final class Config {
         switch (key) {
             case "region": return values.getProperty(key, "us");
             case "threshold": return values.getProperty(key, "100");
+            case "coolLow": return values.getProperty(key, "270");
+            case "coolMed": return values.getProperty(key, "300");
+            case "coolHigh": return values.getProperty(key, "320");
             case "driver": case "wheel": return values.getProperty(key, "true");
-            case "passenger": return values.getProperty(key, "false");
+            case "passenger": case "cooling": return values.getProperty(key, "false");
             case "driverLevel": case "passengerLevel": return values.getProperty(key, "3");
             case "units": return values.getProperty(key, "F");
             case "homeLat": case "homeLon": return values.getProperty(key, "");
@@ -52,7 +55,7 @@ public final class Config {
     public int number(String key) { return Integer.parseInt(get(key)); }
     public boolean checked(String key) { return "true".equals(get(key)); }
     public void set(String key, String value) {
-        if (isId(key) || key.equals("driver") || key.equals("passenger") || key.equals("wheel")) {
+        if (isId(key) || key.equals("driver") || key.equals("passenger") || key.equals("wheel") || key.equals("cooling")) {
             if (!value.equals("true") && !value.equals("false")) throw new IllegalArgumentException("Expected on or off");
         } else switch (key) {
             case "region":
@@ -65,14 +68,14 @@ public final class Config {
                 if (!value.isEmpty() && !VehicleLocation.coordinate(Double.parseDouble(value), key.equals("homeLat") ? 90 : 180))
                     throw new IllegalArgumentException("Invalid Home coordinate");
                 break;
-            case "threshold": range(value, -400, 600); break;
+            case "threshold": case "coolLow": case "coolMed": case "coolHigh": range(value, -400, 600); break;
             case "driverLevel": case "passengerLevel": range(value, 1, 3); break;
             default: throw new IllegalArgumentException("Unknown setting: " + key);
         }
         values.setProperty(key, value);
     }
     public static boolean isId(String key) { for (String id : IDS) if (id.equals(key)) return true; return false; }
-    public static final String[] HEATER_OPTIONS = {"threshold", "units", "driver", "wheel", "passenger", "driverLevel", "passengerLevel"};
+    public static final String[] HEATER_OPTIONS = {"threshold", "units", "driver", "wheel", "passenger", "driverLevel", "passengerLevel", "cooling", "coolLow", "coolMed", "coolHigh"};
     public static boolean isHeaterOption(String key) {
         for (String option : HEATER_OPTIONS) if (option.equals(key)) return true;
         return false;
