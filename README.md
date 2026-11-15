@@ -223,7 +223,7 @@ unavailable, submit a compatibility report (see below) so that support can be ad
 
 The tweaks check the car's exact firmware files, so they work on any car that runs a supported
 firmware image. The supported images are USA Hyundai `V012.010.240822`, `V015.012.260507` and
-`V016.010.260903`, and USA Kia `V015.012.260507`, which cover the IONIQ 5 and EV6, for example.
+`V016.010.260903`, Canadian Hyundai `V015.011.260206`, and USA Kia `V015.012.260507`, which cover the IONIQ 5 and EV6, for example.
 Heaters that a trim doesn't have are skipped. How each tweak works, and what it changes, is
 explained in [docs/TWEAKS.md](docs/TWEAKS.md).
 

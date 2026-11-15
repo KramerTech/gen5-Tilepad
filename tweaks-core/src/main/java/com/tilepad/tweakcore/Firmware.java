@@ -53,6 +53,12 @@ final class Firmware {
             "ffc906e223bbb1e2b28103ee561adc0b9d70bd519f093c26d56b57af021e24a8",
             "1db8bbad2f805fc7b8ca7134a7bda72bd2e33a33a5b9950742413555b0f8007c",
             "9a7c60551ae84417e3542b867cf92b797a3466505c84edbc7a005493fe7d4301"),
+        new Release("Hyundai Canada V015.011.260206", USM_V015,
+            "301b134d231b1ca1d0aa75ae090d219ac963fc935c3f3bc0b3b1393c6614703e",
+            "efb949ec92fff388cbbb78e5bf4e16df3cc8d417dbf5cb5e87e62fb46d542549",
+            "6748f43039561cb026986b19db0f81340877ad2206687eef2007d4e3f535f141",
+            "75b442ad16bde67ff9a5fb76a27965287e946cd16ea9248344fa04fe90978095",
+            "72d7fa3538bdd2aad81e52bc08f5372828a403e7cc8e4f469b2c42e763bf03e1"),
     };
     /** The supported release with these vehicle interfaces (automotive.odex and automotive-service.odex), or null. */
     static Release vehicleRelease(String automotive, String automotiveService) {

@@ -312,13 +312,14 @@ Support is keyed to firmware files, not the car's name. One `/system` image serv
 (the unit sets `ro.product.device`, e.g. `wp_daudioplus_neev23_us`, at boot), so cars on the same
 image have byte-identical files whatever model they are. Hyundai and Kia build separate images of a
 release (`build.prop` names them `ECOHMC` and `ECOKMC`), so each is listed on its own. Supported
-images (USA):
+images:
 
 | Image | First seen | How it was checked |
 |---|---|---|
 | Hyundai V015.012.260507 | the IONIQ 5 capture | captured `/system`, all patches verified on the car |
 | Hyundai V016.010.260903 | a compatibility log | every interface Tilepad calls compared with V015's (below) |
 | Kia V015.012.260507 | an EV6 compatibility log | every deodexed file compared with Hyundai V015's (below) |
+| Hyundai Canada V015.011.260206 | an IONIQ 5 compatibility log (CAN) | compared with Kia V015.012's: vehicle code identical, patches identical (below) |
 | Hyundai V012.010.240822 | an IONIQ 5 compatibility log | every call Tilepad makes compared with V015's; heater codes per release (below) |
 
 `Firmware.java` lists each release's `automotive.odex`/`automotive-service.odex` (vehicle tweaks),
@@ -351,6 +352,17 @@ The generated `consent-kia-v015`/`right-kia-v015` recipes have exactly V015's of
 every patched method's code, header included, is byte-identical to V015's at the same offset. Its
 DATC reports the IONIQ 5's climate variant and options (0x02; 0x29, 0x04, 0x2f, 0x03, 0x01), and its
 key layout is the same file, with the track keys at 34/35 and ★ at 43.
+
+For Hyundai Canada V015.011.260206 (an IONIQ 5 2024 log, `NEEV.CAN`): an earlier V015 build than the
+USA one, compared with Kia V015.012 (the closest image in the archive). `automotive`,
+`automotive-service` and `services` have no code differences, so every code Tilepad calls on the
+vehicle services is the same method with the same number. `framework`/`framework2` differ only in
+Kia's extra SOS/ACN resources. SystemUI, RightScreenHome and EV Settings still differ after names are
+masked (17, 19 and 8 files: screensaver, status bar, split-screen and EV pages), but none of the
+classes Tilepad patches (EV Settings' 8 differ only in member order: the same lines, moved), so `consent-v015-011`/`right-v015-011` have V015's names, offsets and bytes,
+and both patched apps disassemble identically to Kia V015's with registers and offsets masked. Of the
+ITM_HSCANService codes only V016's added TPMS/temperature ones are missing. The climate variant and
+options are the IONIQ 5's, and key 43 (★) is the same in the key layout.
 
 For Hyundai V012 (an IONIQ 5 log, 2024): an older build, with renamed obfuscated members throughout,
 so each call was compared on its own. Every code Tilepad uses on IDATCService, IBCMService,
