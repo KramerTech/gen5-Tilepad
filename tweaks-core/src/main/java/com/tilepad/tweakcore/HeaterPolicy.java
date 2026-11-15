@@ -31,6 +31,18 @@ public final class HeaterPolicy {
         double n = Double.parseDouble(value.group(1));
         return n >= min && n <= max ? n : null;
     }
+    /** What the dump showed for each outdoor-temperature channel, e.g. "°F signal 0x60, shown as 56.0", for a status that gives up. */
+    public static String reported(String dump) {
+        StringBuilder out = new StringBuilder();
+        for (String unit : new String[]{"F", "C"}) {
+            Matcher raw = Pattern.compile("(?m)^\\s*AmbientTemp" + unit + "\\s*:\\s*(0x[0-9a-fA-F]+)\\s*$").matcher(dump);
+            Matcher value = Pattern.compile("(?m)^\\s*mAmbientTemp" + unit + ":\\s*(\\S+)\\s*$").matcher(dump);
+            if (out.length() > 0) out.append(" and ");
+            out.append("°").append(unit).append(" signal ").append(raw.find() ? raw.group(1) : "missing")
+                .append(", shown as ").append(value.find() ? value.group(1) : "nothing");
+        }
+        return out.toString();
+    }
     /** Verified USM request enum: heat Low=6, Medium=7, High=8; 1..3 are NOT request values. */
     public static int seatRequest(int level) {
         if (level < 1 || level > 3) throw new IllegalArgumentException("Seat level must be 1, 2 or 3");

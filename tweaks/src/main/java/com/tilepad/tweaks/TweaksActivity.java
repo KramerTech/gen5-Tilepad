@@ -251,7 +251,7 @@ public final class TweaksActivity extends Activity {
                 note("Daylight-saving schedule", false);
                 choice("region", new String[]{"us", "eu", "none"}, new String[]{"US / Canada", "Europe", "No daylight saving"});
             } else {
-                note("Turn the heaters on during startup when the outside temperature is at or below:", false);
+                note("Turn the heaters on when the car is turned on and the outside temperature is at or below:", false);
                 LinearLayout temp = new LinearLayout(this); temp.setGravity(Gravity.CENTER_VERTICAL); temp.setPadding(dp(18), 0, dp(18), 0);
                 temp.addView(button("−", "Lower temperature threshold", new View.OnClickListener() { @Override public void onClick(View v) { adjustThreshold(-1); } }), new LinearLayout.LayoutParams(dp(72), dp(60)));
                 TextView reading = text(thresholdLabel(), 24, ink); reading.setGravity(Gravity.CENTER); temp.addView(reading, new LinearLayout.LayoutParams(0, dp(64), 1));

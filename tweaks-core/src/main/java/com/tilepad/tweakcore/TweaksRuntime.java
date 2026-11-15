@@ -202,44 +202,80 @@ public final class TweaksRuntime {
         }
         climate.configure(c.enabled("sync"), c.enabled("driveronly"));
     }
-    private void beginHeaters() throws Exception {
-        locked(new Action() {
-            @Override public void run() throws Exception {
-                File bootFile = new File(Platform.STATE, "heaters.boot"); String boot = Platform.boot();
-                if (bootFile.isFile() && new String(Files.read(bootFile), "UTF-8").equals(boot)) { resumePassenger(); return; }
-                // Mark even when off: enabling later schedules the NEXT boot,
-                // and a service restart must never reapply heat over manual controls.
-                Files.write(bootFile, boot.getBytes("UTF-8"));
-                if (TweaksCommand.load().enabled("heaters")) {
-                    Platform.status("heaters", "Waiting up to two minutes for a valid outdoor temperature.");
-                    heaterAttempt(SystemClock.elapsedRealtime() + 120000L);
-                }
+    /**
+     * "<boot id> on|off": the ignition as last handled. Heaters run once per car start (ignition
+     * off to on), not per head-unit boot: turning the car off and on often leaves the head unit
+     * running. The head unit can also start with the car still off, before the climate system
+     * reports the outdoor temperature.
+     */
+    private static final String DRIVE_FILE = "heaters.drive";
+    private static final long IGNITION_MS = 2000;
+    private Boolean heaterIgnition;
+    /** Bumped when the car turns off, so a wait for the temperature from that drive stops. */
+    private int heaterDrive;
+    private boolean heaterWaiting;
+    private final Runnable ignitionWatch = new Runnable() { @Override public void run() { watchIgnition(); } };
+    private void beginHeaters() { handler.post(ignitionWatch); }
+    private void watchIgnition() {
+        try {
+            final boolean on = Platform.ignitionOn();
+            if (!Boolean.valueOf(on).equals(heaterIgnition)) {
+                locked(new Action() { @Override public void run() throws Exception { onIgnition(on); } });
+                heaterIgnition = on;
             }
-        });
+        } catch (Exception ignored) { } // The body control service is still starting: read it again shortly.
+        handler.postDelayed(ignitionWatch, IGNITION_MS);
     }
-    private void heaterAttempt(final long deadline) {
+    private void onIgnition(boolean on) throws Exception {
+        File driveFile = new File(Platform.STATE, DRIVE_FILE); String boot = Platform.boot();
+        String handled = driveFile.isFile() ? new String(Files.read(driveFile), "UTF-8").trim() : "";
+        if (!on) {
+            heaterDrive++;
+            if (heaterWaiting) { heaterWaiting = false; Platform.status("heaters", "Nothing was heated because the car was turned off before a valid outdoor temperature arrived."); }
+            Files.write(driveFile, (boot + " off").getBytes("UTF-8"));
+            return;
+        }
+        // Still the drive this service already handled, after a restart of the service.
+        if (handled.equals(boot + " on")) { resumePassenger(); return; }
+        // Mark even when off: enabling later applies from the NEXT car start,
+        // and a service restart must never reapply heat over manual controls.
+        Files.write(driveFile, (boot + " on").getBytes("UTF-8"));
+        new File(Platform.STATE, PASSENGER_FILE).delete();
+        // The last drive's passenger wait: without this, the same waiting text is never shown again.
+        passengerStatus = null; passengerIgnitionSeen = false;
+        if (TweaksCommand.load().enabled("heaters")) {
+            Platform.status("heaters", "The car was turned on. Waiting up to two minutes for a valid outdoor temperature.");
+            heaterWaiting = true;
+            heaterAttempt(heaterDrive, SystemClock.elapsedRealtime() + 120000L);
+        }
+    }
+    private void heaterAttempt(final int drive, final long deadline) {
         handler.postDelayed(new Runnable() {
             @Override public void run() {
+                if (drive != heaterDrive) return;
                 try {
                     locked(new Action() {
                         @Override public void run() throws Exception {
+                            if (drive != heaterDrive) return;
                             Config c = TweaksCommand.load();
+                            heaterWaiting = false;
                             if (!c.enabled("heaters")) { Platform.status("heaters", "Canceled before applying heat."); return; }
                             Platform.requireVehicle();
-                            Double temperature;
-                            try { temperature = HeaterPolicy.outsideC(Platform.exec("dumpsys", "com.hkmc.micom.datc")); }
+                            String dump;
+                            try { dump = Platform.exec("dumpsys", "com.hkmc.micom.datc"); }
                             catch (Exception e) {
-                                if (SystemClock.elapsedRealtime() < deadline) heaterAttempt(deadline);
-                                else Platform.status("heaters", "Skipped this boot: climate service did not become available within two minutes.");
+                                if (SystemClock.elapsedRealtime() < deadline) { heaterWaiting = true; heaterAttempt(drive, deadline); }
+                                else Platform.status("heaters", "Skipped this drive: the climate service didn't become available within two minutes of the car being turned on.");
                                 return;
                             }
+                            Double temperature = HeaterPolicy.outsideC(dump);
                             if (temperature == null) {
-                                if (SystemClock.elapsedRealtime() < deadline) heaterAttempt(deadline);
-                                else Platform.status("heaters", "Skipped this boot: no valid outdoor temperature arrived within two minutes.");
+                                if (SystemClock.elapsedRealtime() < deadline) { heaterWaiting = true; heaterAttempt(drive, deadline); }
+                                else Platform.status("heaters", "Skipped this drive: no valid outdoor temperature arrived within two minutes of the car being turned on. The climate system last reported " + HeaterPolicy.reported(dump) + ".");
                                 return;
                             }
                             if (!HeaterPolicy.cold(temperature, c.number("threshold"))) {
-                                Platform.status("heaters", "Skipped this boot: outdoor temperature is at or above your threshold."); return;
+                                Platform.status("heaters", "Skipped this drive: the outdoor temperature is at or above your threshold."); return;
                             }
                             StringBuilder outcome = new StringBuilder();
                             if (c.checked("driver") && fitted(outcome, "Driver seat", "driver"))
@@ -251,11 +287,11 @@ public final class TweaksRuntime {
                             // whenever they buckle up later in this drive.
                             if (c.checked("passenger") && fitted(outcome, "Passenger seat", "passenger")) {
                                 Files.write(new File(Platform.STATE, PASSENGER_FILE), (Platform.boot() + " " + heaterOutcome).getBytes("UTF-8"));
-                                handler.post(passengerWatch);
+                                handler.removeCallbacks(passengerWatch); handler.post(passengerWatch);
                             } else Platform.status("heaters", outcome.length() == 0 ? "Skipped: no heaters selected." : outcome.toString());
                         }
                     });
-                } catch (Exception e) { Platform.status("heaters", "Skipped this boot: " + e.getMessage()); }
+                } catch (Exception e) { Platform.status("heaters", "Skipped this drive: " + e.getMessage()); }
             }
         }, 3000);
     }
@@ -272,7 +308,7 @@ public final class TweaksRuntime {
             String[] saved = new String(Files.read(new File(Platform.STATE, PASSENGER_FILE)), "UTF-8").split(" ", 2);
             if (!saved[0].equals(Platform.boot())) { new File(Platform.STATE, PASSENGER_FILE).delete(); return; }
             heaterOutcome = saved.length > 1 ? saved[1] : "";
-            handler.post(passengerWatch);
+            handler.removeCallbacks(passengerWatch); handler.post(passengerWatch);
         } catch (Exception ignored) { }
     }
     private void watchPassenger() {

@@ -42,6 +42,11 @@ public class PolicyTest {
         assertEquals(0.0, HeaterPolicy.outsideC("AmbientTempF : 0x52\nmAmbientTempF: 32.0\n"), 0.00001);
         assertEquals(-1.5, HeaterPolicy.outsideC("AmbientTempC : 0x52\nmAmbientTempC: -1.5\n"), 0.00001);
         assertNull(HeaterPolicy.outsideC("AmbientTempF : 0x52\nmAmbientTempF: 999\n"));
+        // A US car's dump: the °C channel stays unavailable and °F carries the reading.
+        String dump = "  mAmbientTempC: -40.0\n  mAmbientTempF: 56.0\n  AmbientTempC : 0xff\n  AmbientTempF : 0x60\n";
+        assertEquals(13.3333, HeaterPolicy.outsideC(dump), 0.0001);
+        assertEquals("°F signal 0x60, shown as 56.0 and °C signal 0xff, shown as -40.0", HeaterPolicy.reported(dump));
+        assertEquals("°F signal missing, shown as nothing and °C signal missing, shown as nothing", HeaterPolicy.reported(""));
         assertTrue(HeaterPolicy.cold(9.99, 100)); assertTrue(HeaterPolicy.cold(10.0, 100));
         assertFalse(HeaterPolicy.cold(10.01, 100));
     }

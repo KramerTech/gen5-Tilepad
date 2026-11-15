@@ -60,7 +60,7 @@ The older heater-only `options` command remains supported for compatibility.
 | --- | --- | --- | --- |
 | Automatic Daylight Saving Time | Synchronizes the OEM DST flag and Date/Time checkbox | US/Canada, Europe, or none | No |
 | Skip Startup Safety Brief | Uses the OEM agreement path instead of building the consent screen at boot; every later request (driver picker, profile password, post-update notice) still opens it | None | Yes |
-| Automatic Heaters | One cold-boot request to selected heaters; the passenger seat waits for the front passenger's belt (polled once a second until the car is turned off); never continuously overrides manual settings | Threshold, °F/°C, driver/wheel/passenger checkboxes, independent seat levels 1–3 | Next head-unit boot |
+| Automatic Heaters | One request to selected heaters each time the car is turned on in the cold; the passenger seat waits for the front passenger's belt (polled once a second until the car is turned off); never continuously overrides manual settings | Threshold, °F/°C, driver/wheel/passenger checkboxes, independent seat levels 1–3 | Next car start |
 | Swap Steering-Wheel Track Buttons | Reverses keys 34/35; up advances, down goes back | None | Yes |
 | Hide Right-Hand Nav Handle | Forces the stock handle controller's hidden path, and keeps Split Screen off (the handle is its only off switch); shown under the pop-over entry and always on while the pop-over is disabled | None | Yes |
 | Disable Right-Hand Pop-Over | Blocks the shared right-side OSD request path and renderer | None | Yes |
@@ -119,10 +119,15 @@ service, boot receiver, alarm receiver, or store/broker dependency.
   is no per-minute check, periodic shell process, internet request, wake lock,
   or new resident daemon. There are six bounded 10-second startup retries after
   a failed clock/service check; later real events allow recovery.
-- Heaters retry a missing temperature/climate service every three seconds for
-  at most two minutes. The attempt is recorded against the kernel boot ID before
-  any request. Even when disabled, the boot is recorded so enabling later applies
-  at the next boot. A longstar restart cannot reapply heat over a manual adjustment.
+- Heaters read the ignition with an in-process Binder getter every two seconds and
+  start once per car start (off to on), since turning the car off and on often
+  leaves the head unit running, and the head unit can boot before the car is on.
+  They then retry a missing temperature/climate service every three seconds for at
+  most two minutes; turning the car off ends the wait. The car start is recorded
+  (`heaters.drive`, boot ID plus ignition) before any request. Even when disabled,
+  it is recorded so enabling later applies at the next car start. A longstar
+  restart cannot reapply heat over a manual adjustment. A timeout status quotes the
+  last raw and decoded outdoor-temperature values the climate service reported.
 - Maintain Climate Sync and Automatic Driver Only share one DATC status listener (event-driven).
   Ignition and the passenger belt have no working callback on this car, so Auto
   Driver Only reads them with in-process Binder getters once a second (the belt only
