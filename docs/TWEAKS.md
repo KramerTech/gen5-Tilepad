@@ -320,6 +320,7 @@ images:
 | Hyundai V016.010.260903 | a compatibility log | every interface Tilepad calls compared with V015's (below) |
 | Kia V015.012.260507 | an EV6 compatibility log | every deodexed file compared with Hyundai V015's (below) |
 | Hyundai Canada V015.011.260206 | a Canadian IONIQ 5 compatibility log | compared with Hyundai V015.012's: vehicle code byte-identical, patched classes identical (below) |
+| Kia Canada V015.011.260206 | a Canadian EV6 compatibility log | deodexes byte-identically to Kia V015.012; SystemUI.apk differs (below) |
 | Hyundai V012.010.240822 | an IONIQ 5 compatibility log | every call Tilepad makes compared with V015's; heater codes per release (below) |
 
 `Firmware.java` lists each release's `automotive.odex`/`automotive-service.odex` (vehicle tweaks),
@@ -364,6 +365,15 @@ changed classes is patched, or owns EV Settings' off-peak-only preference. `cons
 `right-v015-011` have V015's names, offsets and bytes, and the patched classes of both apps
 disassemble identically to V015.012's. The climate variant and options are the IONIQ 5's, and the
 key layout has the track keys at 34/35 and ★ at 43.
+
+For Kia Canada V015.011.260206 (a 2024 EV6 log; the car reports `CVEV.CAN`, and `build.prop` labels
+the image `ECOKMC.USA.0000.V015.011.260206`): compared with Kia V015.012. Every target, the vehicle
+and framework files, `services`, SystemUI, RightScreenHome and EV Settings, deodexes byte-identically.
+`HKMC_TAppEV3.apk`, `SystemUI.odex` and `RightScreenHome.odex` are V015.012's own files; only the four
+framework ODEX files, which are this build's, and `SystemUI.apk`, which holds resources only, differ. So
+`consent-kia-v015-011` is V015.012's patch paired with this APK. Since both recipes are for the same
+ODEX, PatchManager picks the one whose paired APK is the car's. The climate variant and options are
+the IONIQ 5's and EV6's, and the key layout has the track keys at 34/35 and ★ at 43.
 
 For Hyundai V012 (an IONIQ 5 log, 2024): an older build, with renamed obfuscated members throughout,
 so each call was compared on its own. Every code Tilepad uses on IDATCService, IBCMService,

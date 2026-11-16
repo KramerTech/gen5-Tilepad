@@ -59,6 +59,12 @@ final class Firmware {
             "6748f43039561cb026986b19db0f81340877ad2206687eef2007d4e3f535f141",
             "75b442ad16bde67ff9a5fb76a27965287e946cd16ea9248344fa04fe90978095",
             "72d7fa3538bdd2aad81e52bc08f5372828a403e7cc8e4f469b2c42e763bf03e1"),
+        new Release("Kia Canada V015.011.260206", USM_V015,
+            "347d05034e6b25e38f8d0446a6e9f02f4c8f5b786c09e583a500235613514c18",
+            "80bc04d04822464cfedb8878592f04eab8b16351be7aef6c70ff1ec9aa14d021",
+            "24f15981db97bf388d13e130cbfc06b134fb57559cab75afeb5194131e5abac1",
+            "3ff3271e0c7fbacdf49df582f82f5cd4d591f0bb5ae87341459092fbf2a39752",
+            "2212c428240f4f8402e2efa60c21509f027ece10e0d99382441ff53cec14fbc5"),
     };
     /** The supported release with these vehicle interfaces (automotive.odex and automotive-service.odex), or null. */
     static Release vehicleRelease(String automotive, String automotiveService) {
