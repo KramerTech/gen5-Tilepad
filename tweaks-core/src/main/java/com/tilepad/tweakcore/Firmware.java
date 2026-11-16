@@ -86,6 +86,13 @@ final class Firmware {
             "82cfffe5864124d69e3220e34444b220b3c3a18dd3c486961155882711bdd060",
             "601dc8db4dca6806651c1074e26af7c831c63d159a8c3215f4e9910e2af6646f",
             "0500edcb2e081a4351b42aa5cc8909c6f73d00b52df9d24d139579839ebc0d44"),
+        // KIA.USA image shared by the Niro EV (DE22EV) and Sorento (MQ422).
+        new Release("Kia USA V015.012.260507 KIA", USM_V015,
+            "4d0000635b140e43944e2b5c28fa7dfdba296914ec8df2807af2dcfd064c09cb",
+            "ed3814199d50e6aa48b95fb10024e85a6646da789bbdac4afbe01ff657e8bcd5",
+            "739c48b55bb101ddba8520671b46e783e675bf4091345bd82b67aa0f3675d2ce",
+            "92930f5b08ada7fb0faf7722b8e5ddb8f53731615560a19c588ba57b1a694529",
+            "cbd13937c20e284bbdf93dcc4be50224280d4a6edd1db8b6bf25097950eb3af7"),
     };
     /** The supported release with these vehicle interfaces (automotive.odex and automotive-service.odex), or null. */
     static Release vehicleRelease(String automotive, String automotiveService) {

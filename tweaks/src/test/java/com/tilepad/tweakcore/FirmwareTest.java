@@ -6,7 +6,7 @@ import org.junit.Test;
 public class FirmwareTest {
     private static final Firmware.Release V015 = Firmware.SUPPORTED[0], V016 = Firmware.SUPPORTED[1], KIA_V015 = Firmware.SUPPORTED[2],
         V012 = Firmware.SUPPORTED[3], V015_CA = Firmware.SUPPORTED[4], KIA_V015_CA = Firmware.SUPPORTED[5],
-        DN8 = Firmware.SUPPORTED[6];
+        DN8 = Firmware.SUPPORTED[6], KIA_BASE = Firmware.SUPPORTED[7];
     @Test public void acceptsEachSupportedReleasesFiles() {
         for (Firmware.Release r : Firmware.SUPPORTED) {
             assertTrue(r.name, Firmware.vehicle(r.automotive, r.automotiveService));
@@ -31,6 +31,13 @@ public class FirmwareTest {
         // Hyundai's EV and non-EV images of one release are separate builds too.
         assertFalse(Firmware.vehicle(V015.automotive, DN8.automotiveService));
         assertFalse(Firmware.projection(DN8.framework, V015.framework2));
+        // KIA.USA (Niro EV/Sorento) and ECOKMC (EV6) are separate images of V015.
+        assertFalse(Firmware.vehicle(KIA_BASE.automotive, KIA_V015.automotiveService));
+        assertFalse(Firmware.vehicle(KIA_V015.automotive, KIA_BASE.automotiveService));
+        assertFalse(Firmware.projection(KIA_BASE.framework, KIA_V015.framework2));
+        assertFalse(Firmware.projection(KIA_V015.framework, KIA_BASE.framework2));
+        assertFalse(Firmware.vehicle(KIA_BASE.automotive, DN8.automotiveService));
+        assertFalse(Firmware.projection(DN8.framework, KIA_BASE.framework2));
         assertFalse(Firmware.evSettings("0000"));
     }
     @Test public void starHoldCodesComeFromTheMatchedRelease() {

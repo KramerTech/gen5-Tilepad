@@ -327,6 +327,7 @@ images:
 | Hyundai Canada V015.011.260206 | a Canadian IONIQ 5 compatibility log | compared with Hyundai V015.012's: vehicle code byte-identical, patched classes identical (below) |
 | Kia Canada V015.011.260206 | a Canadian EV6 compatibility log | deodexes byte-identically to Kia V015.012; SystemUI.apk differs (below) |
 | Hyundai V015.012.260507 DN8 | a Sonata compatibility log | Hyundai's non-EV image: every call Tilepad makes compared with Hyundai and Kia V015; consent re-anchored (below) |
+| Kia V015.012.260507 KIA | Sorento and Niro EV compatibility logs | shared `KIA.USA` image compared with the supported Sonata image; every transaction entry and patched class matches (below) |
 | Hyundai V012.010.240822 | an IONIQ 5 compatibility log | every call Tilepad makes compared with V015's; heater codes per release (below) |
 
 `Firmware.java` lists each release's `automotive.odex`/`automotive-service.odex` (vehicle tweaks),
@@ -382,9 +383,9 @@ ODEX, PatchManager picks the one whose paired APK is the car's. The climate vari
 the IONIQ 5's and EV6's, and the key layout has the track keys at 34/35 and ★ at 43.
 
 For Hyundai V015.012.260507 DN8 (a 2022 US Sonata log, `wp_daudioplus_dn822_us`; `build.prop` names
-the image `HYUNDAI.USA.0000.V015.012.260507`, Hyundai's build for its non-EV models, as `KIA.USA` is
-Kia's): compared with Kia's non-EV image of the same release (a Sorento log) and with Hyundai and Kia
-V015.012. Against Kia's non-EV image, `automotive`, `automotive-service`, `services`, `hcan` and
+the image `HYUNDAI.USA.0000.V015.012.260507`, Hyundai's build for its non-EV models): compared with
+Kia's `KIA.USA` image of the same release (a Sorento log, also shared by the Niro EV) and with Hyundai
+and Kia V015.012. Against `KIA.USA`, `automotive`, `automotive-service`, `services`, `hcan` and
 `infobank` have no code differences, `framework` and `framework2` differ only in resource IDs and
 `MobisBuildFeature`'s brand constants, and SystemUI's consent controller is the same class. Against
 the EV images, `automotive` differs only in `UsageLogID`'s log constants, and `framework`,
@@ -399,6 +400,26 @@ hidden. Its layout has the track keys at 34/35 but no ★: its programmable stee
 `SHORTCUT_CUSTOM` at scan code 4, which the ★ hold uses (`KEY_CODE=auto`). ModeKeyDispatcher runs
 its assigned action (e.g. "gohome") on the release, as it does the ★'s, so a hold blocks it the same
 way, through key type 3 and its own block list (`processCustomKey`); see TECHNICAL.md.
+
+For Kia V015.012.260507 KIA (issues #20 and #41: US Sorento MQ422 and 2022 Niro EV DE22EV),
+`build.prop` labels the shared image `KIA.USA.0000.V015.012.260507`, distinct from the EV6's
+`ECOKMC` build. Compared with the supported Sonata image: `automotive`, `automotive-service`,
+`services`, `hcan` and `infobank` have zero normalized code differences; the framework differences
+are resource tables/IDs and `MobisBuildFeature` brand constants. All 1,555 transaction entries match.
+EV Settings' 353 classes match with short names masked, fields and methods sorted, and two pairs
+of renamed classes mapped (`drivemode/n`/`o` and `ui/ev_settings/g`/`h`). The generated
+`consent-kia-base-v015` and `right-kia-base-v015` recipes use the Sonata's anchors and names,
+including consent controller `E` and `this` register v6. Every consent/nav/popover combination
+applies, and the all-off configuration preserves stock bytes. The patched classes deodex with zero
+code differences after resource IDs and short names are masked. Patch checks resolve quickened
+calls against each image's dependencies,
+since renamed methods reorder vtables; they also check the release's actual consent class.
+
+The Niro EV's DATC reports variant 0x00 and options 0x01, 0x00, 0x0a, 0xff, 0xff, so Climate Sync
+and Driver Only stay gated. Its layout has track keys 34/35 and no wheel star: `KEY_CODE=auto`
+selects `SHORTCUT_CUSTOM` at scan code 20. The older log has no input-device inventory, so live
+key-device discovery still needs confirmation on the car. Its OTA client was not found;
+preconditioning remains outside this compatibility patch.
 
 For Hyundai V012 (an IONIQ 5 log, 2024): an older build, with renamed obfuscated members throughout,
 so each call was compared on its own. Every code Tilepad uses on IDATCService, IBCMService,
