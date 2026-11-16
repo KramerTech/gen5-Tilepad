@@ -19,6 +19,9 @@ updating() {
     return 0
 }
 
+# Update or uninstall alike: the daemon is stopped either way.
+release_star_block
+
 if updating; then
     # Update: leave /system alone. The new postinstall rewrites the APK in place,
     # so Android keeps the app's data (favorites, settings), and reconciles owned tweak files.

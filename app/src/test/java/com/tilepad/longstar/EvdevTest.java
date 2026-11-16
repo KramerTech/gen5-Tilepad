@@ -47,6 +47,17 @@ public class EvdevTest {
         assertEquals(43, Evdev.customKey(new StringReader("key 34 CHANNEL_UP\n")));
     }
 
+    @Test public void keyTypeIsTheCustomKeysOnlyForShortcutCustom() throws Exception {
+        String ioniq5 = "key 20    SHORTCUT_CUSTOM\nkey 41    SHORTCUT_SWRC_CUSTOM\nkey 43    SHORTCUT_SWRC_CUSTOM\n";
+        assertEquals(Evdev.WHEEL_KEY_TYPE, Evdev.keyType(new StringReader(ioniq5), 43));
+        assertEquals(Evdev.CUSTOM_KEY_TYPE, Evdev.keyType(new StringReader(ioniq5), 20));
+        String sonata = "key 2     SHORTCUT_MAP\nkey 4     SHORTCUT_CUSTOM\nkey 34    CHANNEL_UP\n";
+        assertEquals(Evdev.CUSTOM_KEY_TYPE, Evdev.keyType(new StringReader(sonata), 4));
+        // A code the layout doesn't name (a KEY_CODE override) is treated as the star.
+        assertEquals(Evdev.WHEEL_KEY_TYPE, Evdev.keyType(new StringReader(sonata), 43));
+        assertEquals(Evdev.WHEEL_KEY_TYPE, Evdev.keyType(new StringReader("key 44 SHORTCUT_CUSTOM\n"), 4));
+    }
+
     @Test public void findsExactNameNotPrefixMatches() throws Exception {
         assertEquals("/dev/input/event1",
             Evdev.findDevice(new StringReader(DEVICES), "daudio_wp_daudioplus_neev23_us"));

@@ -59,6 +59,46 @@ public final class Platform {
     public static void command(String service, String descriptor, int transaction, int... values) throws Exception {
         transact(service, descriptor, transaction, false, values);
     }
+    /** A read taking ints and returning a string, which may be null (IModeManager.getKeyAction). */
+    public static String string(String service, String descriptor, int transaction, int... args) throws Exception {
+        IBinder binder = service(service, descriptor);
+        Parcel data = Parcel.obtain(), reply = Parcel.obtain();
+        try {
+            data.writeInterfaceToken(descriptor); for (int n : args) data.writeInt(n);
+            if (!binder.transact(transaction, data, reply, 0)) throw new IOException("OEM request refused");
+            reply.readException();
+            String value = reply.readString();
+            if (reply.dataAvail() != 0) throw new IOException("Unexpected OEM reply");
+            return value;
+        } finally { data.recycle(); reply.recycle(); }
+    }
+    /** A command taking an int and a string array and returning nothing (IModeManager.disableKeyAction). */
+    public static void command(String service, String descriptor, int transaction, int value, String[] strings) throws Exception {
+        IBinder binder = service(service, descriptor);
+        Parcel data = Parcel.obtain(), reply = Parcel.obtain();
+        try {
+            data.writeInterfaceToken(descriptor); data.writeInt(value); data.writeStringArray(strings);
+            if (!binder.transact(transaction, data, reply, 0)) throw new IOException("OEM request refused");
+            reply.readException();
+            if (reply.dataAvail() != 0) throw new IOException("Unexpected OEM reply");
+        } finally { data.recycle(); reply.recycle(); }
+    }
+    /**
+     * IModeManager on com.hkmc.micom.mode, for a key's assigned action (key type 3, the custom key;
+     * 5, the steering-wheel ★), with the codes of the supported release this unit runs.
+     */
+    private static final String MODE = "com.hkmc.micom.mode", MODE_IFACE = "com.hkmc.mode.IModeManager";
+    public static String keyAction(int keyType) throws Exception {
+        return string(MODE, MODE_IFACE, vehicle().mode.keyAction, keyType);
+    }
+    public static void disableKeyAction(int keyType, String[] actions) throws Exception {
+        command(MODE, MODE_IFACE, vehicle().mode.disableKeyAction, keyType, actions);
+    }
+    public static void enableKeyAction(int keyType) throws Exception {
+        command(MODE, MODE_IFACE, vehicle().mode.enableKeyAction, keyType);
+    }
+    /** enableKeyAction's code, for the uninstall hook's `service call` (star.blocked). */
+    public static int enableKeyActionCode() throws Exception { return vehicle().mode.enableKeyAction; }
     /** register*Listener(listener, token) taking two strong binders and returning nothing. Returns the service. */
     public static IBinder register(String service, String descriptor, int transaction, IBinder listener, IBinder token) throws Exception {
         IBinder binder = service(service, descriptor);

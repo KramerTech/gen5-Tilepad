@@ -104,8 +104,10 @@ is the whole uninstall, and anything your change creates or changes has to be un
   firmware pass; support for a new firmware is added as its own entry in `Firmware.java`.
 - If another mod has already changed a file, show the tweak as unavailable. Don't adopt or
   overwrite someone else's patch.
-- With a tweak off, the car behaves exactly as stock. The ★ reader only listens: it never grabs
-  the key device or injects key presses.
+- With a tweak off, the car behaves exactly as stock. The ★ reader never grabs the key device or
+  injects key presses. During a ★ hold, which is Tilepad's, it may ask the car to skip the ★ action
+  from Button settings, and it allows that action again as soon as the hold is over (at the latest
+  after 2 minutes). A short press is never touched.
 - Don't commit firmware, ODEX or APK files from the car, disassembly, or raw vehicle logs. Patch
   recipes hold only hashes, offsets and the few bytes they replace.
 

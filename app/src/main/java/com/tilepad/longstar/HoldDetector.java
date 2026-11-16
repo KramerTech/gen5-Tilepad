@@ -14,6 +14,11 @@ public final class HoldDetector {
     public static final int NONE = 0;
     public static final int ARM = 1;
     public static final int DISARM = 2;
+    /**
+     * Released after a qualifying hold. The car runs its own ★ action (Button settings, e.g. Home)
+     * on the release; where it couldn't be blocked at the hold, Tilepad opens after it (StarHold).
+     */
+    public static final int HELD_RELEASE = 3;
 
     private final long holdMs;
     private final long cooldownMs;
@@ -46,7 +51,7 @@ public final class HoldDetector {
             if (!down) return NONE;  // release whose press we never saw (e.g. daemon restart)
             down = false;
             generation++;
-            return DISARM;
+            return firedThisPress ? HELD_RELEASE : DISARM;
         }
         return NONE;  // autorepeat: still held, nothing changes
     }
@@ -57,7 +62,7 @@ public final class HoldDetector {
         generation++;
     }
 
-    /** @return true exactly once per qualifying hold. */
+    /** @return true exactly once per qualifying hold; its release then returns {@link #HELD_RELEASE}. */
     public boolean onTimer(int armedGeneration, long now) {
         if (!down || firedThisPress || armedGeneration != generation) return false;
         if (now - downAt < holdMs) return false;
