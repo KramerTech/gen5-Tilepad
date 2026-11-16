@@ -11,8 +11,11 @@ final class Firmware {
     static final class Release {
         final String name, automotive, automotiveService, framework, framework2, evSettings;
         final Usm usm;
+        final Mode mode;
         Release(String name, Usm usm, String automotive, String automotiveService, String framework, String framework2, String evSettings) {
             this.name = name; this.usm = usm; this.automotive = automotive; this.automotiveService = automotiveService;
+            // V012 is the one release before V015, which added a method before both groups of codes.
+            this.mode = usm == USM_V012 ? MODE_V012 : MODE_V015;
             this.framework = framework; this.framework2 = framework2; this.evSettings = evSettings;
         }
     }
@@ -24,6 +27,18 @@ final class Firmware {
             this.driverFitted = driverFitted; this.passengerFitted = passengerFitted; this.wheelFitted = wheelFitted;
         }
     }
+    /**
+     * IModeManager transaction codes for a steering-wheel key's assigned action, which the star hold
+     * blocks during a hold: getKeyAction, disableKeyAction, enableKeyAction.
+     */
+    static final class Mode {
+        final int keyAction, disableKeyAction, enableKeyAction;
+        Mode(int keyAction, int disableKeyAction, int enableKeyAction) {
+            this.keyAction = keyAction; this.disableKeyAction = disableKeyAction; this.enableKeyAction = enableKeyAction;
+        }
+    }
+    // The same methods on every image; V012's codes are one lower, as its IUSMService codes are.
+    private static final Mode MODE_V015 = new Mode(0x2b, 0x2c, 0x2d), MODE_V012 = new Mode(0x2a, 0x2b, 0x2c);
     // setFrontSeatHeatDrvStep, setFrontSeatHeatAstStep, getFrontSeatHeat_DrvOption,
     // getFrontSeatHeat_AstOption, getSWRC_SteeringwheelHeatingOpt. V015 added a method before
     // each, so V012's codes are lower; the methods themselves are the same.

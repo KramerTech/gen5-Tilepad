@@ -31,6 +31,22 @@ final class Ui {
     static final int RED = 0xffff5a4f;
     static final int PURPLE = 0xff8b6cff;
     static final int SCRIM = 0xcc05070a;
+    /** Deeper accent and red for fills under white text: 4.5:1 or better, where ACCENT and RED give 2.9 and 2.8. */
+    static final int ACCENT_SOLID = 0xff2563eb;
+    static final int RED_SOLID = 0xffcc3326;
+    /** Their pressed fills: darker still (6.1:1 and 6.4:1), so a press shows as a press. */
+    static final int ACCENT_SOLID_PRESSED = 0xff1d4ed8;
+    static final int RED_SOLID_PRESSED = 0xffa8291e;
+
+    /** The fill to use under white text for a colour (the accent and red deepen; others stay). */
+    static int solid(int color) {
+        return color == ACCENT ? ACCENT_SOLID : color == RED ? RED_SOLID : color;
+    }
+
+    /** The pressed fill for colour's solid() fill; pressed for a colour that doesn't deepen. */
+    static int solidPressed(int color, int pressed) {
+        return color == ACCENT ? ACCENT_SOLID_PRESSED : color == RED ? RED_SOLID_PRESSED : pressed;
+    }
 
     final Context context;
     private final float density;
@@ -125,13 +141,17 @@ final class Ui {
     @SuppressWarnings("deprecation")
     static void background(View view, Drawable drawable) { view.setBackgroundDrawable(drawable); }
 
-    /** A rounded pill button with an optional leading glyph. */
+    /**
+     * A rounded pill button with an optional leading glyph. Under white text the accent and the red
+     * get their deeper fills and darker pressed fills (solid, solidPressed) in place of fill and pressed.
+     */
     LinearLayout button(String title, Glyph.Kind glyph, int fill, int pressed, int textColor) {
         LinearLayout v = row();
         v.setGravity(Gravity.CENTER);
         v.setPadding(dp(26), 0, dp(26), 0);
         v.setMinimumWidth(dp(150));
-        background(v, pressable(fill, pressed, 28));
+        boolean white = textColor == TEXT;
+        background(v, pressable(white ? solid(fill) : fill, white ? solidPressed(fill, pressed) : pressed, 28));
         if (glyph != null) {
             LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(dp(24), dp(24));
             p.rightMargin = dp(10);

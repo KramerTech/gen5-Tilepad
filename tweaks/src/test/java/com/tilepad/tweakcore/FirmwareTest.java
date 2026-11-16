@@ -33,6 +33,15 @@ public class FirmwareTest {
         assertFalse(Firmware.projection(DN8.framework, V015.framework2));
         assertFalse(Firmware.evSettings("0000"));
     }
+    @Test public void starHoldCodesComeFromTheMatchedRelease() {
+        // IModeManager getKeyAction, disableKeyAction, enableKeyAction: one lower on V012 only.
+        for (Firmware.Release r : Firmware.SUPPORTED) {
+            boolean v012 = r == V012;
+            assertEquals(r.name, v012 ? 0x2a : 0x2b, r.mode.keyAction);
+            assertEquals(r.name, v012 ? 0x2b : 0x2c, r.mode.disableKeyAction);
+            assertEquals(r.name, v012 ? 0x2c : 0x2d, r.mode.enableKeyAction);
+        }
+    }
     @Test public void heaterCodesComeFromTheMatchedRelease() {
         // V012's IUSMService numbers each heater method lower: V015's driver code is V012's passenger seat.
         Firmware.Usm v012 = Firmware.vehicleRelease(V012.automotive, V012.automotiveService).usm;

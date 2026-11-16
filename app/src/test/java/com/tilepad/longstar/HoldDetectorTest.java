@@ -15,7 +15,18 @@ public class HoldDetectorTest {
         assertFalse(d.onTimer(gen, 1799));          // early wakeup is ignored
         assertTrue(d.onTimer(gen, 1800));
         assertFalse(d.onTimer(gen, 1900));          // only once per press
-        assertEquals(HoldDetector.DISARM, d.onKey(0, 4000));
+        assertEquals(HoldDetector.HELD_RELEASE, d.onKey(0, 4000));
+    }
+
+    @Test public void onlyAQualifyingHoldsReleaseIsAHeldRelease() {
+        HoldDetector d = new HoldDetector(800, 1000);
+        assertEquals(HoldDetector.ARM, d.onKey(1, 0));
+        assertTrue(d.onTimer(d.generation(), 800));
+        assertEquals(HoldDetector.HELD_RELEASE, d.onKey(0, 950));
+        // A second hold inside the cooldown doesn't qualify, so its release is a plain one.
+        assertEquals(HoldDetector.ARM, d.onKey(1, 1100));
+        assertFalse(d.onTimer(d.generation(), 1700));
+        assertEquals(HoldDetector.DISARM, d.onKey(0, 1800));
     }
 
     @Test public void shortPressNeverFires() {

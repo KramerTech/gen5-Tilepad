@@ -71,6 +71,8 @@ public final class TweaksActivity extends Activity {
     private TweakInfo[] entries;
     /** A left-pane entry was just chosen: the next render scrolls it fully into view. */
     private boolean revealSelection;
+    /** Problem text: the day red, and a lighter red at night, 4.5:1 or better on either page and in dialogs. */
+    private int problemInk = 0xffb54b30;
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         // Fixed for the car, so the saved index keeps pointing at the same entry.
@@ -133,6 +135,7 @@ public final class TweaksActivity extends Activity {
         bg = night ? 0xff171b1f : 0xffefefef;
         ink = color("text_eco_input_normal", night ? 0xffb6c1c8 : 0xff62797f);
         muted = night ? 0xffb6c1c8 : 0xff6a6a6a; line = night ? 0xff41494e : 0xffc7c7c7;
+        problemInk = night ? 0xffff7a66 : 0xffb54b30;
         LinearLayout root = column(); root.setBackgroundColor(bg); setContentView(root);
         FrameLayout header = new FrameLayout(this);
         TextView title = text("Tweaks and Settings", 28, ink); title.setTypeface(null, Typeface.BOLD); title.setGravity(Gravity.CENTER);
@@ -418,7 +421,7 @@ public final class TweaksActivity extends Activity {
         else if (pending) detail = against == 0 ? "Up to date" : "Newer than the latest release, " + o.version;
         else if (checked) title += against == 0 ? " (latest)" : " (newer than " + o.version + ")";
         words.addView(text(title, 24, ink));
-        TextView sub = text(detail, 18, problem ? 0xffb54b30 : muted); sub.setPadding(0, dp(2), 0, 0); words.addView(sub);
+        TextView sub = text(detail, 18, problem ? problemInk : muted); sub.setPadding(0, dp(2), 0, 0); words.addView(sub);
         row.addView(words, new LinearLayout.LayoutParams(0, -2, 1));
         row.setContentDescription(title + ", " + detail + (can ? ticked ? ", ticked" : ", not ticked" : ""));
         View end;
@@ -704,12 +707,8 @@ public final class TweaksActivity extends Activity {
                 list.addView(pick);
                 View rule = new View(this); rule.setBackgroundColor(line); list.addView(rule, new LinearLayout.LayoutParams(-1, dp(1)));
             }
-            ScrollView history = new ScrollView(this); history.setScrollbarFadingEnabled(false); history.addView(list);
-            // It scrolls by itself, inside the window's own scroll.
-            history.setOnTouchListener(new View.OnTouchListener() { @Override public boolean onTouch(View v, MotionEvent e) {
-                v.getParent().requestDisallowInterceptTouchEvent(true); return false;
-            } });
-            stage.addView(history, new LinearLayout.LayoutParams(-1, used.size() > 3 ? dp(61 * 3 + 30) : -2));
+            // Part of the window's own scroll, so on a short screen one drag reaches every name.
+            stage.addView(list);
         }
         next.setOnClickListener(new View.OnClickListener() { @Override public void onClick(View v) {
             String t = owner.getText().toString().trim();
@@ -871,7 +870,7 @@ public final class TweaksActivity extends Activity {
     }
     private void message(LinearLayout into, String text, boolean problem) {
         into.removeAllViews();
-        TextView v = text(text, 19, problem ? 0xffb54b30 : ink); v.setGravity(Gravity.TOP); v.setPadding(0, dp(10), 0, dp(10)); into.addView(v);
+        TextView v = text(text, 19, problem ? problemInk : ink); v.setGravity(Gravity.TOP); v.setPadding(0, dp(10), 0, dp(10)); into.addView(v);
     }
     /**
      * Reads the repository's latest release in its own window, says what linking does (link what's
@@ -1038,7 +1037,7 @@ public final class TweaksActivity extends Activity {
         controls.addView(row);
     }
     private void note(String label, boolean problem) {
-        TextView v = text(label, problem ? 20 : 22, problem ? 0xffb54b30 : muted); int spacing = entries[selected].id.equals("dst") && !problem ? 7 : 16;
+        TextView v = text(label, problem ? 20 : 22, problem ? problemInk : muted); int spacing = entries[selected].id.equals("dst") && !problem ? 7 : 16;
         v.setPadding(dp(30), dp(spacing), dp(24), dp(spacing)); controls.addView(v);
     }
     private String thresholdLabel() {
@@ -1218,7 +1217,7 @@ public final class TweaksActivity extends Activity {
         }
         private void say(CharSequence message, boolean problem) {
             body.removeAllViews();
-            TextView v = text("", 22, problem ? 0xffb54b30 : ink); v.setText(styled(message)); v.setGravity(Gravity.TOP); v.setLineSpacing(dp(3), 1f); body.addView(v);
+            TextView v = text("", 22, problem ? problemInk : ink); v.setText(styled(message)); v.setGravity(Gravity.TOP); v.setLineSpacing(dp(3), 1f); body.addView(v);
         }
         private void buttons(String positive, String neutral, boolean cancel) {
             show(DialogInterface.BUTTON_POSITIVE, positive); show(DialogInterface.BUTTON_NEUTRAL, neutral); show(DialogInterface.BUTTON_NEGATIVE, cancel ? "Cancel" : null);

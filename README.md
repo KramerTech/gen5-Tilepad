@@ -11,8 +11,11 @@ backend. It is developed and tested on an IONIQ 5 (NEEV23 US).
 
 To open Tilepad, hold the steering wheel's **★** (custom) button for about a second. Hold it again
 to close Tilepad. A short press of ★ still does whatever Hyundai's Button settings assign to it.
+While you hold ★, Tilepad asks the car to skip that action, so it doesn't open over Tilepad when
+you let go. If the car doesn't take that request, Tilepad opens a moment after you let go instead,
+just after the car's own action.
 On a car without ★, such as the Sonata, hold its programmable custom button instead (the Sonata's
-is the one set to HOME).
+is the one set to HOME); the same goes for its action.
 
 ## Features
 

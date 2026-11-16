@@ -156,7 +156,7 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
         scroll.setClipToPadding(false);
         root.addView(scroll, new FrameLayout.LayoutParams(-1, -1));
 
-        done = ui.button("Done", Glyph.Kind.CHECK, Ui.ACCENT, 0xff3a74d9, Ui.TEXT);
+        done = ui.button("Done", Glyph.Kind.CHECK, Ui.ACCENT, Ui.ACCENT_SOLID_PRESSED, Ui.TEXT);
         done.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) { grid.setEditing(false); }
         });
@@ -504,7 +504,7 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
         left.addView(new View(this), new LinearLayout.LayoutParams(-1, 0, 1f));
         LinearLayout buttons = ui.row();
         final View cancel = ui.button("Cancel", null, Ui.SURFACE, Ui.SURFACE_PRESSED, Ui.TEXT);
-        final View save = ui.button("Save", null, Ui.ACCENT, 0xff3a74d9, Ui.TEXT);
+        final View save = ui.button("Save", null, Ui.ACCENT, Ui.ACCENT_SOLID_PRESSED, Ui.TEXT);
         buttons.addView(cancel, new LinearLayout.LayoutParams(-2, ui.dp(58)));
         LinearLayout.LayoutParams sp = new LinearLayout.LayoutParams(-2, ui.dp(58));
         sp.leftMargin = ui.dp(14);
