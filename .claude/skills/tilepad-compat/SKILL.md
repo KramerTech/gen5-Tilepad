@@ -31,6 +31,11 @@ are OEM code: never commit them.
   `deodex.sh` already does this, and it fails if any `Exception` shows up.
 - Precondition is a separate gate, `app/.../PreconditioningProfile.java`, with its own evidence in
   `docs/PRECONDITIONING-UPSTREAM.md`. Triage reports it, but this workflow doesn't change it unless asked.
+  When asked: a Tilepad-own profile reuses a profiled image's hash pair only if `automotive.odex` and
+  `automotive-service.odex` are byte-identical (NEEV CA). If `tools/compat/odex_same.py <profiled system>
+  <new system> automotive.odex automotive-service.odex` says `build-time only`, the code, optimized data
+  and dependencies are identical but the hashes aren't: give it its own pair and the profiled device's
+  timeout and threshold (EV6 CVEV CA). Anything else is a new port, upstream first.
 - Don't comment on, label or close the GitHub issue unless the user asks.
 
 ## Adding a log

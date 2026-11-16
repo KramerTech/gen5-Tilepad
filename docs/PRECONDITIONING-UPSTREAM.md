@@ -13,7 +13,7 @@ integration ports the useful backend changes instead of merging the application 
 ## Imported changes
 
 - Exact firmware profiles for twelve combinations across six head-unit families (Tilepad adds
-  two, below). EV6 US 241120 and NEEV US 260903 came later, from upstream's
+  three, below). EV6 US 241120 and NEEV US 260903 came later, from upstream's
   [`432e410d`](https://github.com/paytondevs/gen5w-preconditioning/commit/432e410d) and
   [`6ea690f9`](https://github.com/paytondevs/gen5w-preconditioning/commit/6ea690f9) (2026-11-12): their
   software strings and hashes only, with Tilepad's own tests.
@@ -61,6 +61,7 @@ scheduler-specific outside-temperature telemetry was added.
 | IONIQ 5 NEEV CA | 260206† |
 | IONIQ 5 NEEV KR | 260902 |
 | EV6 CVEV US | 241120, 251120, 260507 |
+| EV6 CVEV CA | 260206‡ |
 | EV6 CVEV KR | 260902 |
 | IONIQ 6 CEEV US | 260507 |
 
@@ -69,7 +70,14 @@ firmware with the same suffix. †NEEV CA 260206 is also Tilepad's own addition:
 (issue 21, a Canadian 2024 IONIQ 5, device `wp_daudioplus_neev_ca`, software
 `NEEV.CAN.0000.V015.011.260206`) showed its `automotive.odex` and `automotive-service.odex`
 byte-identical to NEEV23 US 260206's, and no difference in the HEV, BCM or cluster interfaces Tilepad
-calls across the images compared. It reuses that hash pair and hasn't been tried on the car. *NEEV23 US 240822 is Tilepad's own addition, not an upstream
+calls across the images compared. It reuses that hash pair and hasn't been tried on the car.
+‡EV6 CVEV CA 260206 is Tilepad's own addition too: a compatibility log (issue 22, a Canadian 2024
+EV6, device `wp_daudioplus_cvev_ca`, software `CVEV.CAN.0000.V015.011.260206`) showed its
+`automotive.odex` and `automotive-service.odex` identical to EV6 US 260507's in every byte except
+the source jar's recorded build time and the ODEX header checksum that covers it
+(`tools/compat/odex_same.py`): the same embedded DEX, optimized data and dependency SHA-1s. Since
+the files aren't byte-identical it has its own hash pair, and as the same code it keeps the US EV6's
+five-minute timeout and 20°C threshold. It hasn't been tried on the car. *NEEV23 US 240822 is Tilepad's own addition, not an upstream
 profile: a compatibility log (issue 12) showed its `automotive.odex` and `automotive-service.odex`
 byte-identical to upstream's NEEV US 240822, so it reuses that hash pair, as upstream's NEEV US
 260507 reuses NEEV23 US's. It hasn't been tried on that car. Evidence and field-testing limits are in the
