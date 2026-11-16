@@ -165,7 +165,7 @@ public final class TweaksActivity extends Activity {
             } });
             rail.addView(tab, new LinearLayout.LayoutParams(-1, -2)); divider(rail);
         }
-        controlScroll = scroller("Selected tweak controls"); controls = column(); controlScroll.addView(controls);
+        controlScroll = scroller("Selected tweak controls"); controls = column(); controls.setPadding(0, 0, 0, dp(24)); controlScroll.addView(controls);
         panes.addView(controlScroll, new LinearLayout.LayoutParams(dp(600 * scale), -1)); verticalDivider(panes);
         final TweakInfo item = TweakInfo.RAIL[selected];
         if (item == TweakInfo.SUPPORT) support(); else if (item == TweakInfo.UPDATES) packageManager(); else tweak(item);
