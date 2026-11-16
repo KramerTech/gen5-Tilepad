@@ -5,7 +5,7 @@ import org.junit.Test;
 
 public class FirmwareTest {
     private static final Firmware.Release V015 = Firmware.SUPPORTED[0], V016 = Firmware.SUPPORTED[1], KIA_V015 = Firmware.SUPPORTED[2],
-        V012 = Firmware.SUPPORTED[3];
+        KIA_MQ4 = Firmware.SUPPORTED[3], V012 = Firmware.SUPPORTED[4];
     @Test public void acceptsEachSupportedReleasesFiles() {
         for (Firmware.Release r : Firmware.SUPPORTED) {
             assertTrue(r.name, Firmware.vehicle(r.automotive, r.automotiveService));
@@ -18,6 +18,9 @@ public class FirmwareTest {
         assertFalse(Firmware.projection(V016.framework, V015.framework2));
         // Hyundai's and Kia's images of one release are separate builds: no mixing either.
         assertFalse(Firmware.vehicle(V015.automotive, KIA_V015.automotiveService));
+        // Kia's EV and MQ4 images of one release are separate builds too: no mixing.
+        assertFalse(Firmware.vehicle(KIA_V015.automotive, KIA_MQ4.automotiveService));
+        assertFalse(Firmware.vehicle(KIA_MQ4.automotive, KIA_V015.automotiveService));
         assertFalse(Firmware.projection(KIA_V015.framework, V015.framework2));
         assertFalse(Firmware.vehicle(V012.automotive, V015.automotiveService));
         assertFalse(Firmware.projection(V015.framework, V012.framework2));

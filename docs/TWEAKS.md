@@ -319,6 +319,7 @@ images (USA):
 | Hyundai V015.012.260507 | the IONIQ 5 capture | captured `/system`, all patches verified on the car |
 | Hyundai V016.010.260903 | a compatibility log | every interface Tilepad calls compared with V015's (below) |
 | Kia V015.012.260507 | an EV6 compatibility log | every deodexed file compared with Hyundai V015's (below) |
+| Kia V015.012.260507 MQ4 | a Sorento log + full `/system` capture | every interface compared with Kia V015's (below) |
 | Hyundai V012.010.240822 | an IONIQ 5 compatibility log | every call Tilepad makes compared with V015's; heater codes per release (below) |
 
 `Firmware.java` lists each release's `automotive.odex`/`automotive-service.odex` (vehicle tweaks),
@@ -351,6 +352,20 @@ The generated `consent-kia-v015`/`right-kia-v015` recipes have exactly V015's of
 every patched method's code, header included, is byte-identical to V015's at the same offset. Its
 DATC reports the IONIQ 5's climate variant and options (0x02; 0x29, 0x04, 0x2f, 0x03, 0x01), and its
 key layout is the same file, with the track keys at 34/35 and ★ at 43.
+
+For Kia V015 MQ4 (a 2023 US Sorento log, `wp_daudioplus_mq422_us`, plus the car's own decrypted
+`/system` capture): the MQ4-lineage build of the same release. `automotive-service`, EV Settings,
+`com.hkmc.ext.hcan`, `com.infobank` and RightScreenHome are identical to Kia V015's; `automotive`
+differs only in `UsageLogID`'s log constants; every transaction code on every interface Tilepad
+calls is the same. SystemUI's obfuscation renamed the consent controller from `D` to `E` (its
+`dc()`V` kept its name), so the generator takes a per-release consent class and
+`consent-kia-mq4-v015` redirects `start()`'s T(0) at a shifted anchor (`46 00 … fb fe` for V015's
+`45 00 … 2d ff`); the patched method's only difference from Kia V015's is that instruction. The
+Sorento's DATC reports the dual-zone variant (0x02) with different options (0x09, 0x04, 0x2b, 0,
+0 for the IONIQ 5's 0x29, 0x04, 0x2f, 0x03, 0x01), so `requireDualZone` keeps its device list:
+Climate Sync and Driver Only stay unavailable. Its steering wheel has no ★ scan code (43 in every
+MQ4 layout), so Track swap installs but has no key to swap; the car is a gas model without an OTA
+client, so Charge-Away and the OTA tweak are not for it.
 
 For Hyundai V012 (an IONIQ 5 log, 2024): an older build, with renamed obfuscated members throughout,
 so each call was compared on its own. Every code Tilepad uses on IDATCService, IBCMService,

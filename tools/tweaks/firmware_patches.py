@@ -97,6 +97,7 @@ RELEASES = {
     "v015": {"RightScreenHome": "a46717495f957dab68b96cf6c9a01d4a", "SystemUI": "2363d6315a05b51064821b8beab7b5fd"},
     "v016": {"RightScreenHome": "4789932842938078386a21aecc77c984", "SystemUI": "3fba390d4485277ab882bff1d006fc55"},
     "kia-v015": {"RightScreenHome": "8c06f56597970d09ab369cfd8cc8c28d", "SystemUI": "8abb72b9715bc8e4746ac9ee3b03ab39"},
+    "kia-mq4-v015": {"RightScreenHome": "bd97b438aeb3d9c77510b5e2da4234f7", "SystemUI": "084171cb15bb28ebd4d4f4fe7aa98e26"},
     "v012": {"RightScreenHome": "0fadc5cc2249cd8a9508cce2b618a30c", "SystemUI": "85104c851b0132076bf06ca91463a761"},
 }
 # Obfuscated names, the nav branches (code units into f(ZZ)Z, the branch, the goto it becomes),
@@ -107,6 +108,10 @@ V015_NAMES = {"right": "Lcom/mobis/splitscreen/right/k/r;", "osd": "Lcom/mobis/s
               "consentCall": "f8200f00450029002dff", "consentThis": 5,
               "nav": [(0x39, "33174000", "29004000"), (0x5b, "38070300", "29000300")]}
 NAMES = {
+    "kia-mq4-v015": {"right": "Lcom/mobis/splitscreen/right/k/r;", "osd": "Lcom/mobis/splitscreen/right/r/i;",
+                     "osdEntry": "13081900", "consentAgree": "dc", "consentClass": "Lcom/android/systemui/consentscreen/E;",
+                     "consentCall": "f8200f0046002900fbfe", "consentThis": 5,
+                     "nav": [(0x39, "33174000", "29004000"), (0x5b, "38070300", "29000300")]},
     "v012": {"right": "Lcom/mobis/splitscreen/right/l/r;", "osd": "Lcom/mobis/splitscreen/right/s/i;",
              "osdEntry": "13071900", "consentAgree": "cX",
              "consentCall": "f8200f00460029002eff", "consentThis": 6,
@@ -163,7 +168,7 @@ def generate(firmware, out, release, apk_hashes=None):
     # Only the boot-time call: start()'s T(0) becomes dc(), the agreement path factory mode and the
     # welcome screen already take. T(I) itself stays, since the same window is the driver picker
     # (a profile change, a profile's password after the car was off) and the post-update notice.
-    method = ("Lcom/android/systemui/consentscreen/D;", names["consentAgree"], "()V")
+    method = (names.get("consentClass", "Lcom/android/systemui/consentscreen/D;"), names["consentAgree"], "()V")
     index = dex.methods.index(method)
     anchor = bytes.fromhex(names["consentCall"])
     assert stock.count(anchor) == 1
