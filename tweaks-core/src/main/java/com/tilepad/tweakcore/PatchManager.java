@@ -95,14 +95,24 @@ public final class PatchManager {
         }
         return out.toString();
     }
-    /** The recipe made for this file's stock (Tilepad's backup, or the untouched file). */
+    /**
+     * The recipe made for this file's stock (Tilepad's backup, or the untouched file). Two releases
+     * can share an ODEX but not its APK (Kia V015.012 and V015.011's SystemUI): then the one whose
+     * paired APK is the car's.
+     */
     private Properties matching(String path, List<Properties> candidates) throws IOException {
         if (candidates.size() == 1) return candidates.get(0);
         File backup = new File(state, "files/" + new File(path).getName() + "/stock");
         File source = backup.isFile() ? backup : system.file(path);
         String stock = source.isFile() ? Files.hash(Files.read(source)) : "";
-        for (Properties p : candidates) if (stock.equals(p.getProperty("stockSha256"))) return p;
-        return candidates.get(0);  // none fits: its stock check reports the file as unsupported
+        Properties made = null;
+        for (Properties p : candidates) {
+            if (!stock.equals(p.getProperty("stockSha256"))) continue;
+            if (made == null) made = p;
+            File apk = p.getProperty("apkPath") == null ? null : system.file(p.getProperty("apkPath"));
+            if (apk == null || (apk.isFile() && Files.hash(apk).equals(p.getProperty("apkSha256")))) return p;
+        }
+        return made != null ? made : candidates.get(0);  // none fits: its stock or APK check says so
     }
     /**
      * The track swap edits two text lines, identical in every model's layout, so it isn't tied to

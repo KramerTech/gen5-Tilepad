@@ -95,9 +95,14 @@ def check_md5(data, expected):
 # Stock MD5 of each release's patched files, as checked when its recipes were made.
 RELEASES = {
     "v015": {"RightScreenHome": "a46717495f957dab68b96cf6c9a01d4a", "SystemUI": "2363d6315a05b51064821b8beab7b5fd"},
+    "v015-011": {"RightScreenHome": "413a157864dae6df381bc3ebd404d63f", "SystemUI": "936e4364c1dfeed98f45b5ceb3e21c11"},
     "v016": {"RightScreenHome": "4789932842938078386a21aecc77c984", "SystemUI": "3fba390d4485277ab882bff1d006fc55"},
     "kia-v015": {"RightScreenHome": "8c06f56597970d09ab369cfd8cc8c28d", "SystemUI": "8abb72b9715bc8e4746ac9ee3b03ab39"},
+    # Kia V015.011's ODEX files are V015.012's; only SystemUI.apk differs, so its recipes pair that APK.
+    "kia-v015-011": {"RightScreenHome": "8c06f56597970d09ab369cfd8cc8c28d", "SystemUI": "8abb72b9715bc8e4746ac9ee3b03ab39"},
     "v012": {"RightScreenHome": "0fadc5cc2249cd8a9508cce2b618a30c", "SystemUI": "85104c851b0132076bf06ca91463a761"},
+    # Hyundai's non-EV image (HYUNDAI.USA, e.g. the Sonata DN8), as Kia's KIA.USA is the Sorento's.
+    "dn8-v015": {"RightScreenHome": "4b299b74ee9851fee1043ed6ae24bf97", "SystemUI": "5fa30499aaed5fe28e8b0552c27341b2"},
 }
 # Obfuscated names, the nav branches (code units into f(ZZ)Z, the branch, the goto it becomes),
 # and start()'s consent call with the register holding `this`. V015, V016 and Kia V015 share them;
@@ -111,6 +116,12 @@ NAMES = {
              "osdEntry": "13071900", "consentAgree": "cX",
              "consentCall": "f8200f00460029002eff", "consentThis": 6,
              "nav": [(0x39, "33173f00", "29003f00"), (0x5a, "38070300", "29000300")]},
+    # V015's RightScreenHome names; SystemUI's consent controller is E, and its start() has seven
+    # registers, so `this` is v6.
+    "dn8-v015": {"right": "Lcom/mobis/splitscreen/right/k/r;", "osd": "Lcom/mobis/splitscreen/right/r/i;",
+                 "osdEntry": "13081900", "consentAgree": "dc", "consentClass": "Lcom/android/systemui/consentscreen/E;",
+                 "consentCall": "f8200f0046002900fbfe", "consentThis": 6,
+                 "nav": [(0x39, "33174000", "29004000"), (0x5b, "38070300", "29000300")]},
 }
 
 
@@ -163,11 +174,20 @@ def generate(firmware, out, release, apk_hashes=None):
     # Only the boot-time call: start()'s T(0) becomes dc(), the agreement path factory mode and the
     # welcome screen already take. T(I) itself stays, since the same window is the driver picker
     # (a profile change, a profile's password after the car was off) and the post-update notice.
-    method = ("Lcom/android/systemui/consentscreen/D;", names["consentAgree"], "()V")
+    consent_class = names.get("consentClass", "Lcom/android/systemui/consentscreen/D;")
+    method = (consent_class, names["consentAgree"], "()V")
     index = dex.methods.index(method)
     anchor = bytes.fromhex(names["consentCall"])
     assert stock.count(anchor) == 1
     at = stock.index(anchor)
+    # The call must be in start(), and dc() must get start()'s own `this`: the last register
+    # (registers minus ins). A wrong one passes another value as `this`, and dc()'s first field
+    # read crashes SystemUI at boot.
+    start = dex.method(consent_class, "start", "()V")
+    registers, ins = struct.unpack_from("<HH", stock, start - 16)
+    units = struct.unpack_from("<I", stock, start - 4)[0]
+    assert start <= at < start + units * 2, "the consent call isn't in start()"
+    assert names["consentThis"] == registers - ins, f"start()'s this is v{registers - ins}, not v{names['consentThis']}"
     before = stock[at:at + 6]
     after = bytes.fromhex("7010") + struct.pack("<HH", index, names["consentThis"])
     consent = [(at, before, after)]
