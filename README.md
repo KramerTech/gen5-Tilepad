@@ -36,7 +36,7 @@ to close Tilepad. A short press of ★ still does whatever Hyundai's Button sett
     passenger buckles up.
   - **Auto-Open Phone Projection** opens Android Auto or CarPlay as soon as it is available.
   - **Charge-Away** switches Scheduled Charging off when you are away from Home and back on when
-    you are at Home, and keeps your off-peak settings.
+    you are at Home, and keeps your off-peak settings. It only shows on cars you can plug in.
   - **Disable OTA Client** stops the head unit from checking for and downloading its own updates.
 - **Package Manager**, in Tweaks and Settings. It updates Tilepad over Wi-Fi, and it installs and
   updates other NEMESIS packages straight from their GitHub releases.

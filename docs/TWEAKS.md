@@ -67,7 +67,7 @@ The older heater-only `options` command remains supported for compatibility.
 | Maintain Climate Sync | A passenger temperature change moves the driver temperature to match, then turns Sync back on | None | No |
 | Automatic Driver Only | Driver Only every time the car is turned on; Sync once the passenger belt is buckled (one way, until the next car start) | None | No |
 | Auto-Open Phone Projection | Opens AA/CarPlay once when a session becomes available, independently of the right pop-over | None | No |
-| Charge-Away | Scheduled Charging off beyond 1.5 miles of Home, on within 1 mile; retains state between boundaries and preserves the off-peak-only choice | Set Home from the current GPS location, update it, or clear it; coordinates shown | No |
+| Charge-Away | Only on cars that can be plugged in (HEVService's EV or PHEV feature; hidden on gas cars and plain hybrids). Scheduled Charging off beyond 1.5 miles of Home, on within 1 mile; retains state between boundaries and preserves the off-peak-only choice | Set Home from the current GPS location, update it, or clear it; coordinates shown | No |
 | Disable OTA Client | Disables the head unit's OTA client, stopping its checks, downloads and prompts; turning off or uninstalling Tilepad reenables it, while updates preserve the setting | None | No |
 
 **Disable OTA Client** uses Android's persistent package switch for
