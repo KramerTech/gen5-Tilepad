@@ -111,7 +111,7 @@ V015_NAMES = {"right": "Lcom/mobis/splitscreen/right/k/r;", "osd": "Lcom/mobis/s
 NAMES = {
     "kia-mq4-v015": {"right": "Lcom/mobis/splitscreen/right/k/r;", "osd": "Lcom/mobis/splitscreen/right/r/i;",
                      "osdEntry": "13081900", "consentAgree": "dc", "consentClass": "Lcom/android/systemui/consentscreen/E;",
-                     "consentCall": "f8200f0046002900fbfe", "consentThis": 5,
+                     "consentCall": "f8200f0046002900fbfe", "consentThis": 6,
                      "nav": [(0x39, "33174000", "29004000"), (0x5b, "38070300", "29000300")]},
     "v012": {"right": "Lcom/mobis/splitscreen/right/l/r;", "osd": "Lcom/mobis/splitscreen/right/s/i;",
              "osdEntry": "13071900", "consentAgree": "cX",
@@ -169,11 +169,20 @@ def generate(firmware, out, release, apk_hashes=None):
     # Only the boot-time call: start()'s T(0) becomes dc(), the agreement path factory mode and the
     # welcome screen already take. T(I) itself stays, since the same window is the driver picker
     # (a profile change, a profile's password after the car was off) and the post-update notice.
-    method = (names.get("consentClass", "Lcom/android/systemui/consentscreen/D;"), names["consentAgree"], "()V")
+    consent_class = names.get("consentClass", "Lcom/android/systemui/consentscreen/D;")
+    method = (consent_class, names["consentAgree"], "()V")
     index = dex.methods.index(method)
     anchor = bytes.fromhex(names["consentCall"])
     assert stock.count(anchor) == 1
     at = stock.index(anchor)
+    # The call must be in start(), and dc() must get start()'s own `this`: the last register
+    # (registers minus ins). A wrong one passes another value as `this`, and dc()'s first field
+    # read crashes SystemUI at boot.
+    start = dex.method(consent_class, "start", "()V")
+    registers, ins = struct.unpack_from("<HH", stock, start - 16)
+    units = struct.unpack_from("<I", stock, start - 4)[0]
+    assert start <= at < start + units * 2, "the consent call isn't in start()"
+    assert names["consentThis"] == registers - ins, f"start()'s this is v{registers - ins}, not v{names['consentThis']}"
     before = stock[at:at + 6]
     after = bytes.fromhex("7010") + struct.pack("<HH", index, names["consentThis"])
     consent = [(at, before, after)]

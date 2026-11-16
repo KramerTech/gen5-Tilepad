@@ -382,8 +382,10 @@ Quick Boot branch and a seventh register, so `this` is `v6`, not V015's `v5`:
 `45 00 … 2d ff`) to `invoke-direct {v6}, E->dc()V`, and the generator now checks the receiver is
 `start()`'s own `this`. The DATC reports the dual-zone variant (0x02) with other options (0x09,
 0x04, 0x2b, 0xff, 0xff for the IONIQ 5's 0x29, 0x04, 0x2f, 0x03, 0x01), so Climate Sync and Driver
-Only stay unavailable. Its key layout has the track keys at 34/35 but no ★ (scan code 43), so Track
-swap works and the ★ hold that opens Tilepad has no key. It is a gas car without an OTA client.
+Only stay unavailable. Its key layout has the track keys at 34/35, so Track swap works, but no
+steering-wheel ★ (`SHORTCUT_SWRC_CUSTOM`, scan code 43 on the IONIQ 5 and EV6), so the ★ hold that
+opens Tilepad has no key. It does map `SHORTCUT_CUSTOM` at scan code 18, probably a ★ among the head
+unit's own buttons; not yet confirmed on the car. It is a gas car without an OTA client.
 
 For Hyundai V012 (an IONIQ 5 log, 2024): an older build, with renamed obfuscated members throughout,
 so each call was compared on its own. Every code Tilepad uses on IDATCService, IBCMService,
