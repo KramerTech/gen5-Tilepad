@@ -78,6 +78,8 @@ device = identity.get("ro.product.device", "")
 platform = (repo / "tweaks-core/src/main/java/com/tilepad/tweakcore/Platform.java").read_text()
 prefixes = re.findall(r'Build\.DEVICE\.startsWith\("([^"]+)"\)', platform)
 print(f"  dual-zone device prefix {prefixes}: {'yes' if any(device.startswith(p) for p in prefixes) else 'NO'}")
+star = dict(sections.get("input", [])).get("star")
+print(f"  ★ hold key device: {star or 'not in this log (an older Tilepad)'}")
 software = identity.get("ro.build.product")
 pre = [n for n, v in constants.items() if v == software]
 print(f"  Precondition software constant: {pre or 'NO'}; hashes known there: "

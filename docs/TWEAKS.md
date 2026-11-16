@@ -312,14 +312,15 @@ Support is keyed to firmware files, not the car's name. One `/system` image serv
 (the unit sets `ro.product.device`, e.g. `wp_daudioplus_neev23_us`, at boot), so cars on the same
 image have byte-identical files whatever model they are. Hyundai and Kia build separate images of a
 release (`build.prop` names them `ECOHMC` and `ECOKMC`), so each is listed on its own. Supported
-images (USA):
+images:
 
 | Image | First seen | How it was checked |
 |---|---|---|
 | Hyundai V015.012.260507 | the IONIQ 5 capture | captured `/system`, all patches verified on the car |
 | Hyundai V016.010.260903 | a compatibility log | every interface Tilepad calls compared with V015's (below) |
 | Kia V015.012.260507 | an EV6 compatibility log | every deodexed file compared with Hyundai V015's (below) |
-| Kia V015.012.260507 MQ4 | a Sorento log + full `/system` capture | every interface compared with Kia V015's (below) |
+| Hyundai Canada V015.011.260206 | a Canadian IONIQ 5 compatibility log | compared with Hyundai V015.012's: vehicle code byte-identical, patched classes identical (below) |
+| Kia V015.012.260507 MQ4 | a Sorento compatibility log | every call Tilepad makes compared with Kia V015's; consent patch re-anchored (below) |
 | Hyundai V012.010.240822 | an IONIQ 5 compatibility log | every call Tilepad makes compared with V015's; heater codes per release (below) |
 
 `Firmware.java` lists each release's `automotive.odex`/`automotive-service.odex` (vehicle tweaks),
@@ -353,19 +354,36 @@ every patched method's code, header included, is byte-identical to V015's at the
 DATC reports the IONIQ 5's climate variant and options (0x02; 0x29, 0x04, 0x2f, 0x03, 0x01), and its
 key layout is the same file, with the track keys at 34/35 and ★ at 43.
 
-For Kia V015 MQ4 (a 2023 US Sorento log, `wp_daudioplus_mq422_us`, plus the car's own decrypted
-`/system` capture): the MQ4-lineage build of the same release. `automotive-service`, EV Settings,
-`com.hkmc.ext.hcan`, `com.infobank` and RightScreenHome are identical to Kia V015's; `automotive`
-differs only in `UsageLogID`'s log constants; every transaction code on every interface Tilepad
-calls is the same. SystemUI's obfuscation renamed the consent controller from `D` to `E` (its
-`dc()`V` kept its name), so the generator takes a per-release consent class and
-`consent-kia-mq4-v015` redirects `start()`'s T(0) at a shifted anchor (`46 00 … fb fe` for V015's
-`45 00 … 2d ff`); the patched method's only difference from Kia V015's is that instruction. The
-Sorento's DATC reports the dual-zone variant (0x02) with different options (0x09, 0x04, 0x2b, 0,
-0 for the IONIQ 5's 0x29, 0x04, 0x2f, 0x03, 0x01), so `requireDualZone` keeps its device list:
-Climate Sync and Driver Only stay unavailable. Its steering wheel has no ★ scan code (43 in every
-MQ4 layout), so Track swap installs but has no key to swap; the car is a gas model without an OTA
-client, so Charge-Away and the OTA tweak are not for it.
+For Hyundai Canada V015.011.260206 (a 2024 IONIQ 5 log; the car reports `NEEV.CAN`, and the
+image's own `build.prop` labels it `ECOHMC.USA.0000.V015.011.260206`), an earlier V015 than the
+capture's: compared with Hyundai V015.012. `automotive`, `automotive-service`, `framework`, `framework2`,
+`services`, `com.hkmc.ext.hcan` and `com.infobank` deodex byte-identically, so every interface and
+transaction code Tilepad calls is unchanged. SystemUI, RightScreenHome and EV Settings differ only
+in obfuscation: compared method by method with short names masked, every changed file has the same
+members in another order, or is one of seven pairs of classes whose names swapped. None of the
+changed classes is patched, or owns EV Settings' off-peak-only preference. `consent-v015-011` and
+`right-v015-011` have V015's names, offsets and bytes, and the patched classes of both apps
+disassemble identically to V015.012's. The climate variant and options are the IONIQ 5's, and the
+key layout has the track keys at 34/35 and ★ at 43.
+
+For Kia V015.012.260507 MQ4 (a 2023 US Sorento log, `wp_daudioplus_mq422_us`; `build.prop` names
+the image `KIA.USA.0000.V015.012.260507`, Kia's build for its non-EV models, separate from the EV6's
+`ECOKMC`): compared with Kia V015.012. `automotive-service`, EV Settings, `com.hkmc.ext.hcan`,
+`com.infobank` and RightScreenHome have no code differences, and `automotive` differs only in
+`UsageLogID`'s log constants. Every transaction code on every interface Tilepad calls is the same.
+`framework`, `framework2` and `services` do differ, in Wi-Fi, media, location, Bluetooth, tethering,
+the rear camera and HDMI, none of it on a path Tilepad uses: `IWifiManager` keeps the
+`setWifiEnabled` and `setWifiApEnabled` signatures `WifiRadio` reflects, `Feature.hasFeature` only
+changed its `driverwatch` ignore list, the activity manager's `startActivityLocked` gained an
+event-log line, and `IGpmInterfaces` and `IDiPOManager` are unchanged. SystemUI's obfuscation
+renamed the consent controller from `D` to `E` (`dc()V` kept its name), and its `start()` gained a
+Quick Boot branch and a seventh register, so `this` is `v6`, not V015's `v5`:
+`consent-kia-mq4-v015` redirects the boot-time T(0) at its own anchor (`46 00 … fb fe` for V015's
+`45 00 … 2d ff`) to `invoke-direct {v6}, E->dc()V`, and the generator now checks the receiver is
+`start()`'s own `this`. The DATC reports the dual-zone variant (0x02) with other options (0x09,
+0x04, 0x2b, 0xff, 0xff for the IONIQ 5's 0x29, 0x04, 0x2f, 0x03, 0x01), so Climate Sync and Driver
+Only stay unavailable. Its key layout has the track keys at 34/35 but no ★ (scan code 43), so Track
+swap works and the ★ hold that opens Tilepad has no key. It is a gas car without an OTA client.
 
 For Hyundai V012 (an IONIQ 5 log, 2024): an older build, with renamed obfuscated members throughout,
 so each call was compared on its own. Every code Tilepad uses on IDATCService, IBCMService,
@@ -402,8 +420,10 @@ drive (`/mnt/media_rw/usbN`, written as media_rw, uid 1023), with a spinner whil
 
 - `tilepad-compat.txt`: build and vehicle-option properties, the SHA-256 of every gated file
   (vehicle and projection frameworks, the EV Settings APK, each patch recipe's target and paired
-  APK, the loaded key layouts, and Tilepad's stock backup of any file it patched), and each
-  tweak's on/off state and unavailable reason.
+  APK, the loaded key layouts, and Tilepad's stock backup of any file it patched), the head unit's
+  key devices from `/proc/bus/input/devices` (`daudio_*` names only, since a paired phone can appear
+  under its owner's name) with whether the ★ hold's `daudio_<ro.product.device>` is among them, and
+  each tweak's on/off state and unavailable reason.
 - The code behind those gates: every `/system/framework/*.odex` (the full boot class path, needed
   to deodex any of it), the gated apps' ODEX, the loaded key layouts, `build.prop`, and
   `tilepad-stock/` backups. APKs are hashed only; their code is in the ODEX.

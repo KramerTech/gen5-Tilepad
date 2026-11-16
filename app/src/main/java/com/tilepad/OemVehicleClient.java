@@ -22,6 +22,7 @@ final class OemVehicleClient implements VehiclePort, PreconditioningProfile.Comm
             String software = "";
             if (PreconditioningProfile.EV6_DEVICE.equals(Build.DEVICE)
                 || PreconditioningProfile.IONIQ5_NEEV_US_DEVICE.equals(Build.DEVICE)
+                || PreconditioningProfile.IONIQ5_NEEV_CA_DEVICE.equals(Build.DEVICE)
                 || PreconditioningProfile.IONIQ6_CEEV_US_DEVICE.equals(Build.DEVICE)
                 || PreconditioningProfile.IONIQ5_NEEV_KR_DEVICE.equals(Build.DEVICE)
                 || PreconditioningProfile.EV6_CVEV_KR_DEVICE.equals(Build.DEVICE)

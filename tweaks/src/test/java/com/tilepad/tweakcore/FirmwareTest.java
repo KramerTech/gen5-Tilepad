@@ -5,7 +5,7 @@ import org.junit.Test;
 
 public class FirmwareTest {
     private static final Firmware.Release V015 = Firmware.SUPPORTED[0], V016 = Firmware.SUPPORTED[1], KIA_V015 = Firmware.SUPPORTED[2],
-        KIA_MQ4 = Firmware.SUPPORTED[3], V012 = Firmware.SUPPORTED[4];
+        V012 = Firmware.SUPPORTED[3], V015_CA = Firmware.SUPPORTED[4], KIA_MQ4 = Firmware.SUPPORTED[5];
     @Test public void acceptsEachSupportedReleasesFiles() {
         for (Firmware.Release r : Firmware.SUPPORTED) {
             assertTrue(r.name, Firmware.vehicle(r.automotive, r.automotiveService));
@@ -24,6 +24,9 @@ public class FirmwareTest {
         assertFalse(Firmware.projection(KIA_V015.framework, V015.framework2));
         assertFalse(Firmware.vehicle(V012.automotive, V015.automotiveService));
         assertFalse(Firmware.projection(V015.framework, V012.framework2));
+        // V015.011 is its own build: its odex files differ from V015.012's, though the code is the same.
+        assertFalse(Firmware.vehicle(V015_CA.automotive, V015.automotiveService));
+        assertFalse(Firmware.projection(V015.framework, V015_CA.framework2));
         assertFalse(Firmware.evSettings("0000"));
     }
     @Test public void heaterCodesComeFromTheMatchedRelease() {

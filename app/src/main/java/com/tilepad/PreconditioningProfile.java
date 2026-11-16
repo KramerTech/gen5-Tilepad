@@ -32,6 +32,11 @@ final class PreconditioningProfile {
     // showed automotive.odex and automotive-service.odex byte-identical to NEEV US 240822's, so it
     // reuses those hashes, as NEEV US 260507 reuses NEEV23 US's.
     static final String IONIQ5_NEEV23_US_240822_SOFTWARE = "NEEV23.USA.0000.V012.010.240822";
+    // NEEV CA 260206 (Canada 2024 Ioniq 5), Tilepad's own, not upstream: a compatibility log
+    // (issue 21) showed automotive.odex and automotive-service.odex byte-identical to NEEV23 US
+    // 260206's, so it reuses those hashes. Its device and software strings are its own.
+    static final String IONIQ5_NEEV_CA_DEVICE = "wp_daudioplus_neev_ca";
+    static final String IONIQ5_NEEV_CA_260206_SOFTWARE = "NEEV.CAN.0000.V015.011.260206";
     static final String EV6_DEVICE = "wp_daudioplus_cvev_us";
     static final String EV6_SOFTWARE = "CVEV.USA.0000.V015.012.260507";
     static final String EV6_FRAMEWORK_SHA256 = "b9e7e02b81e1a8cfcf767c6b8bbb28bcf1d2c411a208fbf6a465e7f0c662774a";
@@ -63,7 +68,7 @@ final class PreconditioningProfile {
 
     static boolean supportsDevice(int sdk, String device) {
         return sdk == 19 && (IONIQ5_NEEV23_US_DEVICE.equals(device) || IONIQ5_NEEV_US_DEVICE.equals(device) || EV6_DEVICE.equals(device)
-            || IONIQ6_CEEV_US_DEVICE.equals(device) || IONIQ5_NEEV_KR_DEVICE.equals(device)
+            || IONIQ5_NEEV_CA_DEVICE.equals(device) || IONIQ6_CEEV_US_DEVICE.equals(device) || IONIQ5_NEEV_KR_DEVICE.equals(device)
             || EV6_CVEV_KR_DEVICE.equals(device));
     }
     // Cancel an unconfirmed request after this long. US EV6 uses the upstream five-minute policy.
@@ -108,6 +113,10 @@ final class PreconditioningProfile {
                 && IONIQ5_NEEV_US_240822_SERVICE_SHA256.equals(serviceHash)) return true;
             return IONIQ5_NEEV_US_SOFTWARE.equals(software) && IONIQ5_NEEV23_US_FRAMEWORK_SHA256.equals(frameworkHash)
                 && IONIQ5_NEEV23_US_SERVICE_SHA256.equals(serviceHash);
+        }
+        if (IONIQ5_NEEV_CA_DEVICE.equals(device)) {
+            return IONIQ5_NEEV_CA_260206_SOFTWARE.equals(software) && IONIQ5_NEEV23_US_260206_FRAMEWORK_SHA256.equals(frameworkHash)
+                && IONIQ5_NEEV23_US_260206_SERVICE_SHA256.equals(serviceHash);
         }
         if (IONIQ6_CEEV_US_DEVICE.equals(device)) {
             return IONIQ6_CEEV_US_SOFTWARE.equals(software) && IONIQ6_CEEV_US_FRAMEWORK_SHA256.equals(frameworkHash)

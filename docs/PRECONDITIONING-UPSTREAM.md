@@ -55,13 +55,18 @@ scheduler-specific outside-temperature telemetry was added.
 | --- | --- |
 | IONIQ 5 NEEV23 US | 240822*, 260206, 260507, 260903 |
 | IONIQ 5 NEEV US | 240822, 260507 |
+| IONIQ 5 NEEV CA | 260206† |
 | IONIQ 5 NEEV KR | 260902 |
 | EV6 CVEV US | 251120, 260507 |
 | EV6 CVEV KR | 260902 |
 | IONIQ 6 CEEV US | 260507 |
 
 These are exact software/hash combinations, not support for every model year or
-firmware with the same suffix. *NEEV23 US 240822 is Tilepad's own addition, not an upstream
+firmware with the same suffix. †NEEV CA 260206 is also Tilepad's own addition: a compatibility log
+(issue 21, a Canadian 2024 IONIQ 5, device `wp_daudioplus_neev_ca`, software
+`NEEV.CAN.0000.V015.011.260206`) showed its `automotive.odex` and `automotive-service.odex`
+byte-identical to NEEV23 US 260206's, and no difference in the HEV, BCM or cluster interfaces Tilepad
+calls across the images compared. It reuses that hash pair and hasn't been tried on the car. *NEEV23 US 240822 is Tilepad's own addition, not an upstream
 profile: a compatibility log (issue 12) showed its `automotive.odex` and `automotive-service.odex`
 byte-identical to upstream's NEEV US 240822, so it reuses that hash pair, as upstream's NEEV US
 260507 reuses NEEV23 US's. It hasn't been tried on that car. Evidence and field-testing limits are in the

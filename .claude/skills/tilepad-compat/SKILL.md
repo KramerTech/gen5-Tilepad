@@ -90,6 +90,8 @@ are OEM code: never commit them.
      If they match, add the device prefix in `Platform.requireDualZone`. If they differ, leave the gate
      and say why.
    - Heaters check the car's equipment signals at runtime: nothing to do.
+   - ★ hold: triage's `★ hold key device` line must say `found` (the `[input]` section; older logs
+     lack it). `NOT FOUND` means the key device has another name: read the `device=` lines.
    - Track swap: `firmware_patches.py` asserts keys 34/35 in every layout. ★ is scan code 43; check
      with `grep '^key 43' <new system>/usr/keylayout/*.kl`. `longstar.sh` derives the key device from
      `ro.product.device`.

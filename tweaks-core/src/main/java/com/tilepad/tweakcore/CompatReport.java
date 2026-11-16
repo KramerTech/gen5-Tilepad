@@ -47,14 +47,35 @@ public final class CompatReport {
     }
     private static final Pattern NUMERIC = Pattern.compile("\\s*[A-Za-z][\\w\\[\\]. ]*\\s*[:=]\\s*(-?\\d+|0x[0-9A-Fa-f]+)\\s*");
 
-    /** Plain text; identity and hashes keep their order, then each tweak's state and reason. */
-    public static String text(Map<String, String> identity, Map<String, String> files, Properties status) {
+    /**
+     * The head unit's own key devices in /proc/bus/input/devices: only names starting daudio_,
+     * since a paired phone can appear as an input device under its owner's name.
+     */
+    public static List<String> keyDevices(String procInputDevices) {
+        List<String> out = new ArrayList<>();
+        Matcher m = KEY_DEVICE.matcher(procInputDevices);
+        while (m.find()) out.add(m.group(1));
+        return out;
+    }
+    private static final Pattern KEY_DEVICE = Pattern.compile("(?m)^N: Name=\"(daudio_[^\"]*)\"\\s*$");
+    /** The device the ★ hold listens to by default (svc/longstar.sh): daudio_ and ro.product.device. */
+    static String starDevice(String device) { return "daudio_" + device; }
+
+    /**
+     * Plain text; identity and hashes keep their order, then the key devices (null: unreadable),
+     * then each tweak's state and reason.
+     */
+    public static String text(Map<String, String> identity, Map<String, String> files, List<String> keyDevices, Properties status) {
         StringBuilder out = new StringBuilder();
         out.append("Tilepad compatibility log\n");
         out.append("Attach the .zip this came in to a new issue: ").append(ISSUES).append("\n\n[identity]\n");
         for (Map.Entry<String, String> e : identity.entrySet()) out.append(e.getKey()).append('=').append(e.getValue()).append('\n');
         out.append("\n[files] sha256 (stock = Tilepad's backup of a file it has patched)\n");
         for (Map.Entry<String, String> e : files.entrySet()) out.append(e.getKey()).append('=').append(e.getValue()).append('\n');
+        out.append("\n[input] key devices (daudio_* only); star = the one the ★ hold listens to\n");
+        String star = starDevice(identity.get("ro.product.device"));
+        out.append("star=").append(star).append(keyDevices == null ? "  unreadable" : keyDevices.contains(star) ? "  found" : "  NOT FOUND").append('\n');
+        if (keyDevices != null) for (String name : keyDevices) out.append("device=").append(name).append('\n');
         out.append("\n[tweaks] enabled, then why it's unavailable (blank = available)\n");
         for (String id : Config.IDS) {
             out.append(id).append('=').append(status.getProperty(id, "false"));
