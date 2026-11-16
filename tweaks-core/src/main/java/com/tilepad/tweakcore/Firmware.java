@@ -53,7 +53,7 @@ final class Firmware {
             "ffc906e223bbb1e2b28103ee561adc0b9d70bd519f093c26d56b57af021e24a8",
             "1db8bbad2f805fc7b8ca7134a7bda72bd2e33a33a5b9950742413555b0f8007c",
             "9a7c60551ae84417e3542b867cf92b797a3466505c84edbc7a005493fe7d4301"),
-        new Release("Hyundai Canada V015.011.260206", USM_V015,
+        new Release("Hyundai USA V015.011.260206", USM_V015,
             "301b134d231b1ca1d0aa75ae090d219ac963fc935c3f3bc0b3b1393c6614703e",
             "efb949ec92fff388cbbb78e5bf4e16df3cc8d417dbf5cb5e87e62fb46d542549",
             "6748f43039561cb026986b19db0f81340877ad2206687eef2007d4e3f535f141",

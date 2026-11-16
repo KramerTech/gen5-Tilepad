@@ -21,7 +21,7 @@ public class FirmwareTest {
         assertFalse(Firmware.projection(KIA_V015.framework, V015.framework2));
         assertFalse(Firmware.vehicle(V012.automotive, V015.automotiveService));
         assertFalse(Firmware.projection(V015.framework, V012.framework2));
-        // Canada's V015.011 is its own build too, though its automotive files match the Precondition constants'.
+        // V015.011 is its own build: its odex files differ from V015.012's, though the code is the same.
         assertFalse(Firmware.vehicle(V015_CA.automotive, V015.automotiveService));
         assertFalse(Firmware.projection(V015.framework, V015_CA.framework2));
         assertFalse(Firmware.evSettings("0000"));
