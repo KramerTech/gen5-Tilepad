@@ -116,7 +116,8 @@ final class KeyPad extends LinearLayout {
     private TextView textKey(String label, int fill, float sp, final Runnable action) {
         TextView key = ui.text(label, sp, Ui.TEXT, fill == Ui.ACCENT);
         key.setGravity(Gravity.CENTER);
-        Ui.background(key, ui.pressable(fill, fill == Ui.ACCENT ? 0xff3a74d9 : Ui.SURFACE_PRESSED, 10));
+        // White text: an accent key (Done) gets the deeper fill.
+        Ui.background(key, ui.pressable(Ui.solid(fill), Ui.solidPressed(fill, Ui.SURFACE_PRESSED), 10));
         click(key, action);
         return key;
     }

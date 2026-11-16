@@ -41,9 +41,9 @@ class TileView extends FrameLayout {
     }
 
     private View badge(Glyph.Kind kind, int fill, int gravity, String description) {
-        int pressed = fill == Ui.RED ? 0xffd9443b : Ui.SURFACE_PRESSED;
+        int pressed = Ui.solidPressed(fill, Ui.SURFACE_PRESSED);
         // 48 dp: Android's smallest recommended touch target.
-        FrameLayout badge = ui.iconButton(kind, fill, pressed, Ui.TEXT, 48, 24);
+        FrameLayout badge = ui.iconButton(kind, Ui.solid(fill), pressed, Ui.TEXT, 48, 24);
         FrameLayout.LayoutParams p = new FrameLayout.LayoutParams(ui.dp(48), ui.dp(48), gravity);
         p.leftMargin = p.rightMargin = p.topMargin = ui.dp(8);
         badge.setContentDescription(description);
