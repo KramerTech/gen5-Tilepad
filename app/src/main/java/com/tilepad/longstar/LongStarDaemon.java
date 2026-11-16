@@ -5,6 +5,7 @@ import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.text.SimpleDateFormat;
@@ -31,30 +32,27 @@ public final class LongStarDaemon {
      * (or the uninstall hook) knows to allow it again, and never does so for a block it didn't make.
      */
     private static final File BLOCK_MARK = new File("/data/nemesis/backup/tilepad/star.blocked");
-    // IModeManager on com.hkmc.micom.mode (head-unit framework): SWRCCUSTOMKEY = 5. disableKeyAction
-    // makes ModeKeyDispatcher log "swrc Custom Key Action is blocked by app" and skip the action.
-    // Every call goes through Platform's checks: the supported vehicle files, the service's
-    // interface descriptor, the transaction and the reply.
-    private static final String MODE_SERVICE = "com.hkmc.micom.mode";
-    private static final String MODE_DESCRIPTOR = "com.hkmc.mode.IModeManager";
-    private static final int SWRC_CUSTOM_KEY = 5;
-    private static final int TX_GET_KEY_ACTION = 0x2b;
-    private static final int TX_DISABLE_KEY_ACTION = 0x2c;
-    private static final int TX_ENABLE_KEY_ACTION = 0x2d;
+    // IModeManager on com.hkmc.micom.mode (Platform.keyAction and the rest), for the held key's type:
+    // 5 for the steering-wheel star (SWRCCUSTOMKEY), 3 for the custom key (a Sonata's). disableKeyAction
+    // makes ModeKeyDispatcher log "[swrc] Custom Key Action is blocked by app" and skip the action.
+    // Every call goes through Platform's checks: the supported vehicle files and that release's
+    // transaction codes, the service's interface descriptor and the reply.
 
     private final String deviceName;
-    private final int keyCode;
+    private final int keyCode, keyType;
     private final String component;
     private final String deviceOverride;
     private final ScheduledThreadPoolExecutor timer = new ScheduledThreadPoolExecutor(1);
     private final StarHold hold;
 
-    private LongStarDaemon(String deviceName, int keyCode, long holdMs, String component, String deviceOverride) {
+    private LongStarDaemon(String deviceName, int keyCode, int keyType, long holdMs, String component, String deviceOverride) {
         this.deviceName = deviceName;
         this.keyCode = keyCode;
+        this.keyType = keyType;
         this.component = component;
         this.deviceOverride = deviceOverride;
-        this.hold = new StarHold(new CarHost(), holdMs);
+        this.hold = new StarHold(new CarHost(), holdMs,
+            keyType == Evdev.CUSTOM_KEY_TYPE ? StarHold.CUSTOM_NONE_ACTION : StarHold.NONE_ACTION);
     }
 
     public static void main(String[] args) {
@@ -72,11 +70,32 @@ public final class LongStarDaemon {
             com.tilepad.tweakcore.TweaksRuntime.start();
             checkFirmware();
         }
-        new LongStarDaemon(args[0], Integer.parseInt(args[1]), Long.parseLong(args[2]), args[3], override).run();
+        int[] key = key(args[0], args[1]);
+        new LongStarDaemon(args[0], key[0], key[1], Long.parseLong(args[2]), args[3], override).run();
+    }
+
+    /**
+     * The scan code, a number as given or "auto" (the car's own custom key, from its key layout:
+     * Evdev.customKey), and the key type whose assigned action a hold blocks (Evdev.keyType).
+     */
+    private static int[] key(String deviceName, String given) {
+        int code = Evdev.STAR;
+        try {
+            if (!given.equals("auto")) code = Integer.parseInt(given);
+            else {
+                FileReader r = new FileReader(Evdev.layoutFor(deviceName));
+                try { code = Evdev.customKey(r); } finally { r.close(); }
+            }
+            FileReader r = new FileReader(Evdev.layoutFor(deviceName));
+            try { return new int[]{code, Evdev.keyType(r, code)}; } finally { r.close(); }
+        } catch (IOException e) {
+            log("no key layout for " + deviceName + " (" + e.getMessage() + "): using " + code + " as the steering-wheel star");
+            return new int[]{code, Evdev.WHEEL_KEY_TYPE};
+        }
     }
 
     private void run() {
-        log("start device=\"" + deviceName + "\" code=" + keyCode + " hold=" + hold.holdMs()
+        log("start device=\"" + deviceName + "\" code=" + keyCode + " type=" + keyType + " hold=" + hold.holdMs()
             + "ms target=" + component);
         // A restart mid-hold must never leave the car's star action blocked. Only a block this
         // daemon made (its mark is there) is undone at start.
@@ -156,13 +175,13 @@ public final class LongStarDaemon {
     private final class CarHost implements StarHold.Host {
         @Override public String action() throws Exception {
             if (deviceOverride != null) throw new IOException("test input");
-            return Platform.string(MODE_SERVICE, MODE_DESCRIPTOR, TX_GET_KEY_ACTION, SWRC_CUSTOM_KEY);
+            return Platform.keyAction(keyType);
         }
         @Override public void disable(String[] actions) throws Exception {
-            Platform.command(MODE_SERVICE, MODE_DESCRIPTOR, TX_DISABLE_KEY_ACTION, SWRC_CUSTOM_KEY, actions);
+            Platform.disableKeyAction(keyType, actions);
         }
         @Override public void enable() throws Exception {
-            Platform.command(MODE_SERVICE, MODE_DESCRIPTOR, TX_ENABLE_KEY_ACTION, SWRC_CUSTOM_KEY);
+            Platform.enableKeyAction(keyType);
         }
         @Override public StarHold.Task after(long ms, Runnable r) {
             final ScheduledFuture<?> task = timer.schedule(r, ms, TimeUnit.MILLISECONDS);
@@ -179,8 +198,11 @@ public final class LongStarDaemon {
             try {
                 File dir = BLOCK_MARK.getParentFile();
                 if (dir != null) dir.mkdirs();
-                if (!BLOCK_MARK.exists() && !BLOCK_MARK.createNewFile()) log("couldn't create " + BLOCK_MARK);
-            } catch (IOException e) {
+                // "<enableKeyAction code> <key type>": what the uninstall hook's `service call` needs,
+                // since the code differs between releases.
+                FileWriter w = new FileWriter(BLOCK_MARK);
+                try { w.write(Platform.enableKeyActionCode() + " " + keyType + "\n"); } finally { w.close(); }
+            } catch (Exception e) {
                 log("couldn't create " + BLOCK_MARK + ": " + e.getMessage());
             }
         }

@@ -11,8 +11,11 @@ final class Firmware {
     static final class Release {
         final String name, automotive, automotiveService, framework, framework2, evSettings;
         final Usm usm;
+        final Mode mode;
         Release(String name, Usm usm, String automotive, String automotiveService, String framework, String framework2, String evSettings) {
             this.name = name; this.usm = usm; this.automotive = automotive; this.automotiveService = automotiveService;
+            // V012 is the one release before V015, which added a method before both groups of codes.
+            this.mode = usm == USM_V012 ? MODE_V012 : MODE_V015;
             this.framework = framework; this.framework2 = framework2; this.evSettings = evSettings;
         }
     }
@@ -24,6 +27,18 @@ final class Firmware {
             this.driverFitted = driverFitted; this.passengerFitted = passengerFitted; this.wheelFitted = wheelFitted;
         }
     }
+    /**
+     * IModeManager transaction codes for a steering-wheel key's assigned action, which the star hold
+     * blocks during a hold: getKeyAction, disableKeyAction, enableKeyAction.
+     */
+    static final class Mode {
+        final int keyAction, disableKeyAction, enableKeyAction;
+        Mode(int keyAction, int disableKeyAction, int enableKeyAction) {
+            this.keyAction = keyAction; this.disableKeyAction = disableKeyAction; this.enableKeyAction = enableKeyAction;
+        }
+    }
+    // The same methods on every image; V012's codes are one lower, as its IUSMService codes are.
+    private static final Mode MODE_V015 = new Mode(0x2b, 0x2c, 0x2d), MODE_V012 = new Mode(0x2a, 0x2b, 0x2c);
     // setFrontSeatHeatDrvStep, setFrontSeatHeatAstStep, getFrontSeatHeat_DrvOption,
     // getFrontSeatHeat_AstOption, getSWRC_SteeringwheelHeatingOpt. V015 added a method before
     // each, so V012's codes are lower; the methods themselves are the same.
@@ -53,6 +68,24 @@ final class Firmware {
             "ffc906e223bbb1e2b28103ee561adc0b9d70bd519f093c26d56b57af021e24a8",
             "1db8bbad2f805fc7b8ca7134a7bda72bd2e33a33a5b9950742413555b0f8007c",
             "9a7c60551ae84417e3542b867cf92b797a3466505c84edbc7a005493fe7d4301"),
+        new Release("Hyundai Canada V015.011.260206", USM_V015,
+            "301b134d231b1ca1d0aa75ae090d219ac963fc935c3f3bc0b3b1393c6614703e",
+            "efb949ec92fff388cbbb78e5bf4e16df3cc8d417dbf5cb5e87e62fb46d542549",
+            "6748f43039561cb026986b19db0f81340877ad2206687eef2007d4e3f535f141",
+            "75b442ad16bde67ff9a5fb76a27965287e946cd16ea9248344fa04fe90978095",
+            "72d7fa3538bdd2aad81e52bc08f5372828a403e7cc8e4f469b2c42e763bf03e1"),
+        new Release("Kia Canada V015.011.260206", USM_V015,
+            "347d05034e6b25e38f8d0446a6e9f02f4c8f5b786c09e583a500235613514c18",
+            "80bc04d04822464cfedb8878592f04eab8b16351be7aef6c70ff1ec9aa14d021",
+            "24f15981db97bf388d13e130cbfc06b134fb57559cab75afeb5194131e5abac1",
+            "3ff3271e0c7fbacdf49df582f82f5cd4d591f0bb5ae87341459092fbf2a39752",
+            "2212c428240f4f8402e2efa60c21509f027ece10e0d99382441ff53cec14fbc5"),
+        new Release("Hyundai USA V015.012.260507 DN8", USM_V015,
+            "96f59ea5ad6b375db91dfc6f0ada04391892a6a05b225c34b8067b4d374e7e8f",
+            "08e6601223fb52fa2dfc5a9acc07155b4ae9effcfa12caa63288ee2cd6b28b25",
+            "82cfffe5864124d69e3220e34444b220b3c3a18dd3c486961155882711bdd060",
+            "601dc8db4dca6806651c1074e26af7c831c63d159a8c3215f4e9910e2af6646f",
+            "0500edcb2e081a4351b42aa5cc8909c6f73d00b52df9d24d139579839ebc0d44"),
     };
     /** The supported release with these vehicle interfaces (automotive.odex and automotive-service.odex), or null. */
     static Release vehicleRelease(String automotive, String automotiveService) {

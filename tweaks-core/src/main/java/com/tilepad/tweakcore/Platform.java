@@ -37,6 +37,19 @@ public final class Platform {
     public static String property(String name) throws Exception {
         return (String) Class.forName("android.os.SystemProperties").getMethod("get", String.class).invoke(null, name);
     }
+    /**
+     * Whether the car can be plugged in, by HEVService's own tests: checkEVModel (the
+     * com.hkmc.hardware.ev2 or .ev feature) or checkPHEVModel (.phev). Gas cars and plain hybrids
+     * have neither. True where com.hkmc.Feature can't be read, so a tweak is never hidden by mistake.
+     */
+    public static boolean pluginVehicle() {
+        try {
+            java.lang.reflect.Method has = Class.forName("com.hkmc.Feature").getMethod("hasFeature", String.class);
+            for (String feature : new String[]{"com.hkmc.hardware.ev2", "com.hkmc.hardware.ev", "com.hkmc.hardware.phev"})
+                if ((Boolean) has.invoke(null, feature)) return true;
+            return false;
+        } catch (Exception e) { return true; }
+    }
     /** Ignition from the BCM (ACC reads off): Driver Only, Automatic Heaters' passenger seat and projection. */
     public static boolean ignitionOn() throws Exception { return integer("com.hkmc.micom.bcm", "com.hkmc.bcm.IBCMService", 0x11) != 0; }
     public static String boot() throws IOException { return new String(Files.read(new File("/proc/sys/kernel/random/boot_id")), "UTF-8").trim(); }
@@ -70,6 +83,22 @@ public final class Platform {
             if (reply.dataAvail() != 0) throw new IOException("Unexpected OEM reply");
         } finally { data.recycle(); reply.recycle(); }
     }
+    /**
+     * IModeManager on com.hkmc.micom.mode, for a key's assigned action (key type 3, the custom key;
+     * 5, the steering-wheel ★), with the codes of the supported release this unit runs.
+     */
+    private static final String MODE = "com.hkmc.micom.mode", MODE_IFACE = "com.hkmc.mode.IModeManager";
+    public static String keyAction(int keyType) throws Exception {
+        return string(MODE, MODE_IFACE, vehicle().mode.keyAction, keyType);
+    }
+    public static void disableKeyAction(int keyType, String[] actions) throws Exception {
+        command(MODE, MODE_IFACE, vehicle().mode.disableKeyAction, keyType, actions);
+    }
+    public static void enableKeyAction(int keyType) throws Exception {
+        command(MODE, MODE_IFACE, vehicle().mode.enableKeyAction, keyType);
+    }
+    /** enableKeyAction's code, for the uninstall hook's `service call` (star.blocked). */
+    public static int enableKeyActionCode() throws Exception { return vehicle().mode.enableKeyAction; }
     /** register*Listener(listener, token) taking two strong binders and returning nothing. Returns the service. */
     public static IBinder register(String service, String descriptor, int transaction, IBinder listener, IBinder token) throws Exception {
         IBinder binder = service(service, descriptor);

@@ -134,11 +134,13 @@ final class TweakInfo {
         + "Configure Other Software links a new package: type the GitHub user or organization it comes from, or pick one you looked up before, then pick its repository. Its repositories that mention NEMESIS are listed; Show All lists the rest. Before anything changes, it says what linking does: a package that's already installed on the car is only linked, and one that isn't gets installed, then updates the same way.\n\n"
         + "The bin beside a package uninstalls it, or only unlinks it so it stays installed and Package Manager stops updating it.\n\n"
         + "Every download must match the checksum GitHub publishes for it, and Tilepad's must also carry its release signature. Only link repositories you trust: their releases install with root access.");
-    /** The left pane: every tweak except companions, which show inside their partner's entry, then Support and Package Manager. */
-    static final TweakInfo[] RAIL = rail();
-    private static TweakInfo[] rail() {
+    /**
+     * The left pane: every tweak except companions, which show inside their partner's entry, then
+     * Support and Package Manager. Charge-Away only for a car that can be plugged in.
+     */
+    static TweakInfo[] rail(boolean plugin) {
         java.util.List<TweakInfo> list = new java.util.ArrayList<>();
-        for (TweakInfo t : ALL) if (t != NAV) list.add(t);
+        for (TweakInfo t : ALL) if (t != NAV && (plugin || !t.id.equals("chargeaway"))) list.add(t);
         list.add(SUPPORT);
         list.add(UPDATES);
         return list.toArray(new TweakInfo[0]);

@@ -270,7 +270,7 @@ mv() {
         return path.read_text() if path.exists() else ""
 
     def test_uninstall_allows_the_star_action_a_stopped_daemon_left_blocked(self):
-        self.write("backup/star.blocked", b"")
+        self.write("backup/star.blocked", b"45 5\n")
         result = self.run_hook("preuninstall.sh")
         self.assertEqual(0, result.returncode, result.stdout + result.stderr)
         self.assertEqual(self.STAR_UNBLOCK, self.service_calls())
@@ -279,7 +279,7 @@ mv() {
 
     def test_update_allows_the_star_action_and_changes_nothing_else(self):
         self.write("stage/NEMESIS.data", b"update")
-        self.write("backup/star.blocked", b"")
+        self.write("backup/star.blocked", b"45 5\n")
         self.write("backup/adb.on", b"")
         result = self.run_hook("preuninstall.sh")
         self.assertEqual(0, result.returncode, result.stdout + result.stderr)
@@ -291,7 +291,7 @@ mv() {
 
     def test_a_star_unblock_that_threw_says_so(self):
         self.write("stage/NEMESIS.data", b"update")
-        self.write("backup/star.blocked", b"")
+        self.write("backup/star.blocked", b"45 5\n")
         result = self.run_hook("preuninstall.sh", SERVICE_REPLY="Result: Parcel(ffffffb5 00000000 '........')")
         self.assertEqual(0, result.returncode, result.stdout + result.stderr)
         self.assertIn("star block: couldn't allow the car's star action again: Result: Parcel(ffffffb5", result.stdout)
@@ -299,20 +299,43 @@ mv() {
         self.assertFalse((self.base / "backup/star.blocked").exists())
 
     def test_usb_uninstall_allows_the_star_action_a_stopped_daemon_left_blocked(self):
-        self.write("backup/star.blocked", b"")
+        self.write("backup/star.blocked", b"45 5\n")
         result = self.usb_uninstall()
         self.assertEqual(0, result.returncode, result.stdout + result.stderr)
         self.assertEqual(self.STAR_UNBLOCK, self.service_calls())
         self.assertFalse((self.base / "backup").exists())
 
     def test_usb_uninstall_allows_the_star_action_even_when_the_restore_fails(self):
-        self.write("backup/star.blocked", b"")
+        self.write("backup/star.blocked", b"45 5\n")
         self.write("state/config.properties", b"ota=true\n")
         result = self.usb_uninstall(RESTORE_FAIL="1")
         self.assertNotEqual(0, result.returncode, result.stdout + result.stderr)
         self.assertEqual(self.STAR_UNBLOCK, self.service_calls())
         self.assertFalse((self.base / "backup/star.blocked").exists())
         self.assertTrue((self.base / "state").exists(), "the recovery files stay")
+
+    def test_the_unblock_uses_the_code_and_key_type_the_daemon_recorded(self):
+        # V012's enableKeyAction is 0x2c (44), and a Sonata's custom key is key type 3.
+        for mark, call in ((b"44 5\n", "call com.hkmc.micom.mode 44 i32 5\n"), (b"45 3\n", "call com.hkmc.micom.mode 45 i32 3\n")):
+            with self.subTest(mark=mark):
+                (self.base / "service-calls").unlink(missing_ok=True)
+                self.write("stage/NEMESIS.data", b"update")
+                self.write("backup/star.blocked", mark)
+                result = self.run_hook("preuninstall.sh")
+                self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+                self.assertEqual(call, self.service_calls())
+                self.assertFalse((self.base / "backup/star.blocked").exists())
+
+    def test_an_unreadable_star_mark_calls_nothing(self):
+        for mark in (b"", b"45\n", b"x 5\n"):
+            with self.subTest(mark=mark):
+                self.write("stage/NEMESIS.data", b"update")
+                self.write("backup/star.blocked", mark)
+                result = self.run_hook("preuninstall.sh")
+                self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+                self.assertEqual("", self.service_calls())
+                self.assertIn("star block: unreadable mark", result.stdout)
+                self.assertFalse((self.base / "backup/star.blocked").exists())
 
     def test_uninstall_leaves_the_star_action_alone_without_a_block(self):
         self.assertEqual(0, self.run_hook("preuninstall.sh").returncode)

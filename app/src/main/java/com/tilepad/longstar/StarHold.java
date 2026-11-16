@@ -21,8 +21,12 @@ final class StarHold {
     /** What a qualifying hold did about the car's ★ action. */
     enum Block { BLOCKED, NOT_NEEDED, CANT_BLOCK }
 
-    /** None's action in Button settings: the long-press broadcast, which the car sends only with None. */
-    static final String NONE_ACTION = "com.mobis.intent.action.SWRC_CUSTOM_SHORTCUT";
+    /**
+     * None's action in Button settings for the ★ and for the custom key (the Sonata's): the
+     * long-press broadcast, which the car sends only with None.
+     */
+    static final String NONE_ACTION = "com.mobis.intent.action.SWRC_CUSTOM_SHORTCUT",
+        CUSTOM_NONE_ACTION = "com.mobis.intent.action.CUSTOM_SHORTCUT";
     static final long COOLDOWN_MS = 1500;
     /** Opening this long after the release keeps Tilepad on top of the car's own action. */
     static final long AFTER_RELEASE_MS = 250;
@@ -54,6 +58,7 @@ final class StarHold {
 
     private final Host host;
     private final HoldDetector detector;
+    private final String noneAction;
     private Task pending;
     /** The hold in progress already opened Tilepad (its block took, or there was nothing to block). */
     private boolean openedThisPress;
@@ -61,8 +66,12 @@ final class StarHold {
     private boolean blockActive;
     private int blockSeq;
 
-    StarHold(Host host, long holdMs) {
+    StarHold(Host host, long holdMs) { this(host, holdMs, NONE_ACTION); }
+
+    /** noneAction: the held key's None action (NONE_ACTION for the ★, CUSTOM_NONE_ACTION for the custom key). */
+    StarHold(Host host, long holdMs, String noneAction) {
         this.host = host;
+        this.noneAction = noneAction;
         detector = new HoldDetector(holdMs, COOLDOWN_MS);
     }
 
@@ -137,12 +146,12 @@ final class StarHold {
             host.log("hold: couldn't read the car's star action, so Tilepad opens after the release: " + e);
             return Block.CANT_BLOCK;
         }
-        if (action == null || action.isEmpty() || action.equals(NONE_ACTION)) {
+        if (action == null || action.isEmpty() || action.equals(noneAction)) {
             host.log("hold: the car's star action is None; nothing to block");
             return Block.NOT_NEEDED;
         }
         try {
-            host.disable(new String[]{action, NONE_ACTION});
+            host.disable(new String[]{action, noneAction});
         } catch (Exception e) {
             host.log("hold: couldn't block the car's star action (" + action + "), so Tilepad opens after the release: " + e);
             return Block.CANT_BLOCK;

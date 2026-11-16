@@ -21,6 +21,54 @@ public final class Evdev {
 
     private static int u16(byte[] b, int off) { return (b[off] & 0xff) | (b[off + 1] & 0xff) << 8; }
 
+    /** Scan code 43: the steering-wheel ★ on the IONIQ 5 and EV6. */
+    public static final int STAR = 43;
+
+    /**
+     * The key layout a head unit loads for its key device: the device name with its region
+     * replaced by _base (daudio_wp_daudioplus_neev23_us: daudio_wp_daudioplus_neev23_base.kl).
+     */
+    public static String layoutFor(String deviceName) {
+        int region = deviceName.lastIndexOf('_');
+        return "/system/usr/keylayout/" + (region < 0 ? deviceName : deviceName.substring(0, region)) + "_base.kl";
+    }
+
+    /**
+     * The key a hold opens Tilepad with, from that layout: ★ (43 as SHORTCUT_SWRC_CUSTOM), else
+     * another steering-wheel custom key, else the custom key (SHORTCUT_CUSTOM: the Sonata's
+     * programmable HOME, scan code 4), else 43. Either key's assigned action runs on its release, a
+     * hold's too, so StarHold blocks it during a hold (keyType says which).
+     */
+    public static int customKey(Reader layout) throws IOException {
+        BufferedReader in = new BufferedReader(layout);
+        Integer wheel = null, custom = null;
+        for (String line; (line = in.readLine()) != null; ) {
+            String[] f = line.trim().split("\\s+");
+            if (f.length < 3 || !f[0].equals("key")) continue;
+            int code;
+            try { code = Integer.parseInt(f[1]); } catch (NumberFormatException e) { continue; }
+            if (f[2].equals("SHORTCUT_SWRC_CUSTOM")) {
+                if (code == STAR) return STAR;
+                if (wheel == null) wheel = code;
+            } else if (f[2].equals("SHORTCUT_CUSTOM") && custom == null) custom = code;
+        }
+        return wheel != null ? wheel : custom != null ? custom : STAR;
+    }
+
+    /** IModeManager's key types for an assigned action: the custom key, and the steering-wheel ★. */
+    public static final int CUSTOM_KEY_TYPE = 3, WHEEL_KEY_TYPE = 5;
+
+    /** The key type whose action the key with this scan code runs: 3 if the layout maps it to SHORTCUT_CUSTOM, else 5. */
+    public static int keyType(Reader layout, int code) throws IOException {
+        BufferedReader in = new BufferedReader(layout);
+        for (String line; (line = in.readLine()) != null; ) {
+            String[] f = line.trim().split("\\s+");
+            if (f.length >= 3 && f[0].equals("key") && f[1].equals(Integer.toString(code)))
+                return f[2].equals("SHORTCUT_CUSTOM") ? CUSTOM_KEY_TYPE : WHEEL_KEY_TYPE;
+        }
+        return WHEEL_KEY_TYPE;
+    }
+
     /**
      * Finds the /dev/input node for an exact device name in /proc/bus/input/devices
      * format ("N: Name=..." then "H: Handlers=... eventN"). Returns null if absent.

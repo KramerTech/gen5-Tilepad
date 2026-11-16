@@ -65,6 +65,19 @@ public class StarHoldTest {
 
     private void key(long t, int value) { car.until(t); hold.onKey(value); }
 
+    @Test public void aCustomKeyHoldBlocksWithTheCustomKeysOwnNone() {
+        // A Sonata's programmable key (SHORTCUT_CUSTOM) has its own None action, which isn't blocked
+        // as an action and counts as nothing to block.
+        Car sonata = new Car();
+        StarHold custom = new StarHold(sonata, 800, StarHold.CUSTOM_NONE_ACTION);
+        sonata.until(0); custom.onKey(1); sonata.until(800);
+        assertEquals(Arrays.asList("800 disable [com.mobis.intent.action.HOME, " + StarHold.CUSTOM_NONE_ACTION + "]", "800 open"), sonata.did);
+        Car none = new Car(); none.action = StarHold.CUSTOM_NONE_ACTION;
+        StarHold unset = new StarHold(none, 800, StarHold.CUSTOM_NONE_ACTION);
+        none.until(0); unset.onKey(1); none.until(800);
+        assertEquals(Arrays.asList("800 open"), none.did);
+    }
+
     @Test public void aHoldBlocksTheCarsActionOpensAtOnceAndLiftsItAfterTheRelease() {
         key(0, 1);
         car.until(800);

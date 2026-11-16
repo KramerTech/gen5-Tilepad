@@ -72,12 +72,17 @@ print(f"  Charge-Away (HKMC_TAppEV3.apk):            {match(lambda r: r['evSetti
 for target in ("/system/priv-app/SystemUI.odex", "/system/app/RightScreenHome.odex"):
     # The log may also carry Tilepad's stock backup of a file it already patched.
     candidates = [v for k, v in files if k.startswith(target) or (target in k and "stock" in k)]
-    hit = [n for n, p in recipes.items() if p["path"] == target and p["stockSha256"] in candidates]
+    # Two releases can share an ODEX but not its APK: the paired APK must be the logged one too.
+    apk = hashes.get(target[:-5] + ".apk")
+    hit = [n for n, p in recipes.items() if p["path"] == target and p["stockSha256"] in candidates
+           and (apk is None or p.get("apkSha256") == apk)]
     print(f"  recipe for {target}: {hit or 'NO'}")
 device = identity.get("ro.product.device", "")
 platform = (repo / "tweaks-core/src/main/java/com/tilepad/tweakcore/Platform.java").read_text()
 prefixes = re.findall(r'Build\.DEVICE\.startsWith\("([^"]+)"\)', platform)
 print(f"  dual-zone device prefix {prefixes}: {'yes' if any(device.startswith(p) for p in prefixes) else 'NO'}")
+star = dict(sections.get("input", [])).get("star")
+print(f"  ★ hold key device: {star or 'not in this log (an older Tilepad)'}")
 software = identity.get("ro.build.product")
 pre = [n for n, v in constants.items() if v == software]
 print(f"  Precondition software constant: {pre or 'NO'}; hashes known there: "
