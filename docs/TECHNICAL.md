@@ -8,8 +8,41 @@ see the [README](../README.md). The bundled tweaks are described in detail in [T
 The NEMESIS package lives in `/data/nemesis/apps/tilepad/`. The installer places
 `/system/app/Tilepad.apk` and `/system/app/TilepadTweaks.apk`. NEMESIS runs one service,
 `tilepad/longstar`: the steering-wheel ★ hold reader, which also hosts the listeners of any enabled
-tweak. The ★ reader passively reads the head unit's key device, `daudio_<ro.product.device>`, and
-never grabs it or injects events, so stock handling of every key is unchanged.
+tweak.
+
+The ★ reader reads the head unit's key device, `daudio_<ro.product.device>`, and never grabs it
+or injects events. Hyundai runs the action Button settings assign to ★ (Home, for example) on the
+release, after a hold too, so it would cover Tilepad. When a hold qualifies (800 ms), the reader
+reads that action from the mode service (`com.hkmc.micom.mode`, `IModeManager.getKeyAction`). The
+key type is 5 for the steering-wheel ★ and 3 for a car whose held key is its custom key instead
+(`SHORTCUT_CUSTOM`, as on the Sonata; `KEY_CODE=auto` picks it); below, "★" means that key, and
+each key has its own None action (`SWRC_CUSTOM_SHORTCUT`, `CUSTOM_SHORTCUT`):
+
+- With ★ set to None there's nothing to skip: Tilepad opens at once and nothing is blocked. None is
+  the only setting with which the car sends its long-press broadcast (`SWRC_CUSTOM_SHORTCUT`), and
+  `StarHoldReceiver` already keeps that from opening Button settings.
+- With an action, the reader asks the car to skip it (`disableKeyAction(type, [action, None's
+  action])`), and Tilepad opens at once. On the release `ModeKeyDispatcher` logs "swrc Custom Key
+  Action is blocked by app" (or "Custom Key Action …" for type 3) and skips the action. The block
+  is lifted (`enableKeyAction(type)`) 500 ms after the release, at the next press, or 2 minutes
+  after it was made, whichever comes first.
+- If the action can't be read or the block doesn't take, Tilepad opens 250 ms after the release
+  instead, just after the car's own action, so it still ends up on top.
+
+These calls go through `Platform`'s checks, like the tweaks' calls: the vehicle files must be a
+supported release, whose `IModeManager` codes they use (getKeyAction, disableKeyAction,
+enableKeyAction are 0x2b, 0x2c, 0x2d, and one lower on V012: `Firmware.Mode`), the service must have
+the `com.hkmc.mode.IModeManager` descriptor, and the reply must be as expected. A failed check counts as a block that can't be made.
+A short press is never touched.
+
+While a block is in place, `/data/nemesis/backup/tilepad/star.blocked` exists, holding
+`<enableKeyAction code> <key type>`. A service that starts and finds it (it was stopped in the
+middle of a hold) lifts the block; without the file, it lifts nothing at start. `remove.sh` does the
+same with the recorded code and type (`service call com.hkmc.micom.mode 45 i32 5` on most cars) on an
+update or uninstall that stops the service in the middle of a hold, and calls nothing if the file
+can't be read. The mode service keeps one list
+of blocked ★ actions, which can't be read, and `enableKeyAction` clears all of it: lifting
+Tilepad's block also lifts one that a car app made during the hold.
 
 Static tweaks, when explicitly enabled, change exact supported system files and keep verified stock
 backups; disabling them restores the originals. Uninstall restores owned tweaks before removing the
@@ -132,7 +165,7 @@ ships in a release, and no firmware files are committed.
 | `Sheet`, `StatusCard` | popup layer |
 | `TileOrder`, `TileSpec`, `TileSupport`, `GridMath`, `PreconPresenter`, `SearchFilter` | pure, unit-tested logic (`TileSupport` decides which core tiles the car can back) |
 | `Preconditioning*`, `OemVehicleClient`, `VehiclePort` | Launchpad backend updates adapted to Tilepad's existing service and tile flow |
-| `longstar/*` | the steering-wheel ★ hold service (passive evdev reader, hold timing) |
+| `longstar/*` | the steering-wheel ★ hold service (evdev reader that never grabs or injects, hold timing, `StarHold`: the car's ★ action during a hold) |
 | `RootShell` | `nemesis root -c` (what NEMESIS Manager uses) |
 | `nemesis-package/bin/wifi-client.sh` | root side of *turn on Wi-Fi* (run through `RootShell`) |
 | `tweaks/` | standalone Android settings APK, checkbox rows, help and option pages |

@@ -145,10 +145,13 @@ service, boot receiver, alarm receiver, or store/broker dependency.
   the same process isolates fresh charging-feedback waits from climate/DST and
   settings saves. No new Android or NEMESIS service or GPS listener is registered.
   See [Projection and Charge-Away details](#projection-and-charge-away-details).
-- The steering-wheel ★ hold: Tilepad's manifest `StarHoldReceiver` (priority 1000)
-  aborts stock's long-press broadcast and forwards it only to NEMESIS Manager. A
-  receiver registered by the longstar daemon can't do this: Android skips ordered
-  broadcasts to it ("process crashing"), since it isn't an attached app.
+- The steering-wheel ★ hold: the longstar daemon times the hold from the key device. A
+  hold makes at most three Binder calls to the mode service (read ★'s action, then
+  block it and allow it again), and only the first with ★ set to None. With None, the
+  car sends its long-press broadcast at the hold; Tilepad's manifest `StarHoldReceiver`
+  (priority 1000) aborts it and forwards it only to NEMESIS Manager. A receiver
+  registered by the longstar daemon can't do this: Android skips ordered broadcasts to
+  it ("process crashing"), since it isn't an attached app.
 - A kernel file observer reloads atomically saved configuration. Saving settings
   runs a short root command through NEMESIS; it exits when done.
 
@@ -219,12 +222,14 @@ longstar restart mid-drive doesn't repeat a step, and reset to new as soon as th
 ignition reads off. It acts only while the ignition is on, and waits for the
 climate to be on.
 
-The ★ hold: at ~800 ms the MICOM marks the press long (`flags=0x80`) and
-`ModeManagerService` sends the ordered broadcast
-`com.mobis.intent.action.SWRC_CUSTOM_SHORTCUT`. Its receivers are ButtonSettings'
-`HardKeyReceiver` (opens Button Settings), VoiceMemo, and NEMESIS Manager's
-`SetupReceiver` (press-count trigger). A short release sends the assigned action
-(here `CONNECTIVITY_SHORTCUT`) instead, which is left alone.
+The ★ hold: at ~800 ms the MICOM marks the press long (`flags=0x80`). With ★ set to
+None in Button settings, `ModeManagerService` then sends the ordered broadcast
+`com.mobis.intent.action.SWRC_CUSTOM_SHORTCUT`, and only with None. Its receivers are
+ButtonSettings' `HardKeyReceiver` (opens Button Settings), VoiceMemo, and NEMESIS
+Manager's `SetupReceiver` (press-count trigger). With ★ set to an action (here
+`CONNECTIVITY_SHORTCUT`), the car runs that action on the release instead, after a
+short press and after a hold alike. A short press is left alone; during a hold the
+longstar daemon blocks the action (see TECHNICAL.md).
 
 ## Projection and Charge-Away details
 
@@ -322,7 +327,7 @@ images:
 | Hyundai Canada V015.011.260206 | a Canadian IONIQ 5 compatibility log | compared with Hyundai V015.012's: vehicle code byte-identical, patched classes identical (below) |
 | Kia Canada V015.011.260206 | a Canadian EV6 compatibility log | deodexes byte-identically to Kia V015.012; SystemUI.apk differs (below) |
 | Hyundai V015.012.260507 DN8 | a Sonata compatibility log | Hyundai's non-EV image: every call Tilepad makes compared with Hyundai and Kia V015; consent re-anchored (below) |
-| Kia V015.012.260507 MQ4 | a Sorento compatibility log | every call Tilepad makes compared with Kia V015's; consent patch re-anchored (below) |
+| Kia V015.012.260507 KIA | Sorento and Niro EV compatibility logs | shared `KIA.USA` image compared with the supported Sonata image; every transaction entry and patched class matches (below) |
 | Hyundai V012.010.240822 | an IONIQ 5 compatibility log | every call Tilepad makes compared with V015's; heater codes per release (below) |
 
 `Firmware.java` lists each release's `automotive.odex`/`automotive-service.odex` (vehicle tweaks),
@@ -378,9 +383,9 @@ ODEX, PatchManager picks the one whose paired APK is the car's. The climate vari
 the IONIQ 5's and EV6's, and the key layout has the track keys at 34/35 and ★ at 43.
 
 For Hyundai V015.012.260507 DN8 (a 2022 US Sonata log, `wp_daudioplus_dn822_us`; `build.prop` names
-the image `HYUNDAI.USA.0000.V015.012.260507`, Hyundai's build for its non-EV models, as `KIA.USA` is
-Kia's): compared with Kia's non-EV image of the same release (a Sorento log) and with Hyundai and Kia
-V015.012. Against Kia's non-EV image, `automotive`, `automotive-service`, `services`, `hcan` and
+the image `HYUNDAI.USA.0000.V015.012.260507`, Hyundai's build for its non-EV models): compared with
+Kia's `KIA.USA` image of the same release (a Sorento log, also shared by the Niro EV) and with Hyundai
+and Kia V015.012. Against `KIA.USA`, `automotive`, `automotive-service`, `services`, `hcan` and
 `infobank` have no code differences, `framework` and `framework2` differ only in resource IDs and
 `MobisBuildFeature`'s brand constants, and SystemUI's consent controller is the same class. Against
 the EV images, `automotive` differs only in `UsageLogID`'s log constants, and `framework`,
@@ -392,30 +397,36 @@ keeps V015's names and bytes, and its patched methods are V015's (the class's ot
 renamed callees and resource IDs, are elsewhere). The DATC reports other options (0x09, 0x00, 0x2b),
 so Climate Sync and Driver Only stay unavailable, and it can't be plugged in, so Charge-Away is
 hidden. Its layout has the track keys at 34/35 but no ★: its programmable steering-wheel key is
-`SHORTCUT_CUSTOM` at scan code 4, which ModeKeyDispatcher runs (e.g. "gohome") only on a short
-release, as the ★, so the ★ hold uses it (`KEY_CODE=auto`).
+`SHORTCUT_CUSTOM` at scan code 4, which the ★ hold uses (`KEY_CODE=auto`). ModeKeyDispatcher runs
+its assigned action (e.g. "gohome") on the release, as it does the ★'s, so a hold blocks it the same
+way, through key type 3 and its own block list (`processCustomKey`); see TECHNICAL.md.
 
-For Kia V015.012.260507 MQ4 (a 2023 US Sorento log, `wp_daudioplus_mq422_us`; `build.prop` names
-the image `KIA.USA.0000.V015.012.260507`, Kia's build for its non-EV models, separate from the EV6's
-`ECOKMC`): compared with Kia V015.012. `automotive-service`, EV Settings, `com.hkmc.ext.hcan`,
-`com.infobank` and RightScreenHome have no code differences, and `automotive` differs only in
-`UsageLogID`'s log constants. Every transaction code on every interface Tilepad calls is the same.
-`framework`, `framework2` and `services` do differ, in Wi-Fi, media, location, Bluetooth, tethering,
-the rear camera and HDMI, none of it on a path Tilepad uses: `IWifiManager` keeps the
-`setWifiEnabled` and `setWifiApEnabled` signatures `WifiRadio` reflects, `Feature.hasFeature` only
-changed its `driverwatch` ignore list, the activity manager's `startActivityLocked` gained an
-event-log line, and `IGpmInterfaces` and `IDiPOManager` are unchanged. SystemUI's obfuscation
-renamed the consent controller from `D` to `E` (`dc()V` kept its name), and its `start()` gained a
-Quick Boot branch and a seventh register, so `this` is `v6`, not V015's `v5`:
-`consent-kia-mq4-v015` redirects the boot-time T(0) at its own anchor (`46 00 … fb fe` for V015's
-`45 00 … 2d ff`) to `invoke-direct {v6}, E->dc()V`, and the generator now checks the receiver is
-`start()`'s own `this`. The DATC reports the dual-zone variant (0x02) with other options (0x09,
-0x04, 0x2b, 0xff, 0xff for the IONIQ 5's 0x29, 0x04, 0x2f, 0x03, 0x01), so Climate Sync and Driver
-Only stay unavailable, and it can't be plugged in, so Charge-Away is hidden. Its key layout has the
-track keys at 34/35, so Track swap works, but no steering-wheel ★ (`SHORTCUT_SWRC_CUSTOM`, scan code
-43 on the IONIQ 5 and EV6). It maps `SHORTCUT_CUSTOM` at scan code 18, probably a ★ among the head
-unit's own buttons, so the ★ hold uses that (`KEY_CODE=auto`); not yet confirmed on the car. It is a
-gas car without an OTA client.
+For Kia V015.012.260507 KIA (issues #20 and #41: US Sorento MQ422 and 2022 Niro EV DE22EV),
+`build.prop` labels the shared image `KIA.USA.0000.V015.012.260507`, distinct from the EV6's
+`ECOKMC` build. Compared with the supported Sonata image: `automotive`, `automotive-service`,
+`services`, `hcan` and `infobank` have zero normalized code differences; the framework differences
+are resource tables/IDs and `MobisBuildFeature` brand constants. All 1,555 transaction entries match.
+EV Settings' 353 classes match with short names masked, fields and methods sorted, and two pairs
+of renamed classes mapped (`drivemode/n`/`o` and `ui/ev_settings/g`/`h`). The generated
+`consent-kia-base-v015` and `right-kia-base-v015` recipes use the Sonata's anchors and names,
+including consent controller `E` and `this` register v6. Every consent/nav/popover combination
+applies, and the all-off configuration preserves stock bytes. The patched classes deodex with zero
+code differences after resource IDs and short names are masked. Patch checks resolve quickened
+calls against each image's dependencies,
+since renamed methods reorder vtables; they also check the release's actual consent class.
+
+The Sorento's DATC reports the dual-zone variant (0x02) and options 0x09, 0x04, 0x2b, 0xff, 0xff
+(the IONIQ 5's are 0x29, 0x04, 0x2f, 0x03, 0x01), so Climate Sync and Driver Only stay gated, and
+it is a gas car, so Charge-Away is hidden and it has no OTA client. Its layout has the track keys
+at 34/35, so Track swap works, but no wheel star: `SHORTCUT_CUSTOM` sits at scan code 18 (the
+Sonata's is 4, the Niro EV's 20), probably one of the head unit's own keys rather than a wheel key,
+so the ★ hold uses that (`KEY_CODE=auto`); not yet confirmed on the car.
+
+The Niro EV's DATC reports variant 0x00 and options 0x01, 0x00, 0x0a, 0xff, 0xff, so Climate Sync
+and Driver Only stay gated. Its layout has track keys 34/35 and no wheel star: `KEY_CODE=auto`
+selects `SHORTCUT_CUSTOM` at scan code 20. The older log has no input-device inventory, so live
+key-device discovery still needs confirmation on the car. Its OTA client was not found;
+preconditioning remains outside this compatibility patch.
 
 For Hyundai V012 (an IONIQ 5 log, 2024): an older build, with renamed obfuscated members throughout,
 so each call was compared on its own. Every code Tilepad uses on IDATCService, IBCMService,

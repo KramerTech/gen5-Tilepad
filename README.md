@@ -11,8 +11,11 @@ backend. It is developed and tested on an IONIQ 5 (NEEV23 US).
 
 To open Tilepad, hold the steering wheel's **★** (custom) button for about a second. Hold it again
 to close Tilepad. A short press of ★ still does whatever Hyundai's Button settings assign to it.
+While you hold ★, Tilepad asks the car to skip that action, so it doesn't open over Tilepad when
+you let go. If the car doesn't take that request, Tilepad opens a moment after you let go instead,
+just after the car's own action.
 On a car without ★, such as the Sonata, hold its programmable custom button instead (the Sonata's
-is the one set to HOME).
+is the one set to HOME); the same goes for its action.
 
 ## Features
 
@@ -226,8 +229,9 @@ unavailable, submit a compatibility report (see below) so that support can be ad
 The tweaks check the car's exact firmware files, so they work on any car that runs a supported
 firmware image. The supported images are USA Hyundai `V012.010.240822`, `V015.012.260507` and
 `V016.010.260903`, Canadian Hyundai `V015.011.260206`, USA Kia `V015.012.260507`, Canadian Kia
-`V015.011.260206`, and, for non-EV models, USA Hyundai `V015.012.260507 DN8` and USA Kia
-`V015.012.260507 MQ4`, which cover the IONIQ 5, EV6, Sonata and Sorento, for example.
+`V015.011.260206`, USA Hyundai `V015.012.260507 DN8`, and USA Kia `V015.012.260507 KIA` (the
+`KIA.USA` image shared by the Niro EV and Sorento). These cover the IONIQ 5, EV6, Sonata, Niro EV
+and Sorento, for example.
 Heaters that a trim doesn't have are skipped. How each tweak works, and what it changes, is
 explained in [docs/TWEAKS.md](docs/TWEAKS.md).
 

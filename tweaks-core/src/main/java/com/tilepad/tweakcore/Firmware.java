@@ -11,8 +11,11 @@ final class Firmware {
     static final class Release {
         final String name, automotive, automotiveService, framework, framework2, evSettings;
         final Usm usm;
+        final Mode mode;
         Release(String name, Usm usm, String automotive, String automotiveService, String framework, String framework2, String evSettings) {
             this.name = name; this.usm = usm; this.automotive = automotive; this.automotiveService = automotiveService;
+            // V012 is the one release before V015, which added a method before both groups of codes.
+            this.mode = usm == USM_V012 ? MODE_V012 : MODE_V015;
             this.framework = framework; this.framework2 = framework2; this.evSettings = evSettings;
         }
     }
@@ -24,6 +27,18 @@ final class Firmware {
             this.driverFitted = driverFitted; this.passengerFitted = passengerFitted; this.wheelFitted = wheelFitted;
         }
     }
+    /**
+     * IModeManager transaction codes for a steering-wheel key's assigned action, which the star hold
+     * blocks during a hold: getKeyAction, disableKeyAction, enableKeyAction.
+     */
+    static final class Mode {
+        final int keyAction, disableKeyAction, enableKeyAction;
+        Mode(int keyAction, int disableKeyAction, int enableKeyAction) {
+            this.keyAction = keyAction; this.disableKeyAction = disableKeyAction; this.enableKeyAction = enableKeyAction;
+        }
+    }
+    // The same methods on every image; V012's codes are one lower, as its IUSMService codes are.
+    private static final Mode MODE_V015 = new Mode(0x2b, 0x2c, 0x2d), MODE_V012 = new Mode(0x2a, 0x2b, 0x2c);
     // setFrontSeatHeatDrvStep, setFrontSeatHeatAstStep, getFrontSeatHeat_DrvOption,
     // getFrontSeatHeat_AstOption, getSWRC_SteeringwheelHeatingOpt. V015 added a method before
     // each, so V012's codes are lower; the methods themselves are the same.
@@ -71,7 +86,8 @@ final class Firmware {
             "82cfffe5864124d69e3220e34444b220b3c3a18dd3c486961155882711bdd060",
             "601dc8db4dca6806651c1074e26af7c831c63d159a8c3215f4e9910e2af6646f",
             "0500edcb2e081a4351b42aa5cc8909c6f73d00b52df9d24d139579839ebc0d44"),
-        new Release("Kia USA V015.012.260507 MQ4", USM_V015,
+        // KIA.USA image shared by the Niro EV (DE22EV) and Sorento (MQ422).
+        new Release("Kia USA V015.012.260507 KIA", USM_V015,
             "4d0000635b140e43944e2b5c28fa7dfdba296914ec8df2807af2dcfd064c09cb",
             "ed3814199d50e6aa48b95fb10024e85a6646da789bbdac4afbe01ff657e8bcd5",
             "739c48b55bb101ddba8520671b46e783e675bf4091345bd82b67aa0f3675d2ce",

@@ -36,8 +36,8 @@ public final class Evdev {
     /**
      * The key a hold opens Tilepad with, from that layout: ★ (43 as SHORTCUT_SWRC_CUSTOM), else
      * another steering-wheel custom key, else the custom key (SHORTCUT_CUSTOM: the Sonata's
-     * programmable HOME, scan code 4), else 43. Stock runs a custom key's action only on a short
-     * release, as the ★'s, so a hold doesn't also run it.
+     * programmable HOME, scan code 4), else 43. Either key's assigned action runs on its release, a
+     * hold's too, so StarHold blocks it during a hold (keyType says which).
      */
     public static int customKey(Reader layout) throws IOException {
         BufferedReader in = new BufferedReader(layout);
@@ -53,6 +53,20 @@ public final class Evdev {
             } else if (f[2].equals("SHORTCUT_CUSTOM") && custom == null) custom = code;
         }
         return wheel != null ? wheel : custom != null ? custom : STAR;
+    }
+
+    /** IModeManager's key types for an assigned action: the custom key, and the steering-wheel ★. */
+    public static final int CUSTOM_KEY_TYPE = 3, WHEEL_KEY_TYPE = 5;
+
+    /** The key type whose action the key with this scan code runs: 3 if the layout maps it to SHORTCUT_CUSTOM, else 5. */
+    public static int keyType(Reader layout, int code) throws IOException {
+        BufferedReader in = new BufferedReader(layout);
+        for (String line; (line = in.readLine()) != null; ) {
+            String[] f = line.trim().split("\\s+");
+            if (f.length >= 3 && f[0].equals("key") && f[1].equals(Integer.toString(code)))
+                return f[2].equals("SHORTCUT_CUSTOM") ? CUSTOM_KEY_TYPE : WHEEL_KEY_TYPE;
+        }
+        return WHEEL_KEY_TYPE;
     }
 
     /**

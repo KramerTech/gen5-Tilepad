@@ -28,7 +28,8 @@ public class EvdevTest {
         // Each archived log's device and the layout it loaded.
         String[][] seen = {{"daudio_wp_daudioplus_neev23_us", "neev23"}, {"daudio_wp_daudioplus_neev_ca", "neev"},
             {"daudio_wp_daudioplus_cvev_us", "cvev"}, {"daudio_wp_daudioplus_cvev_ca", "cvev"},
-            {"daudio_wp_daudioplus_mq422_us", "mq422"}, {"daudio_wp_daudioplus_dn822_us", "dn822"}};
+            {"daudio_wp_daudioplus_mq422_us", "mq422"}, {"daudio_wp_daudioplus_dn822_us", "dn822"},
+            {"daudio_wp_daudioplus_de22ev_us", "de22ev"}};
         for (String[] s : seen) assertEquals("/system/usr/keylayout/daudio_wp_daudioplus_" + s[1] + "_base.kl", Evdev.layoutFor(s[0]));
     }
 
@@ -42,9 +43,24 @@ public class EvdevTest {
         // Sorento (MQ4): no ★, a custom key at 18; commented lines don't count.
         String sorento = "#key 22    SHORTCUT_RADIO\nkey 18    SHORTCUT_CUSTOM\nkey 19    SHORTCUT_SETUP\n";
         assertEquals(18, Evdev.customKey(new StringReader(sorento)));
+        // Niro EV (DE22EV): no wheel star; use the head unit's custom key at 20.
+        String niro = "key 20 SHORTCUT_CUSTOM\nkey 34 CHANNEL_UP\nkey 35 CHANNEL_DOWN\nkey 41 ENDCALL\nkey 42 CALL\n";
+        assertEquals(20, Evdev.customKey(new StringReader(niro)));
+        assertEquals(Evdev.CUSTOM_KEY_TYPE, Evdev.keyType(new StringReader(niro), 20));
         // A wheel custom key that isn't 43 still wins over the head unit's.
         assertEquals(41, Evdev.customKey(new StringReader("key 20 SHORTCUT_CUSTOM\nkey 41 SHORTCUT_SWRC_CUSTOM\n")));
         assertEquals(43, Evdev.customKey(new StringReader("key 34 CHANNEL_UP\n")));
+    }
+
+    @Test public void keyTypeIsTheCustomKeysOnlyForShortcutCustom() throws Exception {
+        String ioniq5 = "key 20    SHORTCUT_CUSTOM\nkey 41    SHORTCUT_SWRC_CUSTOM\nkey 43    SHORTCUT_SWRC_CUSTOM\n";
+        assertEquals(Evdev.WHEEL_KEY_TYPE, Evdev.keyType(new StringReader(ioniq5), 43));
+        assertEquals(Evdev.CUSTOM_KEY_TYPE, Evdev.keyType(new StringReader(ioniq5), 20));
+        String sonata = "key 2     SHORTCUT_MAP\nkey 4     SHORTCUT_CUSTOM\nkey 34    CHANNEL_UP\n";
+        assertEquals(Evdev.CUSTOM_KEY_TYPE, Evdev.keyType(new StringReader(sonata), 4));
+        // A code the layout doesn't name (a KEY_CODE override) is treated as the star.
+        assertEquals(Evdev.WHEEL_KEY_TYPE, Evdev.keyType(new StringReader(sonata), 43));
+        assertEquals(Evdev.WHEEL_KEY_TYPE, Evdev.keyType(new StringReader("key 44 SHORTCUT_CUSTOM\n"), 4));
     }
 
     @Test public void findsExactNameNotPrefixMatches() throws Exception {

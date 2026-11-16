@@ -6,7 +6,7 @@ import org.junit.Test;
 public class FirmwareTest {
     private static final Firmware.Release V015 = Firmware.SUPPORTED[0], V016 = Firmware.SUPPORTED[1], KIA_V015 = Firmware.SUPPORTED[2],
         V012 = Firmware.SUPPORTED[3], V015_CA = Firmware.SUPPORTED[4], KIA_V015_CA = Firmware.SUPPORTED[5],
-        DN8 = Firmware.SUPPORTED[6], KIA_MQ4 = Firmware.SUPPORTED[7];
+        DN8 = Firmware.SUPPORTED[6], KIA_BASE = Firmware.SUPPORTED[7];
     @Test public void acceptsEachSupportedReleasesFiles() {
         for (Firmware.Release r : Firmware.SUPPORTED) {
             assertTrue(r.name, Firmware.vehicle(r.automotive, r.automotiveService));
@@ -19,9 +19,6 @@ public class FirmwareTest {
         assertFalse(Firmware.projection(V016.framework, V015.framework2));
         // Hyundai's and Kia's images of one release are separate builds: no mixing either.
         assertFalse(Firmware.vehicle(V015.automotive, KIA_V015.automotiveService));
-        // Kia's EV and MQ4 images of one release are separate builds too: no mixing.
-        assertFalse(Firmware.vehicle(KIA_V015.automotive, KIA_MQ4.automotiveService));
-        assertFalse(Firmware.vehicle(KIA_MQ4.automotive, KIA_V015.automotiveService));
         assertFalse(Firmware.projection(KIA_V015.framework, V015.framework2));
         assertFalse(Firmware.vehicle(V012.automotive, V015.automotiveService));
         assertFalse(Firmware.projection(V015.framework, V012.framework2));
@@ -34,7 +31,23 @@ public class FirmwareTest {
         // Hyundai's EV and non-EV images of one release are separate builds too.
         assertFalse(Firmware.vehicle(V015.automotive, DN8.automotiveService));
         assertFalse(Firmware.projection(DN8.framework, V015.framework2));
+        // KIA.USA (Niro EV/Sorento) and ECOKMC (EV6) are separate images of V015.
+        assertFalse(Firmware.vehicle(KIA_BASE.automotive, KIA_V015.automotiveService));
+        assertFalse(Firmware.vehicle(KIA_V015.automotive, KIA_BASE.automotiveService));
+        assertFalse(Firmware.projection(KIA_BASE.framework, KIA_V015.framework2));
+        assertFalse(Firmware.projection(KIA_V015.framework, KIA_BASE.framework2));
+        assertFalse(Firmware.vehicle(KIA_BASE.automotive, DN8.automotiveService));
+        assertFalse(Firmware.projection(DN8.framework, KIA_BASE.framework2));
         assertFalse(Firmware.evSettings("0000"));
+    }
+    @Test public void starHoldCodesComeFromTheMatchedRelease() {
+        // IModeManager getKeyAction, disableKeyAction, enableKeyAction: one lower on V012 only.
+        for (Firmware.Release r : Firmware.SUPPORTED) {
+            boolean v012 = r == V012;
+            assertEquals(r.name, v012 ? 0x2a : 0x2b, r.mode.keyAction);
+            assertEquals(r.name, v012 ? 0x2b : 0x2c, r.mode.disableKeyAction);
+            assertEquals(r.name, v012 ? 0x2c : 0x2d, r.mode.enableKeyAction);
+        }
     }
     @Test public void heaterCodesComeFromTheMatchedRelease() {
         // V012's IUSMService numbers each heater method lower: V015's driver code is V012's passenger seat.

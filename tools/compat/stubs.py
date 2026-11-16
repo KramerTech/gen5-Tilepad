@@ -18,6 +18,7 @@ INTERFACES = [
     "com/hkmc/hev/IHEVService", "com/hkmc/hev/IHEVListener", "com/hkmc/gpm/IGpmInterfaces",
     "com/hkmc/gpm/IGpmListener", "android/dipo/IDiPOManager", "com/hkmc/cluster/IClusterService",
     "com/hkmc/cluster/INavigationClusterListener", "com/hkmc/split/manager/ISplitScreenInterfaces",
+    "com/hkmc/mode/IModeManager",
 ]
 root = Path(sys.argv[1])
 for iface in INTERFACES:

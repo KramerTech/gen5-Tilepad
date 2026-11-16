@@ -1,10 +1,36 @@
 # Sourced after common.sh. remove_tilepad <restore command...> undoes everything Tilepad changed
 # outside its package: owned tweak files, DST and the OTA client (the restore command), the ADB
-# and Wi-Fi tiles' changes, both APKs, and what an interrupted install or tweak write left behind.
+# and Wi-Fi tiles' changes, a star block left by a stopped longstar daemon, both APKs, and what an
+# interrupted install or tweak write left behind.
 # Used by preuninstall on a real uninstall, and by the USB uninstall when the package is missing.
 # A failed restore returns 1 with nothing else changed, keeping the recovery runtime and backups.
 
+# The longstar daemon was stopped in the middle of a star hold: allow the car's own star action
+# again (IModeManager.enableKeyAction for the held key, as the daemon's release does). Runs on an
+# update too. `service call` exits 0 even when the call throws: only a reply without an exception
+# (Parcel(00000000 ...)) means it took.
+release_star_block() {
+    [ -f "$BACKUP/star.blocked" ] || return 0
+    # The file holds "<enableKeyAction code> <key type>": the code differs between releases (V012's is
+    # 0x2c, the others' 0x2d) and the type between the star (5) and a custom key (3).
+    STAR_CODE=; STAR_TYPE=
+    read STAR_CODE STAR_TYPE < "$BACKUP/star.blocked"
+    case "$STAR_CODE:$STAR_TYPE" in
+        *[!0-9:]*|:*|*:) log "star block: unreadable mark ($STAR_CODE $STAR_TYPE); nothing called" ;;
+        *)
+            STAR_REPLY=$(service call com.hkmc.micom.mode "$STAR_CODE" i32 "$STAR_TYPE" 2>&1)
+            case "$STAR_REPLY" in
+                *"Parcel(00000000"*) log "star block: the car's star action is allowed again" ;;
+                *) log "star block: couldn't allow the car's star action again: $STAR_REPLY" ;;
+            esac ;;
+    esac
+    rm -f "$BACKUP/star.blocked"
+}
+
+
 remove_tilepad() {
+    # The daemon is stopped whatever happens next, a refused restore included.
+    release_star_block
     # Restore owned system patches, DST and the OTA client before deleting the only recovery runtime.
     if [ -d "$TWEAKS_STATE" ]; then
         "$@" || {
