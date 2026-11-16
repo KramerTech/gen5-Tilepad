@@ -400,8 +400,10 @@ drive (`/mnt/media_rw/usbN`, written as media_rw, uid 1023), with a spinner whil
 
 - `tilepad-compat.txt`: build and vehicle-option properties, the SHA-256 of every gated file
   (vehicle and projection frameworks, the EV Settings APK, each patch recipe's target and paired
-  APK, the loaded key layouts, and Tilepad's stock backup of any file it patched), and each
-  tweak's on/off state and unavailable reason.
+  APK, the loaded key layouts, and Tilepad's stock backup of any file it patched), the head unit's
+  key devices from `/proc/bus/input/devices` (`daudio_*` names only, since a paired phone can appear
+  under its owner's name) with whether the ★ hold's `daudio_<ro.product.device>` is among them, and
+  each tweak's on/off state and unavailable reason.
 - The code behind those gates: every `/system/framework/*.odex` (the full boot class path, needed
   to deodex any of it), the gated apps' ODEX, the loaded key layouts, `build.prop`, and
   `tilepad-stock/` backups. APKs are hashed only; their code is in the ODEX.
