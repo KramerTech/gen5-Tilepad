@@ -95,6 +95,7 @@ def check_md5(data, expected):
 # Stock MD5 of each release's patched files, as checked when its recipes were made.
 RELEASES = {
     "v015": {"RightScreenHome": "a46717495f957dab68b96cf6c9a01d4a", "SystemUI": "2363d6315a05b51064821b8beab7b5fd"},
+    "v015-011": {"RightScreenHome": "413a157864dae6df381bc3ebd404d63f", "SystemUI": "936e4364c1dfeed98f45b5ceb3e21c11"},
     "v016": {"RightScreenHome": "4789932842938078386a21aecc77c984", "SystemUI": "3fba390d4485277ab882bff1d006fc55"},
     "kia-v015": {"RightScreenHome": "8c06f56597970d09ab369cfd8cc8c28d", "SystemUI": "8abb72b9715bc8e4746ac9ee3b03ab39"},
     "v012": {"RightScreenHome": "0fadc5cc2249cd8a9508cce2b618a30c", "SystemUI": "85104c851b0132076bf06ca91463a761"},
