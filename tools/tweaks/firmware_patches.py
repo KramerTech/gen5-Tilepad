@@ -98,8 +98,12 @@ RELEASES = {
     "v015-011": {"RightScreenHome": "413a157864dae6df381bc3ebd404d63f", "SystemUI": "936e4364c1dfeed98f45b5ceb3e21c11"},
     "v016": {"RightScreenHome": "4789932842938078386a21aecc77c984", "SystemUI": "3fba390d4485277ab882bff1d006fc55"},
     "kia-v015": {"RightScreenHome": "8c06f56597970d09ab369cfd8cc8c28d", "SystemUI": "8abb72b9715bc8e4746ac9ee3b03ab39"},
+    # Kia V015.011's ODEX files are V015.012's; only SystemUI.apk differs, so its recipes pair that APK.
+    "kia-v015-011": {"RightScreenHome": "8c06f56597970d09ab369cfd8cc8c28d", "SystemUI": "8abb72b9715bc8e4746ac9ee3b03ab39"},
     "kia-mq4-v015": {"RightScreenHome": "bd97b438aeb3d9c77510b5e2da4234f7", "SystemUI": "084171cb15bb28ebd4d4f4fe7aa98e26"},
     "v012": {"RightScreenHome": "0fadc5cc2249cd8a9508cce2b618a30c", "SystemUI": "85104c851b0132076bf06ca91463a761"},
+    # Hyundai's non-EV image (HYUNDAI.USA, e.g. the Sonata DN8), as Kia's KIA.USA is the Sorento's.
+    "dn8-v015": {"RightScreenHome": "4b299b74ee9851fee1043ed6ae24bf97", "SystemUI": "5fa30499aaed5fe28e8b0552c27341b2"},
 }
 # Obfuscated names, the nav branches (code units into f(ZZ)Z, the branch, the goto it becomes),
 # and start()'s consent call with the register holding `this`. V015, V016 and Kia V015 share them;
@@ -117,6 +121,12 @@ NAMES = {
              "osdEntry": "13071900", "consentAgree": "cX",
              "consentCall": "f8200f00460029002eff", "consentThis": 6,
              "nav": [(0x39, "33173f00", "29003f00"), (0x5a, "38070300", "29000300")]},
+    # V015's RightScreenHome names; SystemUI's consent controller is E, and its start() has seven
+    # registers, so `this` is v6.
+    "dn8-v015": {"right": "Lcom/mobis/splitscreen/right/k/r;", "osd": "Lcom/mobis/splitscreen/right/r/i;",
+                 "osdEntry": "13081900", "consentAgree": "dc", "consentClass": "Lcom/android/systemui/consentscreen/E;",
+                 "consentCall": "f8200f0046002900fbfe", "consentThis": 6,
+                 "nav": [(0x39, "33174000", "29004000"), (0x5b, "38070300", "29000300")]},
 }
 
 

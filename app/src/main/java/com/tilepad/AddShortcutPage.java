@@ -163,7 +163,7 @@ final class AddShortcutPage extends LinearLayout {
     private void setQuery(String value) {
         text = value;
         query.setText(value.isEmpty() ? "Search screens" : value);
-        query.setTextColor(value.isEmpty() ? Ui.FAINT : Ui.TEXT);
+        query.setTextColor(value.isEmpty() ? Ui.MUTED : Ui.TEXT);
         clear.setVisibility(value.isEmpty() ? INVISIBLE : VISIBLE);
         if (keypad != null) setKeypadVisible(keypad.getVisibility() == VISIBLE);
         else Ui.background(searchBox, ui.pressable(Ui.SURFACE, Ui.SURFACE_PRESSED, 28));

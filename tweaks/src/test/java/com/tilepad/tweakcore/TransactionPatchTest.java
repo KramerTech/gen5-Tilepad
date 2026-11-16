@@ -109,6 +109,20 @@ public class TransactionPatchTest {
         try { manager.apply(config("nav"), "boot-1"); fail(); } catch (IOException expected) { }
         assertEquals(0, ops.writes);
     }
+    @Test public void recipesForOneOdexPickThePairedApkTheCarHas() throws Exception {
+        // Kia V015.011 and V015.012 share SystemUI.odex but not SystemUI.apk: one recipe each.
+        // The other release's sorts first, so file order alone would pick the wrong one.
+        Properties other = recipe("/system/priv-app/SystemUI.odex"); other.setProperty("consent", "80,50,04");
+        other.setProperty("apkSha256", Files.hash(new byte[]{7})); Files.store(new File(recipes, "consent-a.properties"), other);
+        manager.check("consent", config());
+        manager.apply(config("consent"), "boot-1");
+        assertEquals(0x03, Files.read(ops.file("/system/priv-app/SystemUI.odex"))[80]);
+        manager.apply(config(), "boot-1");
+        Files.write(ops.file("/system/priv-app/SystemUI.odex.apk"), new byte[]{7});
+        manager.check("consent", config());
+        manager.apply(config("consent"), "boot-1");
+        assertEquals(0x04, Files.read(ops.file("/system/priv-app/SystemUI.odex"))[80]);
+    }
     @Test public void laterForeignChangesAreNeverOverwritten() throws Exception {
         manager.apply(config("nav"), "boot-1");
         Files.write(ops.file(right.getProperty("path")), new byte[]{55}); int count = ops.writes;

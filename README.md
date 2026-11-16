@@ -11,6 +11,8 @@ backend. It is developed and tested on an IONIQ 5 (NEEV23 US).
 
 To open Tilepad, hold the steering wheel's **★** (custom) button for about a second. Hold it again
 to close Tilepad. A short press of ★ still does whatever Hyundai's Button settings assign to it.
+On a car without ★, such as the Sonata, hold its programmable custom button instead (the Sonata's
+is the one set to HOME).
 
 ## Features
 
@@ -36,7 +38,7 @@ to close Tilepad. A short press of ★ still does whatever Hyundai's Button sett
     passenger buckles up.
   - **Auto-Open Phone Projection** opens Android Auto or CarPlay as soon as it is available.
   - **Charge-Away** switches Scheduled Charging off when you are away from Home and back on when
-    you are at Home, and keeps your off-peak settings.
+    you are at Home, and keeps your off-peak settings. It only shows on cars you can plug in.
   - **Disable OTA Client** stops the head unit from checking for and downloading its own updates.
 - **Package Manager**, in Tweaks and Settings. It updates Tilepad over Wi-Fi, and it installs and
   updates other NEMESIS packages straight from their GitHub releases.
@@ -223,8 +225,9 @@ unavailable, submit a compatibility report (see below) so that support can be ad
 
 The tweaks check the car's exact firmware files, so they work on any car that runs a supported
 firmware image. The supported images are USA Hyundai `V012.010.240822`, `V015.012.260507` and
-`V016.010.260903`, Canadian Hyundai `V015.011.260206`, and USA Kia `V015.012.260507` and
-`V015.012.260507 MQ4`, which cover the IONIQ 5, EV6 and Sorento, for example.
+`V016.010.260903`, Canadian Hyundai `V015.011.260206`, USA Kia `V015.012.260507`, Canadian Kia
+`V015.011.260206`, and, for non-EV models, USA Hyundai `V015.012.260507 DN8` and USA Kia
+`V015.012.260507 MQ4`, which cover the IONIQ 5, EV6, Sonata and Sorento, for example.
 Heaters that a trim doesn't have are skipped. How each tweak works, and what it changes, is
 explained in [docs/TWEAKS.md](docs/TWEAKS.md).
 

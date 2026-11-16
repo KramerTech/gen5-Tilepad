@@ -52,7 +52,19 @@ public final class LongStarDaemon {
         // Shared listeners live in this process, alongside the passive key reader.
         // Test input streams do not bootstrap Android or touch tweak configuration.
         if (override == null) com.tilepad.tweakcore.TweaksRuntime.start();
-        new LongStarDaemon(args[0], Integer.parseInt(args[1]), Long.parseLong(args[2]), args[3], override).run();
+        new LongStarDaemon(args[0], keyCode(args[0], args[1]), Long.parseLong(args[2]), args[3], override).run();
+    }
+
+    /** A number as given, or "auto": the car's own custom key, from its key layout (Evdev.customKey). */
+    private static int keyCode(String deviceName, String given) {
+        if (!given.equals("auto")) return Integer.parseInt(given);
+        try {
+            FileReader r = new FileReader(Evdev.layoutFor(deviceName));
+            try { return Evdev.customKey(r); } finally { r.close(); }
+        } catch (IOException e) {
+            log("no key layout for " + deviceName + " (" + e.getMessage() + "): using " + Evdev.STAR);
+            return Evdev.STAR;
+        }
     }
 
     private void run() {

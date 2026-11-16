@@ -17,6 +17,7 @@ final class ScheduledCharging {
     static void requireSupported() throws Exception {
         if (checked) return;
         Platform.requireVehicle();
+        if (!Platform.pluginVehicle()) throw new IOException("This car can't be plugged in, so Charge-Away doesn't apply.");
         if (!Firmware.evSettings(Files.hash(new File("/system/app/HKMC_TAppEV3.apk"))))
             throw new IOException("This firmware's EV Settings app isn't supported yet. Capture and submit a log to help add compatibility.");
         checked = true;

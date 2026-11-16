@@ -67,7 +67,7 @@ The older heater-only `options` command remains supported for compatibility.
 | Maintain Climate Sync | A passenger temperature change moves the driver temperature to match, then turns Sync back on | None | No |
 | Automatic Driver Only | Driver Only every time the car is turned on; Sync once the passenger belt is buckled (one way, until the next car start) | None | No |
 | Auto-Open Phone Projection | Opens AA/CarPlay once when a session becomes available, independently of the right pop-over | None | No |
-| Charge-Away | Scheduled Charging off beyond 1.5 miles of Home, on within 1 mile; retains state between boundaries and preserves the off-peak-only choice | Set Home from the current GPS location, update it, or clear it; coordinates shown | No |
+| Charge-Away | Only on cars that can be plugged in (HEVService's EV or PHEV feature; hidden on gas cars and plain hybrids). Scheduled Charging off beyond 1.5 miles of Home, on within 1 mile; retains state between boundaries and preserves the off-peak-only choice | Set Home from the current GPS location, update it, or clear it; coordinates shown | No |
 | Disable OTA Client | Disables the head unit's OTA client, stopping its checks, downloads and prompts; turning off or uninstalling Tilepad reenables it, while updates preserve the setting | None | No |
 
 **Disable OTA Client** uses Android's persistent package switch for
@@ -320,6 +320,8 @@ images:
 | Hyundai V016.010.260903 | a compatibility log | every interface Tilepad calls compared with V015's (below) |
 | Kia V015.012.260507 | an EV6 compatibility log | every deodexed file compared with Hyundai V015's (below) |
 | Hyundai Canada V015.011.260206 | a Canadian IONIQ 5 compatibility log | compared with Hyundai V015.012's: vehicle code byte-identical, patched classes identical (below) |
+| Kia Canada V015.011.260206 | a Canadian EV6 compatibility log | deodexes byte-identically to Kia V015.012; SystemUI.apk differs (below) |
+| Hyundai V015.012.260507 DN8 | a Sonata compatibility log | Hyundai's non-EV image: every call Tilepad makes compared with Hyundai and Kia V015; consent re-anchored (below) |
 | Kia V015.012.260507 MQ4 | a Sorento compatibility log | every call Tilepad makes compared with Kia V015's; consent patch re-anchored (below) |
 | Hyundai V012.010.240822 | an IONIQ 5 compatibility log | every call Tilepad makes compared with V015's; heater codes per release (below) |
 
@@ -366,6 +368,33 @@ changed classes is patched, or owns EV Settings' off-peak-only preference. `cons
 disassemble identically to V015.012's. The climate variant and options are the IONIQ 5's, and the
 key layout has the track keys at 34/35 and ★ at 43.
 
+For Kia Canada V015.011.260206 (a 2024 EV6 log; the car reports `CVEV.CAN`, and `build.prop` labels
+the image `ECOKMC.USA.0000.V015.011.260206`): compared with Kia V015.012. Every target, the vehicle
+and framework files, `services`, SystemUI, RightScreenHome and EV Settings, deodexes byte-identically.
+`HKMC_TAppEV3.apk`, `SystemUI.odex` and `RightScreenHome.odex` are V015.012's own files; only the four
+framework ODEX files, which are this build's, and `SystemUI.apk`, which holds resources only, differ. So
+`consent-kia-v015-011` is V015.012's patch paired with this APK. Since both recipes are for the same
+ODEX, PatchManager picks the one whose paired APK is the car's. The climate variant and options are
+the IONIQ 5's and EV6's, and the key layout has the track keys at 34/35 and ★ at 43.
+
+For Hyundai V015.012.260507 DN8 (a 2022 US Sonata log, `wp_daudioplus_dn822_us`; `build.prop` names
+the image `HYUNDAI.USA.0000.V015.012.260507`, Hyundai's build for its non-EV models, as `KIA.USA` is
+Kia's): compared with Kia's non-EV image of the same release (a Sorento log) and with Hyundai and Kia
+V015.012. Against Kia's non-EV image, `automotive`, `automotive-service`, `services`, `hcan` and
+`infobank` have no code differences, `framework` and `framework2` differ only in resource IDs and
+`MobisBuildFeature`'s brand constants, and SystemUI's consent controller is the same class. Against
+the EV images, `automotive` differs only in `UsageLogID`'s log constants, and `framework`,
+`framework2` and `services` in Wi-Fi, media, location, Bluetooth, tethering, rear camera and HDMI
+code, none of it on a path Tilepad uses (the same comparison as for Kia's non-EV image). Every
+transaction code Tilepad calls is unchanged. SystemUI's consent controller is `E` with seven
+registers, so `consent-dn8-v015` calls `invoke-direct {v6}, E->dc()V` at its own anchor; RightScreenHome
+keeps V015's names and bytes, and its patched methods are V015's (the class's other differences,
+renamed callees and resource IDs, are elsewhere). The DATC reports other options (0x09, 0x00, 0x2b),
+so Climate Sync and Driver Only stay unavailable, and it can't be plugged in, so Charge-Away is
+hidden. Its layout has the track keys at 34/35 but no ★: its programmable steering-wheel key is
+`SHORTCUT_CUSTOM` at scan code 4, which ModeKeyDispatcher runs (e.g. "gohome") only on a short
+release, as the ★, so the ★ hold uses it (`KEY_CODE=auto`).
+
 For Kia V015.012.260507 MQ4 (a 2023 US Sorento log, `wp_daudioplus_mq422_us`; `build.prop` names
 the image `KIA.USA.0000.V015.012.260507`, Kia's build for its non-EV models, separate from the EV6's
 `ECOKMC`): compared with Kia V015.012. `automotive-service`, EV Settings, `com.hkmc.ext.hcan`,
@@ -382,10 +411,11 @@ Quick Boot branch and a seventh register, so `this` is `v6`, not V015's `v5`:
 `45 00 … 2d ff`) to `invoke-direct {v6}, E->dc()V`, and the generator now checks the receiver is
 `start()`'s own `this`. The DATC reports the dual-zone variant (0x02) with other options (0x09,
 0x04, 0x2b, 0xff, 0xff for the IONIQ 5's 0x29, 0x04, 0x2f, 0x03, 0x01), so Climate Sync and Driver
-Only stay unavailable. Its key layout has the track keys at 34/35, so Track swap works, but no
-steering-wheel ★ (`SHORTCUT_SWRC_CUSTOM`, scan code 43 on the IONIQ 5 and EV6), so the ★ hold that
-opens Tilepad has no key. It does map `SHORTCUT_CUSTOM` at scan code 18, probably a ★ among the head
-unit's own buttons; not yet confirmed on the car. It is a gas car without an OTA client.
+Only stay unavailable, and it can't be plugged in, so Charge-Away is hidden. Its key layout has the
+track keys at 34/35, so Track swap works, but no steering-wheel ★ (`SHORTCUT_SWRC_CUSTOM`, scan code
+43 on the IONIQ 5 and EV6). It maps `SHORTCUT_CUSTOM` at scan code 18, probably a ★ among the head
+unit's own buttons, so the ★ hold uses that (`KEY_CODE=auto`); not yet confirmed on the car. It is a
+gas car without an OTA client.
 
 For Hyundai V012 (an IONIQ 5 log, 2024): an older build, with renamed obfuscated members throughout,
 so each call was compared on its own. Every code Tilepad uses on IDATCService, IBCMService,
