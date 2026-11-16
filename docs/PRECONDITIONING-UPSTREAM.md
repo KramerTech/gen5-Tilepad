@@ -12,8 +12,11 @@ integration ports the useful backend changes instead of merging the application 
 
 ## Imported changes
 
-- Exact firmware profiles for ten combinations across six head-unit families (Tilepad adds an
-  eleventh, below).
+- Exact firmware profiles for twelve combinations across six head-unit families (Tilepad adds
+  two, below). EV6 US 241120 and NEEV US 260903 came later, from upstream's
+  [`432e410d`](https://github.com/paytondevs/gen5w-preconditioning/commit/432e410d) and
+  [`6ea690f9`](https://github.com/paytondevs/gen5w-preconditioning/commit/6ea690f9) (2026-11-12): their
+  software strings and hashes only, with Tilepad's own tests.
   Android API 19, device code, `ro.build.product` (not `Build.PRODUCT` or the
   displayed `ro.build.product2`), and the matching pair of framework hashes must
   all agree. Hashes from different profiles cannot be mixed. HEV/BCM Binder
@@ -54,10 +57,10 @@ scheduler-specific outside-temperature telemetry was added.
 | Head unit | Software suffixes |
 | --- | --- |
 | IONIQ 5 NEEV23 US | 240822*, 260206, 260507, 260903 |
-| IONIQ 5 NEEV US | 240822, 260507 |
+| IONIQ 5 NEEV US | 240822, 260507, 260903 |
 | IONIQ 5 NEEV CA | 260206† |
 | IONIQ 5 NEEV KR | 260902 |
-| EV6 CVEV US | 251120, 260507 |
+| EV6 CVEV US | 241120, 251120, 260507 |
 | EV6 CVEV KR | 260902 |
 | IONIQ 6 CEEV US | 260507 |
 
