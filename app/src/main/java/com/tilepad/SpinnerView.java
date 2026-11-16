@@ -36,6 +36,8 @@ final class SpinnerView extends View {
         if (spinning == value) return;
         spinning = value;
         setVisibility(value ? VISIBLE : INVISIBLE);
+        // What sits beside the ring may need to make room for it (StatusTile's pill).
+        requestLayout();
         invalidate();
     }
 
