@@ -7,12 +7,14 @@ import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[2]
+# Nav-only RightScreenHome.odex MD5 checked on the car; only the IONIQ 5 USA V015.012 capture has one.
+NAV_MD5 = {"v015": "e8eac4e6a0f33dc2e4cca904298a8682"}
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("firmware", type=Path, help="Captured system directory")
-    parser.add_argument("--release", default="v015", help="Which release the capture is (default v015, the IONIQ 5 capture)")
+    parser.add_argument("--release", default="v015", help="Which release the capture is (default v015, the IONIQ 5 capture; a compatibility log's system/ folder works if it has the APKs)")
     parser.add_argument("--baksmali", type=Path, default=Path.home() / ".local/share/smali/baksmali-2.5.2.jar")
     args = parser.parse_args()
     recipes = ROOT / "nemesis-package/tweaks/patches"
@@ -26,7 +28,7 @@ def main():
     classes = ROOT / "build/tweaks-host-tests"
     subprocess.run(["javac", "--release", "8", "-cp", str(classes), "-d", str(classes), str(ROOT / "tools/tweaks/CaptureCheck.java")], check=True)
     work = ROOT / "build/capture-patch-check"
-    subprocess.run(["java", "-cp", str(classes), "CaptureCheck", str(args.firmware), str(work), str(recipes)], check=True)
+    subprocess.run(["java", "-cp", str(classes), "CaptureCheck", str(args.firmware), str(work), str(recipes), NAV_MD5.get(args.release, "-")], check=True)
     if args.baksmali.is_file():
         checks = (("RightScreenHome", "Lcom/mobis/splitscreen/right/k/r;,Lcom/mobis/splitscreen/right/r/i;"),
                   ("SystemUI", "Lcom/android/systemui/consentscreen/D;"))

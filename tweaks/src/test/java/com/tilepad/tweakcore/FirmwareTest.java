@@ -5,7 +5,8 @@ import org.junit.Test;
 
 public class FirmwareTest {
     private static final Firmware.Release V015 = Firmware.SUPPORTED[0], V016 = Firmware.SUPPORTED[1], KIA_V015 = Firmware.SUPPORTED[2],
-        V012 = Firmware.SUPPORTED[3];
+        V012 = Firmware.SUPPORTED[3], V015_CA = Firmware.SUPPORTED[4], KIA_V015_CA = Firmware.SUPPORTED[5],
+        DN8 = Firmware.SUPPORTED[6];
     @Test public void acceptsEachSupportedReleasesFiles() {
         for (Firmware.Release r : Firmware.SUPPORTED) {
             assertTrue(r.name, Firmware.vehicle(r.automotive, r.automotiveService));
@@ -21,6 +22,15 @@ public class FirmwareTest {
         assertFalse(Firmware.projection(KIA_V015.framework, V015.framework2));
         assertFalse(Firmware.vehicle(V012.automotive, V015.automotiveService));
         assertFalse(Firmware.projection(V015.framework, V012.framework2));
+        // V015.011 is its own build: its odex files differ from V015.012's, though the code is the same.
+        assertFalse(Firmware.vehicle(V015_CA.automotive, V015.automotiveService));
+        assertFalse(Firmware.projection(V015.framework, V015_CA.framework2));
+        // Kia's V015.011 deodexes identically to V015.012, but its ODEX files are its own build: no mixing.
+        assertFalse(Firmware.vehicle(KIA_V015_CA.automotive, KIA_V015.automotiveService));
+        assertFalse(Firmware.projection(KIA_V015.framework, KIA_V015_CA.framework2));
+        // Hyundai's EV and non-EV images of one release are separate builds too.
+        assertFalse(Firmware.vehicle(V015.automotive, DN8.automotiveService));
+        assertFalse(Firmware.projection(DN8.framework, V015.framework2));
         assertFalse(Firmware.evSettings("0000"));
     }
     @Test public void heaterCodesComeFromTheMatchedRelease() {

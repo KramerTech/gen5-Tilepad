@@ -6,7 +6,7 @@
 # It is also Tilepad's one boot hook. LongStarDaemon hosts event-driven tweak listeners
 # in its own process; the ADB Wi-Fi helper below is a bounded startup operation.
 . /data/nemesis/apps/tilepad/scripts/common.sh
-KEY_CODE=43
+KEY_CODE=auto
 HOLD_MS=800
 TARGET_COMPONENT=com.tilepad/.MainActivity
 [ -r "$HERE/longstar.conf" ] && . "$HERE/longstar.conf"

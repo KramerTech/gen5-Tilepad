@@ -49,6 +49,9 @@ final class UsbReport {
         List<String> layouts = Collections.emptyList();
         try { layouts = PatchManager.loadedLayouts(Platform.exec("dumpsys", "input")); } catch (Exception ignored) { }
         paths.addAll(layouts);
+        // Whether the ★ hold's device is named as expected: the head unit's key devices only.
+        List<String> keyDevices = null;
+        try { keyDevices = CompatReport.keyDevices(new String(Files.read(new File("/proc/bus/input/devices")), "UTF-8")); } catch (Exception ignored) { }
         Map<String, String> hashes = new LinkedHashMap<>();
         Map<String, File> stock = new LinkedHashMap<>();
         for (String path : paths) {
@@ -80,7 +83,7 @@ final class UsbReport {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         Thread drain = drain(writer.getInputStream(), output);
         try (ZipOutputStream zip = new ZipOutputStream(new BufferedOutputStream(writer.getOutputStream(), 1 << 16))) {
-            entry(zip, "tilepad-compat.txt", CompatReport.text(identity, hashes, status).getBytes("UTF-8"));
+            entry(zip, "tilepad-compat.txt", CompatReport.text(identity, hashes, keyDevices, status).getBytes("UTF-8"));
             for (Map.Entry<String, byte[]> e : moment.entrySet()) entry(zip, "support/" + e.getKey(), e.getValue());
             for (File f : copied) copy(zip, f.getPath().substring(1), f);
             for (Map.Entry<String, File> e : stock.entrySet()) copy(zip, "tilepad-stock/" + e.getKey(), e.getValue());

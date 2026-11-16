@@ -24,6 +24,29 @@ public class EvdevTest {
         + "N: Name=\"daudio_wp_daudioplus_neev23_us_knob\"\n"
         + "H: Handlers=event3 \n";
 
+    @Test public void layoutIsTheDeviceNameWithItsRegionReplacedByBase() {
+        // Each archived log's device and the layout it loaded.
+        String[][] seen = {{"daudio_wp_daudioplus_neev23_us", "neev23"}, {"daudio_wp_daudioplus_neev_ca", "neev"},
+            {"daudio_wp_daudioplus_cvev_us", "cvev"}, {"daudio_wp_daudioplus_cvev_ca", "cvev"},
+            {"daudio_wp_daudioplus_mq422_us", "mq422"}, {"daudio_wp_daudioplus_dn822_us", "dn822"}};
+        for (String[] s : seen) assertEquals("/system/usr/keylayout/daudio_wp_daudioplus_" + s[1] + "_base.kl", Evdev.layoutFor(s[0]));
+    }
+
+    @Test public void customKeyIsTheStarElseTheCarsOwnCustomKey() throws Exception {
+        // Excerpts of the archived layouts. IONIQ 5 and EV6: ★ on the wheel at 41 and 43.
+        String ioniq5 = "key 6     SHORTCUT_HOME\nkey 20    SHORTCUT_CUSTOM\nkey 34    CHANNEL_UP\nkey 41    SHORTCUT_SWRC_CUSTOM\nkey 43    SHORTCUT_SWRC_CUSTOM\n";
+        assertEquals(43, Evdev.customKey(new StringReader(ioniq5)));
+        // Sonata (DN8): no ★, its wheel's programmable key is the custom key at 4.
+        String sonata = "key 1     POWER_AVN\nkey 2     SHORTCUT_MAP\nkey 4     SHORTCUT_CUSTOM\nkey 34    CHANNEL_UP\n";
+        assertEquals(4, Evdev.customKey(new StringReader(sonata)));
+        // Sorento (MQ4): no ★, a custom key at 18; commented lines don't count.
+        String sorento = "#key 22    SHORTCUT_RADIO\nkey 18    SHORTCUT_CUSTOM\nkey 19    SHORTCUT_SETUP\n";
+        assertEquals(18, Evdev.customKey(new StringReader(sorento)));
+        // A wheel custom key that isn't 43 still wins over the head unit's.
+        assertEquals(41, Evdev.customKey(new StringReader("key 20 SHORTCUT_CUSTOM\nkey 41 SHORTCUT_SWRC_CUSTOM\n")));
+        assertEquals(43, Evdev.customKey(new StringReader("key 34 CHANNEL_UP\n")));
+    }
+
     @Test public void findsExactNameNotPrefixMatches() throws Exception {
         assertEquals("/dev/input/event1",
             Evdev.findDevice(new StringReader(DEVICES), "daudio_wp_daudioplus_neev23_us"));
