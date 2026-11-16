@@ -319,7 +319,7 @@ images:
 | Hyundai V015.012.260507 | the IONIQ 5 capture | captured `/system`, all patches verified on the car |
 | Hyundai V016.010.260903 | a compatibility log | every interface Tilepad calls compared with V015's (below) |
 | Kia V015.012.260507 | an EV6 compatibility log | every deodexed file compared with Hyundai V015's (below) |
-| Hyundai V015.011.260206 | a Canadian IONIQ 5 compatibility log | compared with Hyundai V015.012's: vehicle code byte-identical, patched classes identical (below) |
+| Hyundai Canada V015.011.260206 | a Canadian IONIQ 5 compatibility log | compared with Hyundai V015.012's: vehicle code byte-identical, patched classes identical (below) |
 | Hyundai V012.010.240822 | an IONIQ 5 compatibility log | every call Tilepad makes compared with V015's; heater codes per release (below) |
 
 `Firmware.java` lists each release's `automotive.odex`/`automotive-service.odex` (vehicle tweaks),
@@ -353,9 +353,9 @@ every patched method's code, header included, is byte-identical to V015's at the
 DATC reports the IONIQ 5's climate variant and options (0x02; 0x29, 0x04, 0x2f, 0x03, 0x01), and its
 key layout is the same file, with the track keys at 34/35 and ★ at 43.
 
-For Hyundai V015.011.260206 (a 2024 IONIQ 5 log from Canada; the car reports `NEEV.CAN`, but the
-image is the USA build, `ECOHMC.USA.0000.V015.011.260206`, an earlier V015 than the capture's):
-compared with Hyundai V015.012. `automotive`, `automotive-service`, `framework`, `framework2`,
+For Hyundai Canada V015.011.260206 (a 2024 IONIQ 5 log; the car reports `NEEV.CAN`, and the
+image's own `build.prop` labels it `ECOHMC.USA.0000.V015.011.260206`), an earlier V015 than the
+capture's: compared with Hyundai V015.012. `automotive`, `automotive-service`, `framework`, `framework2`,
 `services`, `com.hkmc.ext.hcan` and `com.infobank` deodex byte-identically, so every interface and
 transaction code Tilepad calls is unchanged. SystemUI, RightScreenHome and EV Settings differ only
 in obfuscation: compared method by method with short names masked, every changed file has the same
