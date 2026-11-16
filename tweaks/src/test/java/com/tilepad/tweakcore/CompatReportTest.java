@@ -75,13 +75,34 @@ public class CompatReportTest {
         Properties status = new Properties();
         status.setProperty("dst", "true");
         status.setProperty("unavailable.chargeaway", "The EV Settings interface differs.\nNo change.");
-        String text = CompatReport.text(identity, files, status);
+        String text = CompatReport.text(identity, files, Arrays.asList("daudio_wp_daudioplus_cvev_us"), status);
         assertTrue(text.contains("ro.product.device=wp_daudioplus_cvev_us\n"));
+        assertTrue(text.contains("star=daudio_wp_daudioplus_cvev_us  found\ndevice=daudio_wp_daudioplus_cvev_us\n"));
         assertTrue(text.contains("/system/framework/automotive.odex=abc123\n"));
         assertTrue(text.contains("dst=true\n"));
         assertTrue(text.contains("chargeaway=false  The EV Settings interface differs. No change.\n"));
         for (String id : Config.IDS) assertTrue(id, text.contains("\n" + id + "="));
         assertTrue(text.contains(CompatReport.ISSUES));
+    }
+    @Test public void keyDevicesAreTheHeadUnitsOwnAndTheStarDeviceIsChecked() {
+        // The IONIQ 5 capture's /proc/bus/input/devices, plus a paired phone's input device.
+        String proc = "I: Bus=0019 Vendor=0001 Product=0001 Version=0100\nN: Name=\"telechips keypad\"\nH: Handlers=kbd event0\n\n"
+            + "N: Name=\"daudio_wp_daudioplus_neev23_us\"\nH: Handlers=kbd event1\n\n"
+            + "N: Name=\"daudio_wp_daudioplus_neev23_us_can\"\nH: Handlers=kbd event2\n\n"
+            + "N: Name=\"Sam's Pixel\"\nH: Handlers=kbd event5\n\n";
+        List<String> devices = CompatReport.keyDevices(proc);
+        assertEquals(Arrays.asList("daudio_wp_daudioplus_neev23_us", "daudio_wp_daudioplus_neev23_us_can"), devices);
+        Map<String, String> identity = new LinkedHashMap<>();
+        identity.put("ro.product.device", "wp_daudioplus_neev23_us");
+        String text = CompatReport.text(identity, new LinkedHashMap<String, String>(), devices, new Properties());
+        assertTrue(text.contains("star=daudio_wp_daudioplus_neev23_us  found\n"));
+        assertFalse(text.contains("Sam"));
+        // Another device name: the hold's device is missing, though similar names are present.
+        identity.put("ro.product.device", "wp_daudioplus_neev_ca");
+        assertTrue(CompatReport.text(identity, new LinkedHashMap<String, String>(), devices, new Properties())
+            .contains("star=daudio_wp_daudioplus_neev_ca  NOT FOUND\n"));
+        assertTrue(CompatReport.text(identity, new LinkedHashMap<String, String>(), null, new Properties())
+            .contains("star=daudio_wp_daudioplus_neev_ca  unreadable\n"));
     }
     @Test public void serviceDumpsKeepOnlyNumericSignals() {
         String dump = "USM Service\n  SWRC_STEERINGWHEELHEATINGOPT : 1\n  FRONTSEATHEAT_DRVOPTION : 2\n"

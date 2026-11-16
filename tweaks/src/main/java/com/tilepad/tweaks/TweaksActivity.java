@@ -68,10 +68,13 @@ public final class TweaksActivity extends Activity {
     private final SettingsEdits edits = new SettingsEdits();
     private final Runnable saveFlush = new Runnable() { @Override public void run() { flushEdits(); } };
     private int selected, bg, ink, muted, line, accent = 0xff00b5de;
+    private TweakInfo[] entries;
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
+        // Fixed for the car, so the saved index keeps pointing at the same entry.
+        entries = TweakInfo.rail(Platform.pluginVehicle());
         selected = getPreferences(0).getInt("selected", 0);
-        if (selected < 0 || selected >= TweakInfo.RAIL.length) selected = 0;
+        if (selected < 0 || selected >= entries.length) selected = 0;
         preview = (getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0
             && (Build.HARDWARE.contains("ranchu") || Build.HARDWARE.contains("goldfish"))
             && getIntent().getBooleanExtra("design_preview", false);
@@ -142,8 +145,8 @@ public final class TweaksActivity extends Activity {
         float scale = Math.min(1f, width / 1278f);
         railScroll = scroller("Tweak names"); LinearLayout rail = column(); railScroll.addView(rail);
         panes.addView(railScroll, new LinearLayout.LayoutParams(dp(250 * scale), -1)); verticalDivider(panes);
-        for (int i = 0; i < TweakInfo.RAIL.length; i++) {
-            final int index = i; TweakInfo item = TweakInfo.RAIL[i];
+        for (int i = 0; i < entries.length; i++) {
+            final int index = i; TweakInfo item = entries[i];
             TextView tab = text(item.railTitle(), 26, i == selected ? accent : ink);
             // Support and Package Manager aren't tweaks: a mark sets each apart.
             if (item == TweakInfo.SUPPORT || item == TweakInfo.UPDATES) {
@@ -165,9 +168,9 @@ public final class TweaksActivity extends Activity {
             } });
             rail.addView(tab, new LinearLayout.LayoutParams(-1, -2)); divider(rail);
         }
-        controlScroll = scroller("Selected tweak controls"); controls = column(); controlScroll.addView(controls);
+        controlScroll = scroller("Selected tweak controls"); controls = column(); controls.setPadding(0, 0, 0, dp(24)); controlScroll.addView(controls);
         panes.addView(controlScroll, new LinearLayout.LayoutParams(dp(600 * scale), -1)); verticalDivider(panes);
-        final TweakInfo item = TweakInfo.RAIL[selected];
+        final TweakInfo item = entries[selected];
         if (item == TweakInfo.SUPPORT) support(); else if (item == TweakInfo.UPDATES) packageManager(); else tweak(item);
         helpScroll = scroller("Feature explanation"); LinearLayout help = column(); helpScroll.addView(help);
         panes.addView(helpScroll, new LinearLayout.LayoutParams(0, -1, 1));
@@ -334,7 +337,7 @@ public final class TweaksActivity extends Activity {
     /** How the last install went, in a window, once per install, within three days of it. */
     private final Runnable lastInstall = new Runnable() { @Override public void run() {
         String started = values.getProperty("update.started", "0");
-        if (isFinishing() || TweakInfo.RAIL[selected] != TweakInfo.UPDATES || step != Step.NONE || !values.getProperty("update.state", "").equals("done")
+        if (isFinishing() || entries[selected] != TweakInfo.UPDATES || step != Step.NONE || !values.getProperty("update.state", "").equals("done")
             || started.equals(getPreferences(0).getString("installShown", ""))) return;
         getPreferences(0).edit().putString("installShown", started).apply();
         long at = 0;
@@ -1027,7 +1030,7 @@ public final class TweaksActivity extends Activity {
         controls.addView(row);
     }
     private void note(String label, boolean problem) {
-        TextView v = text(label, problem ? 20 : 22, problem ? 0xffb54b30 : muted); int spacing = TweakInfo.RAIL[selected].id.equals("dst") && !problem ? 7 : 16;
+        TextView v = text(label, problem ? 20 : 22, problem ? 0xffb54b30 : muted); int spacing = entries[selected].id.equals("dst") && !problem ? 7 : 16;
         v.setPadding(dp(30), dp(spacing), dp(24), dp(spacing)); controls.addView(v);
     }
     private String thresholdLabel() {

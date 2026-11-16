@@ -10,8 +10,20 @@ public final class CaptureCheck {
         List<Properties> profiles = new ArrayList<>();
         File[] files = recipes.listFiles(); Arrays.sort(files);
         Map<String, byte[]> stock = new HashMap<>();
-        // The track recipe names no file; on the car it targets the loaded layout, here the IONIQ 5's.
-        final String layout = "/system/usr/keylayout/daudio_wp_daudioplus_neev23_base.kl";
+        // The track recipe names no file; on the car it targets the loaded layout, here the IONIQ 5 USA's,
+        // or else the capture's only daudio_*_base.kl (a compatibility log holds just the unit's own).
+        String named = "daudio_wp_daudioplus_neev23_base.kl";
+        File keylayouts = new File(system, "usr/keylayout");
+        if (!new File(keylayouts, named).isFile()) {
+            File[] found = keylayouts.listFiles(new FilenameFilter() {
+                @Override public boolean accept(File dir, String name) { return name.startsWith("daudio_") && name.endsWith("_base.kl"); }
+            });
+            if (found == null || found.length != 1) throw new AssertionError("Expected exactly one daudio_*_base.kl in " + keylayouts);
+            named = found[0].getName();
+        }
+        final String layout = "/system/usr/keylayout/" + named;
+        // MD5 of the nav-only RightScreenHome checked on the car, for the release that has one ("-": none).
+        final String navMd5 = args.length > 3 ? args[3] : "-";
         for (File f : files) if (f.getName().endsWith(".properties")) {
             Properties p = Files.properties(f);
             // Another release's recipe for the same file: not this capture's.
@@ -44,10 +56,10 @@ public final class CaptureCheck {
                 String path = p.getProperty("path");
                 byte[] wanted = PatchManager.transform(p, stock.get(path), config);
                 if (!Arrays.equals(wanted, Files.read(new File(root, path.substring(1))))) throw new AssertionError("Wrong bytes: " + mask + " " + path);
-                if (mask == 2 && path.endsWith("RightScreenHome.odex")) {
+                if (mask == 2 && !navMd5.equals("-") && path.endsWith("RightScreenHome.odex")) {
                     java.security.MessageDigest digest = java.security.MessageDigest.getInstance("MD5");
                     String md5 = new java.math.BigInteger(1, digest.digest(wanted)).toString(16);
-                    if (!md5.equals("e8eac4e6a0f33dc2e4cca904298a8682")) throw new AssertionError("Nav port differs from verified local implementation");
+                    if (!md5.equals(navMd5)) throw new AssertionError("Nav port differs from verified local implementation");
                 }
                 if (mask == 15 && path.endsWith(".odex")) Files.write(new File(work, "patched/" + new File(path).getName()), wanted);
             }

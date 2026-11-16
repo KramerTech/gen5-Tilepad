@@ -57,7 +57,7 @@ public class Platform {
  public static double lat,lon,accuracy=3;public static long age;public static String preference="<map><int name=\\"economic_only_economic_mode\\" value=\\"1\\"/></map>";
  public static final List<int[]> requests=new ArrayList<>();public static final List<String> messages=new ArrayList<>();
  public static boolean ignitionOn(){return ignition;}
- public static void requireVehicle(){}public static String boot(){return "fixture-boot";}
+ public static void requireVehicle(){}public static boolean pluginVehicle(){return true;}public static String boot(){return "fixture-boot";}
  public static void status(String id,String s){messages.add(id+": "+s);}
  public static int integer(String name,String descriptor,int code)throws Exception{
   projectionReads++;if(failProjection)throw new IOException("services starting");

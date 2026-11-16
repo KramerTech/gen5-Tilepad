@@ -37,6 +37,19 @@ public final class Platform {
     public static String property(String name) throws Exception {
         return (String) Class.forName("android.os.SystemProperties").getMethod("get", String.class).invoke(null, name);
     }
+    /**
+     * Whether the car can be plugged in, by HEVService's own tests: checkEVModel (the
+     * com.hkmc.hardware.ev2 or .ev feature) or checkPHEVModel (.phev). Gas cars and plain hybrids
+     * have neither. True where com.hkmc.Feature can't be read, so a tweak is never hidden by mistake.
+     */
+    public static boolean pluginVehicle() {
+        try {
+            java.lang.reflect.Method has = Class.forName("com.hkmc.Feature").getMethod("hasFeature", String.class);
+            for (String feature : new String[]{"com.hkmc.hardware.ev2", "com.hkmc.hardware.ev", "com.hkmc.hardware.phev"})
+                if ((Boolean) has.invoke(null, feature)) return true;
+            return false;
+        } catch (Exception e) { return true; }
+    }
     /** Ignition from the BCM (ACC reads off): Driver Only, Automatic Heaters' passenger seat and projection. */
     public static boolean ignitionOn() throws Exception { return integer("com.hkmc.micom.bcm", "com.hkmc.bcm.IBCMService", 0x11) != 0; }
     public static String boot() throws IOException { return new String(Files.read(new File("/proc/sys/kernel/random/boot_id")), "UTF-8").trim(); }
