@@ -7,8 +7,8 @@ android {
         applicationId = "com.tilepad"
         minSdk = 19
         targetSdk = 19
-        versionCode = 19
-        versionName = "1.3.3"
+        versionCode = 20
+        versionName = "1.3.4"
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
