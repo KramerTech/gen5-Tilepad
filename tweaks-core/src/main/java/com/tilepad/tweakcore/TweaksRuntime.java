@@ -20,12 +20,14 @@ public final class TweaksRuntime {
     private ClimateController climate;
     private ProjectionController projection;
     private ChargeAwayController chargeAway;
+    private AmbientController ambient;
     private final Runnable configReload = new Runnable() { @Override public void run() {
         try {
             Config c = TweaksCommand.load();
             applyClimate(c);
             if (projection != null) projection.configure(c.enabled("projection"));
             if (chargeAway != null) chargeAway.configure(c);
+            if (ambient != null) ambient.configure(c);
             if (!c.dstChanged(lastDstConfig)) return;
         }
         catch (Exception e) { Platform.status("runtime", "Could not reload tweaks: " + e.getMessage()); return; }
@@ -105,7 +107,11 @@ public final class TweaksRuntime {
         applyClimate(config);
         projection = new ProjectionController(context, handler);
         chargeAway = new ChargeAwayController(context);
-        projection.configure(config.enabled("projection")); chargeAway.configure(config);
+        ambient = new AmbientController(context, handler);
+        projection.configure(config.enabled("projection")); chargeAway.configure(config); ambient.configure(config);
+        registerRootReceiver(new BroadcastReceiver() {
+            @Override public void onReceive(Context c, Intent i) { if (ambient != null) ambient.onConfigurationChanged(); }
+        }, new IntentFilter(Intent.ACTION_CONFIGURATION_CHANGED));
         Looper.loop();
     }
     /**

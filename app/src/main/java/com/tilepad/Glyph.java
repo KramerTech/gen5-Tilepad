@@ -12,7 +12,7 @@ import android.graphics.drawable.Drawable;
 /** Outline icons drawn on a 24-unit grid with a 2-unit round stroke, tintable by color. */
 final class Glyph extends Drawable {
     enum Kind {
-        WIFI, WIFI_OFF, BATTERY_HEAT, TERMINAL, BUG, CAR, REBOOT, PLUS, MINUS, PENCIL, SEARCH, BACK,
+        WIFI, WIFI_OFF, BATTERY_HEAT, AMBIENT, TERMINAL, BUG, CAR, REBOOT, PLUS, MINUS, PENCIL, SEARCH, BACK,
         BACKSPACE, CHECK, CLOSE, ALERT, CHEVRON_DOWN, SHIFT, APPS, TWEAKS
     }
 
@@ -86,6 +86,16 @@ final class Glyph extends Drawable {
                     canvas.drawPath(path, stroke);
                 }
                 stroke.setStrokeWidth(2f);
+                break;
+            case AMBIENT:
+                oval.set(7f, 4f, 17f, 14f);
+                canvas.drawArc(oval, 135f, 270f, false, stroke);
+                poly(canvas, false, 8.5f, 12.5f, 9.5f, 16f, 14.5f, 16f, 15.5f, 12.5f);
+                canvas.drawLine(9.5f, 18.5f, 14.5f, 18.5f, stroke);
+                canvas.drawLine(10.5f, 21f, 13.5f, 21f, stroke);
+                canvas.drawLine(12f, 1.5f, 12f, 2.5f, stroke);
+                canvas.drawLine(4f, 9f, 5f, 9f, stroke);
+                canvas.drawLine(19f, 9f, 20f, 9f, stroke);
                 break;
             case TERMINAL:
                 rect(canvas, 2.5f, 4f, 21.5f, 20f, 3f);

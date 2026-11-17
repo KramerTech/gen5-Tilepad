@@ -15,7 +15,21 @@ public final class Platform {
     /** A readable copy of each tweak's status, for the Tweaks screen to refresh live (STATE is root-only). */
     public static final File LIVE = new File("/data/nemesis/backup/tilepad/status");
     private static Firmware.Release vehicle;
+    /** A call that wasn't sent: the firmware's code for it isn't the one Tilepad checked. */
+    public static final class NotSent extends IOException {
+        NotSent(String message) { super(message); }
+    }
     private Platform() { }
+    /**
+     * Checks confirmed against the firmware's own Stub constant for descriptor's method and refuses
+     * with NotSent on mismatch. Only read calls may opt in via firmwareOwn when confirmed is 0.
+     */
+    static int transaction(String descriptor, String method, int confirmed, boolean firmwareOwn) throws Exception {
+        requireVehicle();
+        int code = Transactions.decide(confirmed, Transactions.named(descriptor, method), firmwareOwn);
+        if (code == 0) throw new NotSent("This firmware's version of that request isn't the one Tilepad checked, so Tilepad didn't send it. Tap “Save Log to USB” in Support and submit the log to help add compatibility.");
+        return code;
+    }
     public static void requireVehicle() throws Exception { vehicle(); }
     /** The supported release this unit's vehicle interfaces belong to. */
     static Firmware.Release vehicle() throws Exception {

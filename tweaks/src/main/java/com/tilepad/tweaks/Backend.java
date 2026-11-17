@@ -19,7 +19,7 @@ final class Backend {
         // The command prefixes its errors with "Tweaks: " for the shell; the screen already says Tweaks.
         if (code != 0) throw new IOException(text.trim().isEmpty() ? "The tweak command failed (" + code + ")." : text.trim().replaceFirst("^Tweaks: ", ""));
         Properties result = new Properties();
-        if ((args.length == 1 && (args[0].equals("status") || args[0].equals("settings")))
+        if ((args.length == 1 && (args[0].equals("status") || args[0].equals("settings") || args[0].equals("ambient-restore")))
             || (args[0].equals("options") || args[0].equals("update") || args[0].equals("home") || args[0].equals("report") || args[0].equals("support") || args[0].equals("self-update") || args[0].equals("update-source") || args[0].equals("uninstall") || args[0].equals("update-owners"))) result.load(new StringReader(text));
         return result;
     }

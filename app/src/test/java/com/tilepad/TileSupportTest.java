@@ -56,4 +56,10 @@ public class TileSupportTest {
         f.add(null);
         assertTrue(TileSupport.of(f, false).shows(TileSpec.Kind.WIFI));
     }
+
+    @Test public void ambientTileFollowsFittedEquipmentFlag() {
+        assertTrue(TileSupport.of(features(), false, true).shows(TileSpec.Kind.AMBIENT));
+        assertFalse(TileSupport.of(features(), false, false).shows(TileSpec.Kind.AMBIENT));
+        assertTrue(TileSupport.all().shows(TileSpec.Kind.AMBIENT));
+    }
 }

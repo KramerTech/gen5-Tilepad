@@ -24,7 +24,7 @@ is the one set to HOME); the same goes for its action.
 - **Manual battery preconditioning**, on cars that support it. One tap starts it and one tap stops
   it.
 - **Bundled Tweaks app**, opened from the permanent **Tweaks and Settings** tile beside
-  **Precondition**. It has eleven tweaks, and they all start off:
+  **Precondition**. It has twelve tweaks, and they all start off:
   - **Automatic Daylight Saving Time** keeps the head unit's daylight saving switch in step with
     your region.
   - **Skip Startup Safety Brief** goes straight past the confirmation screen when the head unit
@@ -42,6 +42,9 @@ is the one set to HOME); the same goes for its action.
   - **Auto-Open Phone Projection** opens Android Auto or CarPlay as soon as it is available.
   - **Charge-Away** switches Scheduled Charging off when you are away from Home and back on when
     you are at Home, and keeps your off-peak settings. It only shows on cars you can plug in.
+  - **Ambient Lighting** controls cabin ambient lighting by Manual color, Day and Night, Climate,
+    Weather (by outside temperature), or Music, with an optional launcher tile and
+    backup/restore of Vehicle Settings.
   - **Disable OTA Client** stops the head unit from checking for and downloading its own updates.
 - **Package Manager**, in Tweaks and Settings. It updates Tilepad over Wi-Fi, and it installs and
   updates other NEMESIS packages straight from their GitHub releases.

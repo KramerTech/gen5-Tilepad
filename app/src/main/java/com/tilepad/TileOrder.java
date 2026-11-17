@@ -74,11 +74,11 @@ final class TileOrder {
         return out;
     }
 
-    /** Core tiles cannot be removed. */
+    /** Fixed and required core tiles cannot be removed; user shortcuts and optional tiles can. */
     static List<TileSpec> remove(List<TileSpec> tiles, String id) {
         List<TileSpec> out = new ArrayList<>(tiles);
         TileSpec tile = find(out, id);
-        if (tile != null && !tile.isCore()) out.remove(tile);
+        if (tile != null && tile.isRemovable()) out.remove(tile);
         return out;
     }
 

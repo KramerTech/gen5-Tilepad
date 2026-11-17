@@ -115,6 +115,16 @@ final class TweakInfo {
             + "Works only with the exact EV Settings app of a supported firmware.").states(
             "**Scheduled Charging** turns off more than 1.5 miles from Home and back on within 1 mile.",
             "Your current **Scheduled Charging** settings will be left untouched.", null, null),
+        new TweakInfo("ambient", "Ambient Lighting", "Sets cabin accent colors by Day and Night, Climate, Weather, or Music.", true, false,
+            "Controls the cabin lights using the car's own lighting service, choosing from all 64 factory colors and brightness levels.\n\n"
+            + "- **Manual** keeps one chosen color and brightness.\n\n"
+            + "- **Day and Night** switches between your Day and Night colors, fading smoothly around today's sunrise and sunset times when connected-services weather arrives (otherwise following Android's car night UI mode).\n\n"
+            + "- **Climate** picks colors for Heating, Cooling, Defrost, and Climate Off from the car's climate system.\n\n"
+            + "- **Weather** picks Clear, Cloudy, Rain, or Snow from recent connected-services weather broadcasts, or falls back to your Cold, Mild, or Hot color from the outside temperature using your thresholds.\n\n"
+            + "- **Music** follows Android audio (Android Auto, Bluetooth, USB and Sounds of Nature) while the car is in Park, pulsing gently or moving smoothly through colors with at least a one-second hold on each color. For sources that bypass Android's mixer, such as CarPlay or radio, it falls back to a gentle timed pulse. While driving, choose **Pause** or a calm **Slow Color Cycle**.\n\n"
+            + "Before changing anything, Tilepad saves the car's current **Ambient Light** settings so you can tap “Restore My Lighting” to put them back.").states(
+            null,
+            "Tilepad leaves **Ambient Light** in Vehicle Settings untouched.", null, null),
         new TweakInfo("ota", "Disable OTA Client", "Stops the head unit's OTA client from checking for or downloading updates.", false, false,
             "Disables the head unit's OTA update client. While disabled, it cannot check for new updates, download them or show its update prompts. Takes effect immediately; no restart is needed.\n\n"
             + "Turning this tweak off or uninstalling Tilepad turns the client back on, even if it was already disabled when you turned this on. Updating Tilepad keeps it disabled.\n\n"

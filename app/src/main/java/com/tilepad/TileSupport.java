@@ -14,10 +14,14 @@ final class TileSupport {
     static final String ANDROID_WIFI = "android.hardware.wifi";
 
     /** wifiClient: the radio may join networks, not just run the CarPlay/Android Auto hotspot. */
-    final boolean wifi, wifiClient, precondition;
+    final boolean wifi, wifiClient, precondition, ambient;
 
-    private TileSupport(boolean wifi, boolean wifiClient, boolean precondition) {
-        this.wifi = wifi; this.wifiClient = wifiClient; this.precondition = precondition;
+    private TileSupport(boolean wifi, boolean wifiClient, boolean precondition, boolean ambient) {
+        this.wifi = wifi; this.wifiClient = wifiClient; this.precondition = precondition; this.ambient = ambient;
+    }
+
+    static TileSupport of(Set<String> features, boolean simulatedVehicle) {
+        return of(features, simulatedVehicle, true);
     }
 
     /**
@@ -28,21 +32,22 @@ final class TileSupport {
      * Elsewhere (emulator, test devices) Android's flag decides both.
      * A simulated vehicle (debug build on an emulator) always gets the preconditioning tile.
      */
-    static TileSupport of(Set<String> features, boolean simulatedVehicle) {
+    static TileSupport of(Set<String> features, boolean simulatedVehicle, boolean ambientFitted) {
         boolean hyundai = false;
         for (String name : features) if (name != null && name.startsWith(HKMC_PREFIX)) { hyundai = true; break; }
         boolean client = features.contains(ANDROID_WIFI);
         boolean wifi = hyundai ? features.contains(WIFI_MODULE) : client;
-        return new TileSupport(wifi, wifi && client, simulatedVehicle || features.contains(EV));
+        return new TileSupport(wifi, wifi && client, simulatedVehicle || features.contains(EV), ambientFitted);
     }
 
     /** Design previews show every tile. */
-    static TileSupport all() { return new TileSupport(true, true, true); }
+    static TileSupport all() { return new TileSupport(true, true, true, true); }
 
     boolean shows(TileSpec.Kind kind) {
         switch (kind) {
             case WIFI: return wifi;
             case PRECONDITION: return precondition;
+            case AMBIENT: return ambient;
             default: return true;
         }
     }

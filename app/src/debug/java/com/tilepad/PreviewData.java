@@ -12,4 +12,8 @@ final class PreviewData {
         return AdbSnapshot.of(AdbSnapshot.State.ON, 5555);
     }
     static TweaksSnapshot tweaks() { return TweaksSnapshot.of(4, com.tilepad.tweakcore.Config.IDS.length); }
+    static AmbientSnapshot ambient() {
+        return AmbientSnapshot.of(AmbientSnapshot.State.ACTIVE, com.tilepad.tweakcore.AmbientPolicy.Mode.DAY_NIGHT,
+            0xFF7D73, 4, "Day and Night", "The car's Night theme is active, so your Night color is on.", "Night", "auto");
+    }
 }

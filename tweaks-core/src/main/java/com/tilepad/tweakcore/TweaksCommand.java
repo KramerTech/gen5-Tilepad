@@ -35,6 +35,15 @@ public final class TweaksCommand {
                     return;
                 }
                 boolean restoring = args.length == 1 && args[0].equals("restore");
+                if (args.length == 1 && args[0].equals("ambient-restore")) {
+                    String restored = AmbientController.restoreOwnedLighting();
+                    Config cur = load(); cur.set("ambient", "false");
+                    transaction().commit(cur);
+                    Properties out = status(cur, false);
+                    out.setProperty("ambientRestoreResult", restored);
+                    out.store(System.out, "Tilepad Tweaks status");
+                    return;
+                }
                 // Recovery must still be possible when a pending enable can no longer
                 // complete (e.g. a conflicting file). Restore supersedes that intent.
                 if (!restoring) recover();
@@ -91,6 +100,7 @@ public final class TweaksCommand {
                     transaction().commit(c); printStatus(c, false); return;
                 }
                 if (args.length == 1 && args[0].equals("restore")) {
+                    AmbientController.restoreOwnedLighting();
                     for (String id : Config.IDS) c.set(id, "false");
                 } else if (args.length >= 3 && args.length % 2 == 1 && (args[0].equals("set") || args[0].equals("update"))) {
                     for (int i = 1; i < args.length; i += 2) c.set(args[i], args[i + 1]);
@@ -99,10 +109,11 @@ public final class TweaksCommand {
                     c.validateHome();
                     if (c.enabled("projection") && c.changedFrom(previous, "projection")) ProjectionController.requireSupported();
                     if (c.enabled("chargeaway") && c.changedFrom(previous, "chargeaway")) ScheduledCharging.requireSupported();
+                    if (c.enabled("ambient") && c.changedFrom(previous, "ambient")) requireAmbientSupported();
                     if (c.needsVehicleCheck(previous)) Platform.requireVehicle();
                     if (c.needsDualZoneCheck(previous)) Platform.requireDualZone();
                     if (c.enabled("dst") && c.dstChanged(previous)) DstRules.baseOffsetMinutes(Platform.property("persist.sys.timezone"));
-                } else throw new IllegalArgumentException("Usage: settings | summary | status | report | support | home | restore | reconcile | self-update {ID FILE CHECK INNER}… | update-source add ID OWNER/REPO | update-source remove ID | update-owners NAME,… | uninstall ID | set/update/options KEY VALUE [KEY VALUE…]");
+                } else throw new IllegalArgumentException("Usage: settings | summary | status | report | support | home | ambient-restore | restore | reconcile | self-update {ID FILE CHECK INNER}… | update-source add ID OWNER/REPO | update-source remove ID | update-owners NAME,… | uninstall ID | set/update/options KEY VALUE [KEY VALUE…]");
                 // Intent survives termination between a /system write and config commit.
                 if (restoring) transaction().commitFull(c); else transaction().commit(c);
                 if (args[0].equals("update")) { printStatus(c, false); return; }
@@ -180,6 +191,11 @@ public final class TweaksCommand {
     private static Properties status(Config c, boolean verify) throws Exception {
         Properties out = (Properties) c.values.clone();
         for (String key : new String[]{"region", "threshold", "driver", "wheel", "passenger", "driverLevel", "passengerLevel", "units", "homeLat", "homeLon"}) out.setProperty(key, c.get(key));
+        for (String key : Config.AMBIENT_OPTIONS) out.setProperty(key, c.get(key));
+        try {
+            File fittedMarker = new File(Platform.LIVE, AmbientController.FITTED_FILE);
+            if (fittedMarker.isFile()) out.setProperty("fitted.ambient", new String(Files.read(fittedMarker), "UTF-8").trim());
+        } catch (Exception ignored) { }
         String vehicleError = null;
         if (verify) try { Platform.requireVehicle(); } catch (Exception e) { vehicleError = e.getMessage(); }
         for (String id : Config.IDS) {
@@ -187,13 +203,14 @@ public final class TweaksCommand {
             String reason = "";
             try {
                 if (verify) {
-                    if (id.equals("dst") || id.equals("heaters") || id.equals("tracks") || id.equals("sync") || id.equals("driveronly")) {
+                    if (id.equals("dst") || id.equals("heaters") || id.equals("tracks") || id.equals("sync") || id.equals("driveronly") || id.equals("ambient")) {
                         if (vehicleError != null) throw new IOException(vehicleError);
                     }
                     if (id.equals("sync") || id.equals("driveronly")) Platform.requireDualZone();
                     if (id.equals("dst")) DstRules.baseOffsetMinutes(Platform.property("persist.sys.timezone"));
                     if (id.equals("projection")) ProjectionController.requireSupported();
                     else if (id.equals("chargeaway")) ScheduledCharging.requireSupported();
+                    else if (id.equals("ambient")) requireAmbientSupported();
                     else if (id.equals("ota")) otaClient().check(c);
                     else if (!id.equals("dst") && !id.equals("heaters") && !id.equals("sync") && !id.equals("driveronly")) Platform.patches().check(id, c);
                 }
@@ -239,6 +256,14 @@ public final class TweaksCommand {
         for (String id : sources.stringPropertyNames()) out.setProperty("source." + id, sources.getProperty(id));
         out.setProperty("owners", SelfUpdate.owners(SelfUpdate.OWNERS));
         return out;
+    }
+    private static void requireAmbientSupported() throws Exception {
+        Firmware.Release rel = Platform.vehicle();
+        if (rel.ambient == null)
+            throw new IOException("This firmware's ambient light interface isn't supported yet. Capture and submit a log to help add compatibility.");
+        Platform.transaction("com.hkmc.micom.ISystemService", "requestSMLStatus", rel.ambient.requestSml, false);
+        Platform.transaction("com.hkmc.micom.ISystemService", "setSMLConfiguration", rel.ambient.setSmlConfig, false);
+        Platform.transaction("com.hkmc.micom.ISystemService", "setSMLRGB", rel.ambient.setSmlRgb, false);
     }
     private TweaksCommand() { }
 }

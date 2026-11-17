@@ -58,9 +58,8 @@ class TileView extends FrameLayout {
     }
 
     void setEditing(boolean editing) {
-        int visibility = editing && !spec.isCore() ? VISIBLE : GONE;
-        rename.setVisibility(visibility);
-        remove.setVisibility(visibility);
+        rename.setVisibility(editing && !spec.isCore() ? VISIBLE : GONE);
+        remove.setVisibility(editing && spec.isRemovable() ? VISIBLE : GONE);
     }
 
     void setAvailable(boolean value) {

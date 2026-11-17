@@ -77,7 +77,13 @@ public final class TweaksActivity extends Activity {
         super.onCreate(state);
         // Fixed for the car, so the saved index keeps pointing at the same entry.
         entries = TweakInfo.rail(Platform.pluginVehicle());
+        String launchSelect = getIntent().getStringExtra("select");
         selected = getPreferences(0).getInt("selected", 0);
+        if (launchSelect != null) {
+            for (int i = 0; i < entries.length; i++) {
+                if (launchSelect.equals(entries[i].id)) { selected = i; break; }
+            }
+        }
         if (selected < 0 || selected >= entries.length) selected = 0;
         preview = (getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0
             && (Build.HARDWARE.contains("ranchu") || Build.HARDWARE.contains("goldfish"))
@@ -195,11 +201,15 @@ public final class TweaksActivity extends Activity {
         String unavailable = unavailable(item.id);
         String saved = reportSaved.isEmpty() ? audit.getProperty("report", "") : reportSaved;
         boolean enabled = new Config(values).enabled(item.id);
-        // No heater fitted at all (this trim): say so instead of offering the tweak; no log can add it.
-        boolean absent = item.id.equals("heaters") && "false".equals(audit.getProperty("fitted.driver"))
-            && "false".equals(audit.getProperty("fitted.passenger")) && "false".equals(audit.getProperty("fitted.wheel"));
-        if (absent) note("This car doesn't have heated seats or a heated steering wheel, so this tweak doesn't apply.", false);
-        else checkbox(controls, item.title, item.id, enabled, ready && !busy && (enabled || (!checking && unavailable.isEmpty())));
+        // No heater or ambient fitted at all (this trim): say so instead of offering the tweak; no log can add it.
+        String eqChoice = new Config(values).get("ambientEquipment");
+        boolean ambientAbsent = item.id.equals("ambient") && ("not_fitted".equals(eqChoice)
+            || ("auto".equals(eqChoice) && "false".equals(audit.getProperty("fitted.ambient"))));
+        boolean absent = ambientAbsent || (item.id.equals("heaters") && "false".equals(audit.getProperty("fitted.driver"))
+            && "false".equals(audit.getProperty("fitted.passenger")) && "false".equals(audit.getProperty("fitted.wheel")));
+        if (ambientAbsent) note("This car doesn't have customizable ambient lighting, so this tweak doesn't apply.", false);
+        else if (absent) note("This car doesn't have heated seats or a heated steering wheel, so this tweak doesn't apply.", false);
+        else checkbox(controls, item.id.equals("ambient") ? "Control Ambient Lighting" : item.title, item.id, enabled, ready && !busy && (enabled || (!checking && unavailable.isEmpty())));
         if (!absent && !enabled && checking && (ready || busy)) progress("Checking compatibility, please wait…");
         // A compatibility issue replaces everything else below the checkbox: only the issue, then the
         // log button or where the log went.
@@ -264,6 +274,8 @@ public final class TweaksActivity extends Activity {
             if (item.id.equals("dst")) {
                 note("Daylight-saving schedule", false);
                 choice("region", new String[]{"us", "eu", "none"}, new String[]{"US / Canada", "Europe", "No daylight saving"});
+            } else if (item.id.equals("ambient")) {
+                ambientControls();
             } else {
                 note("Turn the heaters on when the car is turned on and the outside temperature is at or below:", false);
                 LinearLayout temp = new LinearLayout(this); temp.setGravity(Gravity.CENTER_VERTICAL); temp.setPadding(dp(18), 0, dp(18), 0);
@@ -275,6 +287,7 @@ public final class TweaksActivity extends Activity {
                 heater("driver", "Driver seat", "driverLevel"); heater("wheel", "Steering wheel", null); heater("passenger", "Passenger seat (only with a passenger)", "passengerLevel");
             }
         }
+        if (item.id.equals("ambient") && !blocked) ambientEquipmentControl();
     }
     /** The middle pane for Support: this head unit's software, then the log button or where the log went. */
     private void support() {
@@ -982,18 +995,18 @@ public final class TweaksActivity extends Activity {
         if (level != null && config.checked(key)) choice(level, new String[]{"1", "2", "3"}, new String[]{"1 Low", "2 Medium", "3 High"});
     }
     private void choice(final String key, final String[] keys, String[] labels) {
-        RadioGroup group = new RadioGroup(this); group.setOrientation(LinearLayout.VERTICAL);
-        if (!key.equals("region")) group.setOrientation(LinearLayout.HORIZONTAL);
+        boolean vertical = key.equals("region") || key.equals("ambientMode");
+        RadioGroup group = new RadioGroup(this); group.setOrientation(vertical ? LinearLayout.VERTICAL : LinearLayout.HORIZONTAL);
         group.setPadding(dp(26), 0, dp(12), 0);
         Config config = new Config(values);
         for (int i = 0; i < keys.length; i++) {
-            RadioButton b = new RadioButton(this); b.setId(100 + i); b.setText(labels[i]); b.setTextColor(ink); b.setTextSize(22); b.setMinHeight(dp(key.equals("region") ? 54 : 64)); b.setEnabled(ready && !busy);
-            group.addView(b, new RadioGroup.LayoutParams(key.equals("region") ? -1 : 0, -2, key.equals("region") ? 0 : 1));
+            RadioButton b = new RadioButton(this); b.setId(100 + i); b.setText(labels[i]); b.setTextColor(ink); b.setTextSize(22); b.setMinHeight(dp(vertical ? 54 : 64)); b.setEnabled(ready && !busy);
+            group.addView(b, new RadioGroup.LayoutParams(vertical ? -1 : 0, -2, vertical ? 0 : 1));
             if (config.get(key).equals(keys[i])) b.setChecked(true);
         }
         group.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() { @Override public void onCheckedChanged(RadioGroup g, int id) { save("set", key, keys[id - 100]); } });
         controls.addView(group);
-        if (!key.equals("region")) divider(controls);
+        if (!vertical) divider(controls);
     }
     private boolean pending(String id) { return "true".equals(values.getProperty("pending." + id)); }
     /** Firmware gates end by asking for a log; other failures (a write, a missing service) don't. */
@@ -1078,9 +1091,279 @@ public final class TweaksActivity extends Activity {
         String reason = values.getProperty("unavailable." + id, "");
         return reason.isEmpty() ? audit.getProperty("unavailable." + id, "") : reason;
     }
+    private void ambientControls() {
+        Config config = new Config(values);
+        String mode = config.get("ambientMode");
+        note("Mode", false);
+        choice("ambientMode",
+            new String[]{"manual", "daynight", "climate", "weather", "music"},
+            new String[]{"Manual", "Day and Night", "Climate", "Weather", "Music"});
+        final com.tilepad.tweakcore.AmbientPolicy.Brand brand = ambientBrand();
+        final com.tilepad.tweakcore.AmbientPolicy.Mode activeMode = com.tilepad.tweakcore.AmbientPolicy.Mode.of(mode);
+        if ("manual".equals(mode)) {
+            ambientColorRow("Color", "ambientColor", brand);
+            ambientLevelRow("Brightness", "ambientLevel", 0, 10);
+        } else if ("daynight".equals(mode)) {
+            ambientColorRow("Day color", "ambientDayColor", brand);
+            ambientLevelRow("Day brightness", "ambientDayLevel", 0, 10);
+            ambientColorRow("Night color", "ambientNightColor", brand);
+            ambientLevelRow("Night brightness", "ambientNightLevel", 0, 10);
+            ambientToggleRow("Fade at Sunrise and Sunset", "ambientSunsetFade", config.checked("ambientSunsetFade"), ready && !busy);
+        } else if ("climate".equals(mode)) {
+            ambientColorRow("Heating color", "ambientClimateHeatColor", brand);
+            ambientColorRow("Cooling color", "ambientClimateCoolColor", brand);
+            ambientColorRow("Defrost color", "ambientClimateDefrostColor", brand);
+            ambientColorRow("Climate off color", "ambientClimateOffColor", brand);
+            ambientLevelRow("Brightness", "ambientClimateLevel", 0, 10);
+        } else if ("weather".equals(mode)) {
+            boolean fahrenheit = ambientFahrenheit();
+            ambientColorRow("Clear weather color", "ambientWeatherClearColor", brand);
+            ambientColorRow("Cloudy weather color", "ambientWeatherCloudyColor", brand);
+            ambientColorRow("Rain weather color", "ambientWeatherRainColor", brand);
+            ambientColorRow("Snow weather color", "ambientWeatherSnowColor", brand);
+            ambientColorRow("Cold temperature color", "ambientWeatherColdColor", brand);
+            ambientColorRow("Mild temperature color", "ambientWeatherMildColor", brand);
+            ambientColorRow("Hot temperature color", "ambientWeatherHotColor", brand);
+            ambientThresholdRow("Cold threshold", "ambientWeatherColdC", "ambientWeatherHotC", true, fahrenheit);
+            ambientThresholdRow("Hot threshold", "ambientWeatherHotC", "ambientWeatherColdC", false, fahrenheit);
+            ambientLevelRow("Brightness", "ambientWeatherLevel", 0, 10);
+        } else if ("music".equals(mode)) {
+            note("Music lighting style while parked", false);
+            choice("ambientMusicStyle", new String[]{"pulse", "spectrum"}, new String[]{"Gentle Pulse", "Slow Spectrum"});
+            note("While in Drive (never flashes)", false);
+            choice("ambientMusicDrive", new String[]{"pause", "cycle"}, new String[]{"Pause", "Slow Color Cycle"});
+            ambientLevelRow("Max brightness", "ambientMusicLevel", 1, 10);
+        }
+        Button resetMode = button("Reset to Defaults", "Reset the settings in this mode to their defaults", new View.OnClickListener() {
+            @Override public void onClick(View v) { resetAmbientMode(activeMode); }
+        });
+        resetMode.setTextSize(20); enable(resetMode, ready && !busy && !edits.hasWork());
+        Button restore = button("Restore My Lighting", "Turn off Ambient Lighting and put the car's lighting back", new View.OnClickListener() {
+            @Override public void onClick(View v) { confirmRestoreAmbientOwner(); }
+        });
+        restore.setTextSize(20); enable(restore, ready && !busy && !edits.hasWork());
+        columns(resetMode, 1f, restore, 1.15f);
+    }
+
+    private void ambientEquipmentControl() {
+        String detected = audit.getProperty("fitted.ambient", "");
+        String label = "true".equals(detected) ? "Auto (Detected · Fitted)" : "false".equals(detected) ? "Auto (Not detected)" : "Auto (Pending probe)";
+        divider(controls);
+        note("Car equipment: " + label, false);
+        choice("ambientEquipment", new String[]{"auto", "fitted", "not_fitted"}, new String[]{"Auto", "Fitted", "Not fitted"});
+    }
+
+    private interface AmbientColorListener { void onPick(int rgb); }
+
+    private void ambientColorRow(final String title, final String colorKey, final com.tilepad.tweakcore.AmbientPolicy.Brand brand) {
+        int rgb = com.tilepad.tweakcore.AmbientPolicy.parseHex(new Config(values).get(colorKey));
+        final int snapped = com.tilepad.tweakcore.AmbientPolicy.nearestColor(brand, rgb);
+        String name = com.tilepad.tweakcore.AmbientPolicy.colorName(snapped);
+        LinearLayout row = new LinearLayout(this);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setMinimumHeight(dp(48));
+        row.setPadding(dp(30), dp(4), dp(24), dp(4));
+        row.setBackground(drawable("bt_list_selector_minimal", selector(false)));
+        row.setFocusable(true);
+        row.setEnabled(ready && !busy);
+        row.setAlpha(ready && !busy ? 1f : .5f);
+        row.addView(text(title, 22, ink), new LinearLayout.LayoutParams(0, -2, 1f));
+        View swatch = new View(this);
+        GradientDrawable d = new GradientDrawable(); d.setCornerRadius(dp(6)); d.setColor(0xff000000 | snapped); d.setStroke(dp(1), line);
+        swatch.setBackground(d);
+        LinearLayout.LayoutParams sp = new LinearLayout.LayoutParams(dp(28), dp(28));
+        sp.rightMargin = dp(10);
+        row.addView(swatch, sp);
+        TextView valueView = text(name, 20, muted);
+        row.addView(valueView, new LinearLayout.LayoutParams(-2, -2));
+        row.setContentDescription(title + ", " + name);
+        row.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { showAmbientPaletteDialog(title, colorKey, brand); }
+        });
+        controls.addView(row, new LinearLayout.LayoutParams(-1, -2));
+        divider(controls);
+    }
+
+    private void ambientToggleRow(String label, final String key, boolean checked, boolean allowed) {
+        LinearLayout row = new LinearLayout(this);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setMinimumHeight(dp(48));
+        row.setPadding(dp(30), dp(4), dp(18), dp(4));
+        row.setBackground(drawable("bt_list_selector_minimal", selector(false)));
+        CheckBox check = new CheckBox(this); check.setChecked(checked); check.setClickable(false); check.setFocusable(false);
+        Drawable stockCheck = drawable("eco30_common_checkbox", null); if (stockCheck != null) check.setButtonDrawable(stockCheck);
+        check.setDuplicateParentStateEnabled(true); row.addView(check, new LinearLayout.LayoutParams(dp(34), dp(34)));
+        TextView title = text(label, 22, ink); title.setPadding(dp(10), 0, 0, 0); row.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
+        row.setEnabled(allowed); row.setAlpha(allowed ? 1f : .5f); row.setFocusable(true);
+        row.setContentDescription(label + ", " + (checked ? "on" : "off"));
+        final boolean next = !checked;
+        row.setOnClickListener(new View.OnClickListener() { @Override public void onClick(View v) { save("set", key, Boolean.toString(next)); } });
+        controls.addView(row, new LinearLayout.LayoutParams(-1, -2));
+        divider(controls);
+    }
+
+    private void ambientStepperRow(String label, String readingText, boolean canMinus, boolean canPlus,
+                                   String minusDesc, String plusDesc, View.OnClickListener onMinus, View.OnClickListener onPlus) {
+        LinearLayout row = new LinearLayout(this);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setMinimumHeight(dp(48));
+        row.setPadding(dp(30), dp(2), dp(24), dp(2));
+        row.addView(text(label, 22, ink), new LinearLayout.LayoutParams(0, -2, 1f));
+        Button minus = button("−", minusDesc, onMinus);
+        minus.setTextSize(20);
+        enable(minus, ready && !busy && canMinus);
+        row.addView(minus, new LinearLayout.LayoutParams(dp(56), dp(42)));
+        TextView reading = text(readingText, 20, muted); reading.setGravity(Gravity.CENTER);
+        row.addView(reading, new LinearLayout.LayoutParams(dp(106), dp(42)));
+        Button plus = button("+", plusDesc, onPlus);
+        plus.setTextSize(20);
+        enable(plus, ready && !busy && canPlus);
+        row.addView(plus, new LinearLayout.LayoutParams(dp(56), dp(42)));
+        controls.addView(row, new LinearLayout.LayoutParams(-1, -2));
+        divider(controls);
+    }
+
+    private void ambientLevelRow(String label, final String key, final int min, final int max) {
+        final int cur = Math.max(min, Math.min(max, new Config(values).number(key)));
+        ambientStepperRow(label, cur == 0 ? "Off" : cur + " / 10", cur > min, cur < max,
+            "Lower " + label, "Raise " + label,
+            new View.OnClickListener() { @Override public void onClick(View v) { save("set", key, Integer.toString(Math.max(min, cur - 1))); } },
+            new View.OnClickListener() { @Override public void onClick(View v) { save("set", key, Integer.toString(Math.min(max, cur + 1))); } });
+    }
+
+    private void ambientThresholdRow(String label, final String key, final String otherKey, final boolean isCold, final boolean fahrenheit) {
+        Config config = new Config(values);
+        final int cur = config.number(key);
+        final int other = config.number(otherKey);
+        final int min = isCold ? -400 : other;
+        final int max = isCold ? other : 600;
+        ambientStepperRow(label, com.tilepad.tweakcore.AmbientPolicy.formatTemp(cur, fahrenheit),
+            cur > min, cur < max, "Lower " + label, "Raise " + label,
+            new View.OnClickListener() {
+                @Override public void onClick(View v) {
+                    int next = com.tilepad.tweakcore.AmbientPolicy.stepTemp(cur, -1, fahrenheit, min, max);
+                    save("set", key, Integer.toString(next));
+                }
+            },
+            new View.OnClickListener() {
+                @Override public void onClick(View v) {
+                    int next = com.tilepad.tweakcore.AmbientPolicy.stepTemp(cur, 1, fahrenheit, min, max);
+                    save("set", key, Integer.toString(next));
+                }
+            });
+    }
+
+    private boolean ambientFahrenheit() {
+        try {
+            Properties liveProps = new Properties();
+            liveProps.load(new java.io.StringReader(new String(com.tilepad.tweakcore.Files.read(
+                new java.io.File(Platform.LIVE, "ambient-live.properties")), "UTF-8")));
+            String u = liveProps.getProperty("unit");
+            if ("C".equals(u) || "F".equals(u)) return "F".equals(u);
+        } catch (Exception ignored) { }
+        return "F".equals(new Config(values).get("units"));
+    }
+
+    private void resetAmbientMode(com.tilepad.tweakcore.AmbientPolicy.Mode mode) {
+        java.util.Map<String, String> defs = com.tilepad.tweakcore.AmbientPolicy.defaultsForMode(mode);
+        if (defs.isEmpty()) return;
+        String[] args = new String[1 + defs.size() * 2];
+        args[0] = "set";
+        int i = 1;
+        for (java.util.Map.Entry<String, String> e : defs.entrySet()) {
+            args[i++] = e.getKey();
+            args[i++] = e.getValue();
+        }
+        save(args);
+    }
+
+    private void confirmRestoreAmbientOwner() {
+        if (!ready || busy || edits.hasWork()) return;
+        final Steps steps = new Steps("Restore My Lighting");
+        steps.ask("Restore My Lighting?",
+            "Tilepad will turn off Ambient Lighting and put **Ambient Light** on the car back to the settings it saved.",
+            "Restore My Lighting", new Runnable() {
+                @Override public void run() { runAmbientRestore(steps); }
+            });
+    }
+
+    private void runAmbientRestore(final Steps steps) {
+        if (preview) {
+            save("set", "ambient", "false");
+            steps.done("Lighting Restored", "Tilepad turned off Ambient Lighting and left **Ambient Light** on the car as it was.", false, null);
+            return;
+        }
+        busy = true; render();
+        steps.working("Restoring **Ambient Light** on the car…");
+        worker.execute(new Runnable() { @Override public void run() {
+            Properties read = null; String failure = null;
+            try { read = Backend.run("ambient-restore"); } catch (Exception e) { failure = e.getMessage(); }
+            final Properties loaded = read; final String problem = failure;
+            main.post(new Runnable() { @Override public void run() {
+                if (isFinishing() || isDestroyed()) return;
+                busy = false;
+                if (loaded != null) edits.reset(loaded);
+                render();
+                if (problem != null) {
+                    steps.done("Couldn't Restore Lighting", problem, true, null);
+                } else {
+                    String summary = loaded != null ? loaded.getProperty("ambientRestoreResult", "") : "";
+                    if (summary.isEmpty()) summary = "Tilepad turned off Ambient Lighting and restored **Ambient Light** on the car.";
+                    steps.done("Lighting Restored", summary, false, null);
+                }
+            } });
+        } });
+    }
+
+    private LinearLayout ambientSwatchGrid(com.tilepad.tweakcore.AmbientPolicy.Brand brand, int selectedRgb, final AmbientColorListener onPick) {
+        LinearLayout grid = column(); grid.setPadding(dp(24), dp(6), dp(24), dp(10));
+        int[] palette = com.tilepad.tweakcore.AmbientPolicy.groupedPalette(brand);
+        int selectedHex = selectedRgb & 0xffffff;
+        for (int rowIdx = 0; rowIdx < 4; rowIdx++) {
+            LinearLayout row = new LinearLayout(this);
+            for (int col = 0; col < 16; col++) {
+                final int rgb = palette[rowIdx * 16 + col];
+                View cell = new View(this);
+                GradientDrawable bg = new GradientDrawable();
+                bg.setCornerRadius(dp(4));
+                bg.setColor(0xff000000 | rgb);
+                if (rgb == selectedHex) bg.setStroke(dp(3), 0xffffffff);
+                else bg.setStroke(dp(1), line);
+                cell.setBackground(bg);
+                cell.setContentDescription(com.tilepad.tweakcore.AmbientPolicy.colorName(rgb));
+                cell.setFocusable(true);
+                cell.setEnabled(ready && !busy);
+                cell.setOnClickListener(new View.OnClickListener() { @Override public void onClick(View v) { onPick.onPick(rgb); } });
+                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(34), 1f);
+                lp.setMargins(dp(2), dp(2), dp(2), dp(2));
+                row.addView(cell, lp);
+            }
+            grid.addView(row, new LinearLayout.LayoutParams(-1, -2));
+        }
+        return grid;
+    }
+
+    private void showAmbientPaletteDialog(String title, final String key, com.tilepad.tweakcore.AmbientPolicy.Brand brand) {
+        int current = com.tilepad.tweakcore.AmbientPolicy.parseHex(new Config(values).get(key));
+        final android.app.AlertDialog[] box = new android.app.AlertDialog[1];
+        LinearLayout body = ambientSwatchGrid(brand, com.tilepad.tweakcore.AmbientPolicy.nearestColor(brand, current), new AmbientColorListener() {
+            @Override public void onPick(int rgb) {
+                save("set", key, com.tilepad.tweakcore.AmbientPolicy.formatHex(rgb));
+                if (box[0] != null) box[0].dismiss();
+            }
+        });
+        box[0] = dialog("Choose " + title, body).setNegativeButton("Cancel", null).show();
+    }
+
+    private com.tilepad.tweakcore.AmbientPolicy.Brand ambientBrand() {
+        try { return com.tilepad.tweakcore.AmbientPolicy.brandForProduct(Platform.property("ro.build.product")); }
+        catch (Exception e) { return com.tilepad.tweakcore.AmbientPolicy.Brand.HYUNDAI; }
+    }
+
     private void save(String... args) {
         if (busy || !ready) return;
-        edits.edit(args[1], args[2]); error = null;
+        for (int i = 1; i + 1 < args.length; i += 2) edits.edit(args[i], args[i + 1]);
+        error = null;
         main.removeCallbacks(saveFlush); main.postDelayed(saveFlush, 300);
         render();
     }

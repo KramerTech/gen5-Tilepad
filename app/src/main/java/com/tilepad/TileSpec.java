@@ -4,7 +4,7 @@ package com.tilepad;
 final class TileSpec {
     enum Kind {
         WIFI("core:wifi"), ADB("core:adb"), PRECONDITION("core:precondition"), TWEAKS("core:tweaks"), NEMESIS("core:nemesis"),
-        REBOOT("core:reboot"), ADD("core:add"), SHORTCUT(null);
+        REBOOT("core:reboot"), ADD("core:add"), AMBIENT("core:ambient"), SHORTCUT(null);
 
         final String coreId;
         Kind(String coreId) { this.coreId = coreId; }
@@ -42,6 +42,8 @@ final class TileSpec {
     }
 
     boolean isCore() { return kind != Kind.SHORTCUT; }
+
+    boolean isRemovable() { return kind == Kind.SHORTCUT || kind == Kind.AMBIENT; }
 
     boolean isStatus() {
         return kind == Kind.WIFI || kind == Kind.ADB || kind == Kind.PRECONDITION || kind == Kind.TWEAKS;

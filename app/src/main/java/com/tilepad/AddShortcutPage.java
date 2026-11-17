@@ -21,8 +21,27 @@ import java.util.List;
 final class AddShortcutPage extends LinearLayout {
     interface Listener {
         void onPick(AppCatalog.Entry entry, boolean launcher);
+        void onPickAmbient();
         void onClose();
         boolean isAdded(String component);
+        boolean isAmbientAdded();
+        boolean offersAmbient();
+    }
+
+    private static final class Item {
+        final boolean ambient;
+        final AppCatalog.Entry entry;
+        final String label, key;
+        final boolean launchable;
+        Item(boolean ambient, AppCatalog.Entry entry, String label, String key, boolean launchable) {
+            this.ambient = ambient; this.entry = entry; this.label = label; this.key = key; this.launchable = launchable;
+        }
+        static Item ambient() {
+            return new Item(true, null, "Ambient Lighting", TileSpec.Kind.AMBIENT.coreId, true);
+        }
+        static Item app(AppCatalog.Entry e) {
+            return new Item(false, e, e.label, e.key, e.launchable);
+        }
     }
 
     private final Ui ui;
@@ -172,25 +191,32 @@ final class AddShortcutPage extends LinearLayout {
 
     private void refresh() {
         // Bucket by rank so label hits come before package-name hits; each bucket stays alphabetical.
-        List<List<AppCatalog.Entry>> ranked = new ArrayList<>();
-        for (int i = 0; i < 3; i++) ranked.add(new ArrayList<AppCatalog.Entry>());
-        if (catalog != null) {
-            for (AppCatalog.Entry e : appsOnly ? catalog.apps : catalog.all) {
-                if (SearchFilter.matches(text, e.label, e.key)) ranked.get(SearchFilter.rank(text, e.label)).add(e);
+        List<List<Item>> ranked = new ArrayList<>();
+        for (int i = 0; i < 3; i++) ranked.add(new ArrayList<Item>());
+        if (!appsOnly && listener.offersAmbient()) {
+            Item amb = Item.ambient();
+            if (SearchFilter.matches(text, amb.label, amb.key) || SearchFilter.matches(text, "Cabin accent colors and modes", amb.key)) {
+                ranked.get(SearchFilter.rank(text, amb.label)).add(amb);
             }
         }
-        List<AppCatalog.Entry> matches = new ArrayList<>();
-        for (List<AppCatalog.Entry> bucket : ranked) matches.addAll(bucket);
+        if (catalog != null) {
+            for (AppCatalog.Entry e : appsOnly ? catalog.apps : catalog.all) {
+                if (SearchFilter.matches(text, e.label, e.key)) ranked.get(SearchFilter.rank(text, e.label)).add(Item.app(e));
+            }
+        }
+        List<Item> matches = new ArrayList<>();
+        for (List<Item> bucket : ranked) matches.addAll(bucket);
         adapter.set(matches);
-        empty.setText(catalog == null ? "Loading screens…" : text.isEmpty() ? "No screens found" : "Nothing matches “" + text + "”");
+        empty.setText(catalog == null && matches.isEmpty() ? "Loading screens…" : text.isEmpty() ? "No screens found" : "Nothing matches “" + text + "”");
         empty.setVisibility(matches.isEmpty() ? VISIBLE : GONE);
         knobIndex = -1;
         adapter.notifyDataSetChanged();
     }
 
-    private void pick(AppCatalog.Entry entry) {
-        if (entry == null || !entry.launchable || listener.isAdded(entry.key)) return;
-        listener.onPick(entry, catalog != null && catalog.apps.contains(entry));
+    private void pick(Item item) {
+        if (item == null || !selectable(item)) return;
+        if (item.ambient) { listener.onPickAmbient(); return; }
+        listener.onPick(item.entry, catalog != null && catalog.apps.contains(item.entry));
     }
 
     // ---- TUNE knob: back, the two tabs, then every result ----
@@ -216,7 +242,9 @@ final class AddShortcutPage extends LinearLayout {
         else knob(1);
     }
 
-    private boolean selectable(AppCatalog.Entry e) { return e.launchable && !listener.isAdded(e.key); }
+    private boolean selectable(Item item) {
+        return item.ambient ? !listener.isAmbientAdded() : item.launchable && !listener.isAdded(item.key);
+    }
 
     private static void click(View view, final Runnable action) {
         view.setClickable(true);
@@ -225,12 +253,12 @@ final class AddShortcutPage extends LinearLayout {
     }
 
     private final class Adapter extends BaseAdapter {
-        private final List<AppCatalog.Entry> items = new ArrayList<>();
+        private final List<Item> items = new ArrayList<>();
 
-        void set(List<AppCatalog.Entry> entries) { items.clear(); items.addAll(entries); }
+        void set(List<Item> entries) { items.clear(); items.addAll(entries); }
 
         @Override public int getCount() { return items.size(); }
-        @Override public AppCatalog.Entry getItem(int position) { return items.get(position); }
+        @Override public Item getItem(int position) { return items.get(position); }
         @Override public long getItemId(int position) { return position; }
 
         @Override public View getView(int position, View convertView, ViewGroup parent) {
@@ -271,17 +299,23 @@ final class AddShortcutPage extends LinearLayout {
             addView(state, new LayoutParams(ui.dp(26), ui.dp(26)));
         }
 
-        void bind(AppCatalog.Entry e, boolean knob) {
-            boolean added = listener.isAdded(e.key);
-            icon.setImageDrawable(e.icon);
-            label.setText(e.label);
-            component.setText(e.launchable ? e.key : "Protected · can't be opened");
+        void bind(Item item, boolean knob) {
+            boolean added = item.ambient ? listener.isAmbientAdded() : listener.isAdded(item.key);
+            if (item.ambient) {
+                icon.setImageDrawable(new Glyph(Glyph.Kind.AMBIENT, Ui.ACCENT, ui.dp(44)));
+                label.setText(item.label);
+                component.setText("Cabin accent colors and modes");
+            } else {
+                icon.setImageDrawable(item.entry.icon);
+                label.setText(item.label);
+                component.setText(item.launchable ? item.key : "Protected · can't be opened");
+            }
             state.setImageDrawable(new Glyph(added ? Glyph.Kind.CHECK : Glyph.Kind.PLUS,
                 added ? Ui.GREEN : Ui.ACCENT, ui.dp(26)));
-            state.setVisibility(e.launchable ? VISIBLE : INVISIBLE);
-            setAlpha(e.launchable ? 1f : 0.4f);
+            state.setVisibility(item.launchable ? VISIBLE : INVISIBLE);
+            setAlpha(item.launchable ? 1f : 0.4f);
             setActivated(knob);
-            setContentDescription(e.label + (added ? ". Already added" : ""));
+            setContentDescription(item.label + (added ? ". Already added" : ""));
         }
     }
 }

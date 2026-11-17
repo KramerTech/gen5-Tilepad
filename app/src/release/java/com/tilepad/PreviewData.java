@@ -7,4 +7,5 @@ final class PreviewData {
     static ConnectionSnapshot connection() { return ConnectionSnapshot.unknown(); }
     static AdbSnapshot adb() { return AdbSnapshot.checking(); }
     static TweaksSnapshot tweaks() { return TweaksSnapshot.checking(); }
+    static AmbientSnapshot ambient() { return AmbientSnapshot.checking(); }
 }

@@ -73,6 +73,9 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
     private TweaksSnapshot tweaks = TweaksSnapshot.checking();
     private boolean tweaksReading;
     private int tweaksEpoch;
+    private AmbientTile ambientTile;
+    private AmbientSnapshot ambient = AmbientSnapshot.checking();
+    private View ambientSheetCard;
     private boolean preview, resumed, started, receiverRegistered, connectionReading, enterDown, enterLong;
     private long resumedAt, enterAt;
     private int connectionEpoch, adbEpoch, sheetKnob = -1;
@@ -143,7 +146,7 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
         super.onCreate(state);
         ui = new Ui(this);
         preview = PreviewData.enabled(getIntent());
-        support = preview ? TileSupport.all() : TileSupport.of(systemFeatures(), VehicleClientFactory.simulated());
+        support = preview ? TileSupport.all() : TileSupport.of(systemFeatures(), VehicleClientFactory.simulated(), ambientOffered());
         prefs = getSharedPreferences("tilepad", MODE_PRIVATE);
         specs = TileOrder.parse(prefs.getString("tiles", null));
 
@@ -214,6 +217,7 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
         if (support.precondition) preconTick.run();
         adbTick.run();
         refreshTweaks();
+        refreshAmbient();
     }
 
     @Override protected void onPause() {
@@ -283,6 +287,10 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
                 tile = tweaksTile = new TweaksTile(ui, spec, this);
                 tweaksTile.bind(tweaks);
                 break;
+            case AMBIENT:
+                tile = ambientTile = new AmbientTile(ui, spec, this);
+                ambientTile.bind(ambient);
+                break;
             case NEMESIS:
                 tile = TileView.simple(ui, spec, this, TileView.chip(ui, Glyph.Kind.TERMINAL, Ui.PURPLE), 80, "Nemesis Manager");
                 break;
@@ -336,6 +344,7 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
                 return;
             case ADB: onAdbTap(); return;
             case PRECONDITION: onPreconTap(); return;
+            case AMBIENT: showAmbientSheet(); return;
             case REBOOT: confirmReboot(); return;
             case ADD: openAddPage(); return;
             default:
@@ -365,6 +374,7 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
             case TWEAKS: return "Tweaks and Settings";
             case WIFI: return "Wi-Fi settings";
             case NEMESIS: return "Nemesis Manager";
+            case AMBIENT: return "Ambient Lighting";
             default: return shortcutLabel(tile.spec);
         }
     }
@@ -442,7 +452,7 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
     }
 
     @Override public void onRemove(TileView tile) {
-        String name = shortcutLabel(tile.spec);
+        String name = titleOf(tile);
         specs = TileOrder.remove(specs, tile.spec.id);
         saveTiles();
         rebuildTiles();
@@ -464,10 +474,21 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
                 closeAddPage();
                 toast("Added " + entry.label);
             }
+            @Override public void onPickAmbient() {
+                specs = TileOrder.add(specs, TileSpec.core(TileSpec.Kind.AMBIENT));
+                saveTiles();
+                rebuildTiles();
+                closeAddPage();
+                toast("Added Ambient Lighting");
+            }
             @Override public void onClose() { closeAddPage(); }
             @Override public boolean isAdded(String component) {
                 return TileOrder.find(specs, TileSpec.shortcut(component, false, null).id) != null;
             }
+            @Override public boolean isAmbientAdded() {
+                return TileOrder.find(specs, TileSpec.Kind.AMBIENT.coreId) != null;
+            }
+            @Override public boolean offersAmbient() { return preview || support.ambient; }
         });
         addPage.setPadding(ui.dp(24), ui.dp(16), rightInset(), ui.dp(16));
         root.addView(addPage, root.indexOfChild(done) + 1, new FrameLayout.LayoutParams(-1, -1));
@@ -1192,6 +1213,261 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
             if (index >= 0 && index < grid.tiles().size()) onTileTap(grid.tiles().get(index));
             else knob(1);
         }
+    }
+
+    private boolean ambientOffered() {
+        try {
+            File f = new File(com.tilepad.tweakcore.Platform.LIVE, "ambient-fitted");
+            if (f.isFile()) return !"false".equals(new String(com.tilepad.tweakcore.Files.read(f), "UTF-8").trim());
+        } catch (Exception ignored) { }
+        return true;
+    }
+
+    private void refreshAmbient() {
+        if (ambientTile == null && ambientSheetCard == null) return;
+        if (preview) {
+            if (ambient.state == AmbientSnapshot.State.CHECKING) ambient = PreviewData.ambient();
+            if (ambientTile != null) ambientTile.bind(ambient);
+            return;
+        }
+        try {
+            File f = new File(com.tilepad.tweakcore.Platform.LIVE, "ambient-live.properties");
+            AmbientSnapshot next = f.isFile() ? AmbientSnapshot.parse(new String(com.tilepad.tweakcore.Files.read(f), "UTF-8")) : AmbientSnapshot.parse("");
+            ambient = next;
+            if (ambientTile != null) ambientTile.bind(ambient);
+        } catch (Exception e) {
+            ambient = AmbientSnapshot.parse("");
+            if (ambientTile != null) ambientTile.bind(ambient);
+        }
+    }
+
+    private void showAmbientSheet() {
+        refreshAmbient();
+        if (preview && ambient.state == AmbientSnapshot.State.CHECKING) ambient = PreviewData.ambient();
+        final AmbientSnapshot cur = ambient;
+        LinearLayout card = ui.column();
+        card.setPadding(ui.dp(24), ui.dp(20), ui.dp(24), ui.dp(20));
+
+        LinearLayout header = ui.row();
+        header.setGravity(Gravity.CENTER_VERTICAL);
+        TextView title = ui.text("Ambient Lighting", 24, Ui.TEXT, true);
+        header.addView(title, new LinearLayout.LayoutParams(0, -2, 1f));
+        View close = ui.iconButton(Glyph.Kind.CLOSE, Ui.SURFACE, Ui.SURFACE_PRESSED, Ui.TEXT, 48, 22);
+        close.setContentDescription("Close");
+        close.setOnClickListener(new View.OnClickListener() { @Override public void onClick(View v) { sheet.dismiss(); } });
+        header.addView(close, new LinearLayout.LayoutParams(ui.dp(48), ui.dp(48)));
+        card.addView(header);
+
+        View hr = new View(this); hr.setBackgroundColor(Ui.LINE);
+        LinearLayout.LayoutParams hp = new LinearLayout.LayoutParams(-1, ui.dp(1));
+        hp.topMargin = ui.dp(12); hp.bottomMargin = ui.dp(10);
+        card.addView(hr, hp);
+
+        LinearLayout activeRow = ui.row();
+        activeRow.setGravity(Gravity.CENTER_VERTICAL);
+        activeRow.setMinimumHeight(ui.dp(48));
+        activeRow.setPadding(ui.dp(12), ui.dp(6), ui.dp(12), ui.dp(6));
+        Ui.background(activeRow, ui.outlined(Ui.SURFACE, 12, 1, Ui.LINE));
+        View activeSwatch = new View(this);
+        android.graphics.drawable.GradientDrawable asd = new android.graphics.drawable.GradientDrawable();
+        asd.setCornerRadius(ui.dp(6));
+        asd.setColor(cur.state == AmbientSnapshot.State.ACTIVE ? (0xff000000 | cur.rgb) : Ui.MUTED);
+        asd.setStroke(ui.dp(1), Ui.LINE);
+        Ui.background(activeSwatch, asd);
+        LinearLayout.LayoutParams asp = new LinearLayout.LayoutParams(ui.dp(24), ui.dp(24));
+        asp.rightMargin = ui.dp(10);
+        activeRow.addView(activeSwatch, asp);
+        String activeText = cur.state == AmbientSnapshot.State.ACTIVE
+            ? cur.mode.label + " · " + cur.colorName + (cur.level == 0 ? " · Off" : " · Lv " + cur.level)
+            : cur.tileHeadline() + (cur.tileDetail().isEmpty() ? "" : " · " + cur.tileDetail());
+        activeRow.addView(ui.line(activeText, 16, Ui.TEXT, true), new LinearLayout.LayoutParams(0, -2, 1f));
+        LinearLayout.LayoutParams arp = new LinearLayout.LayoutParams(-1, -2);
+        arp.bottomMargin = ui.dp(12);
+        card.addView(activeRow, arp);
+
+        List<View> targets = new ArrayList<>();
+        com.tilepad.tweakcore.AmbientPolicy.Mode[] modes = com.tilepad.tweakcore.AmbientPolicy.Mode.values();
+        LinearLayout modeRow1 = ui.row();
+        LinearLayout modeRow2 = ui.row();
+        for (int i = 0; i < modes.length; i++) {
+            final com.tilepad.tweakcore.AmbientPolicy.Mode m = modes[i];
+            boolean active = (cur.state == AmbientSnapshot.State.OFF && m == com.tilepad.tweakcore.AmbientPolicy.Mode.OFF)
+                || (cur.state != AmbientSnapshot.State.OFF && cur.mode == m);
+            LinearLayout btn = ui.button(m.label, null,
+                active ? Ui.ACCENT : Ui.SURFACE,
+                active ? 0xff3a74d9 : Ui.SURFACE_PRESSED,
+                Ui.TEXT);
+            btn.setOnClickListener(new View.OnClickListener() {
+                @Override public void onClick(View v) {
+                    if (m == com.tilepad.tweakcore.AmbientPolicy.Mode.OFF) confirmAmbientRestore();
+                    else applyAmbientAction("update", "ambient", "true", "ambientMode", m.id);
+                }
+            });
+            int col = i % 3;
+            LinearLayout.LayoutParams bp = new LinearLayout.LayoutParams(0, ui.dp(48), 1f);
+            if (col > 0) bp.leftMargin = ui.dp(8);
+            (i < 3 ? modeRow1 : modeRow2).addView(btn, bp);
+            targets.add(btn);
+        }
+        card.addView(modeRow1, new LinearLayout.LayoutParams(-1, -2));
+        LinearLayout.LayoutParams m2p = new LinearLayout.LayoutParams(-1, -2); m2p.topMargin = ui.dp(8);
+        card.addView(modeRow2, m2p);
+
+        TextView colorLabel = ui.line("Manual quick color (64 factory colors · " + cur.colorName + "):", 15, Ui.MUTED, false);
+        LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(-1, -2);
+        clp.topMargin = ui.dp(14); clp.bottomMargin = ui.dp(8);
+        card.addView(colorLabel, clp);
+
+        android.widget.HorizontalScrollView swatchScroll = new android.widget.HorizontalScrollView(this);
+        swatchScroll.setHorizontalScrollBarEnabled(false);
+        LinearLayout swatchRow = ui.row();
+        int[] palette = com.tilepad.tweakcore.AmbientPolicy.groupedPalette(com.tilepad.tweakcore.AmbientPolicy.Brand.HYUNDAI);
+        int selectedHex = com.tilepad.tweakcore.AmbientPolicy.nearestColor(com.tilepad.tweakcore.AmbientPolicy.Brand.HYUNDAI, cur.rgb);
+        for (int i = 0; i < palette.length; i++) {
+            final int rgb = palette[i];
+            View swatch = new View(this);
+            android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
+            bg.setShape(android.graphics.drawable.GradientDrawable.OVAL);
+            bg.setColor(0xff000000 | rgb);
+            bg.setStroke(ui.dp(rgb == selectedHex ? 3 : 1), rgb == selectedHex ? Ui.TEXT : Ui.LINE);
+            Ui.background(swatch, bg);
+            swatch.setContentDescription(com.tilepad.tweakcore.AmbientPolicy.colorName(rgb));
+            swatch.setOnClickListener(new View.OnClickListener() {
+                @Override public void onClick(View v) {
+                    applyAmbientAction("update", "ambient", "true", "ambientMode", "manual",
+                        "ambientColor", com.tilepad.tweakcore.AmbientPolicy.formatHex(rgb));
+                }
+            });
+            LinearLayout.LayoutParams sp = new LinearLayout.LayoutParams(ui.dp(48), ui.dp(48));
+            if (i > 0) sp.leftMargin = ui.dp(6);
+            swatchRow.addView(swatch, sp);
+            targets.add(swatch);
+        }
+        swatchScroll.addView(swatchRow);
+        card.addView(swatchScroll, new LinearLayout.LayoutParams(-1, -2));
+
+        LinearLayout brightRow = ui.row();
+        brightRow.setGravity(Gravity.CENTER_VERTICAL);
+        brightRow.setMinimumHeight(ui.dp(48));
+        brightRow.addView(ui.line("Brightness:", 16, Ui.MUTED, false), new LinearLayout.LayoutParams(0, -2, 1f));
+        final int curLv = Math.max(0, Math.min(10, cur.level));
+        LinearLayout minus = ui.button("-", null, Ui.SURFACE, Ui.SURFACE_PRESSED, Ui.TEXT);
+        minus.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { applyAmbientAction("update", "ambient", "true", "ambientLevel", Integer.toString(Math.max(0, curLv - 1))); }
+        });
+        brightRow.addView(minus, new LinearLayout.LayoutParams(ui.dp(56), ui.dp(48)));
+        targets.add(minus);
+        TextView lvText = ui.line(curLv == 0 ? "Off" : "Lv " + curLv + " / 10", 18, Ui.TEXT, true);
+        lvText.setGravity(Gravity.CENTER);
+        brightRow.addView(lvText, new LinearLayout.LayoutParams(ui.dp(110), -2));
+        LinearLayout plus = ui.button("+", null, Ui.SURFACE, Ui.SURFACE_PRESSED, Ui.TEXT);
+        plus.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { applyAmbientAction("update", "ambient", "true", "ambientLevel", Integer.toString(Math.min(10, curLv + 1))); }
+        });
+        brightRow.addView(plus, new LinearLayout.LayoutParams(ui.dp(56), ui.dp(48)));
+        targets.add(plus);
+        LinearLayout.LayoutParams brp = new LinearLayout.LayoutParams(-1, -2);
+        brp.topMargin = ui.dp(12);
+        card.addView(brightRow, brp);
+
+        if (cur.state == AmbientSnapshot.State.PAUSED) {
+            TextView pausedNote = ui.text("Music lighting is paused in Drive and your car's saved lighting is restored until you park.", 14, Ui.AMBER, false);
+            LinearLayout.LayoutParams pp = new LinearLayout.LayoutParams(-1, -2);
+            pp.topMargin = ui.dp(10);
+            card.addView(pausedNote, pp);
+        }
+
+        LinearLayout footer = ui.row();
+        LinearLayout restore = ui.button("Restore My Lighting", null, Ui.SURFACE, Ui.SURFACE_PRESSED, Ui.TEXT);
+        restore.setOnClickListener(new View.OnClickListener() { @Override public void onClick(View v) { confirmAmbientRestore(); } });
+        LinearLayout tweaksBtn = ui.button("Open Full Tweaks", null, Ui.ACCENT, 0xff3a74d9, Ui.TEXT);
+        tweaksBtn.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                sheet.dismiss();
+                Intent i = intentFor(TileSpec.core(TileSpec.Kind.TWEAKS));
+                if (i != null) {
+                    i.putExtra("select", "ambient");
+                    launch(i, "Tweaks and Settings", true);
+                }
+            }
+        });
+        footer.addView(restore, new LinearLayout.LayoutParams(0, ui.dp(48), 1f));
+        LinearLayout.LayoutParams tbp = new LinearLayout.LayoutParams(0, ui.dp(48), 1f);
+        tbp.leftMargin = ui.dp(12);
+        footer.addView(tweaksBtn, tbp);
+        targets.add(restore); targets.add(tweaksBtn); targets.add(close);
+        LinearLayout.LayoutParams fp = new LinearLayout.LayoutParams(-1, -2);
+        fp.topMargin = ui.dp(14);
+        card.addView(footer, fp);
+
+        ambientSheetCard = card;
+        sheet.show(card, 560, new Runnable() { @Override public void run() { ambientSheetCard = null; } });
+        sheet.setTargets(targets);
+    }
+
+    private void confirmAmbientRestore() {
+        sheet.dismiss();
+        new android.app.AlertDialog.Builder(this)
+            .setTitle("Restore My Lighting?")
+            .setMessage("Tilepad will turn off Ambient Lighting and put Ambient Light on the car back to the settings it saved.")
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Restore My Lighting", new android.content.DialogInterface.OnClickListener() {
+                @Override public void onClick(android.content.DialogInterface d, int which) {
+                    applyAmbientAction("ambient-restore");
+                }
+            }).show();
+    }
+
+    private void applyAmbientAction(final String... args) {
+        if (preview) {
+            if ("ambient-restore".equals(args[0])) {
+                ambient = AmbientSnapshot.of(AmbientSnapshot.State.OFF, com.tilepad.tweakcore.AmbientPolicy.Mode.OFF,
+                    ambient.rgb, ambient.level, "Owner", "Saved on the car", "", ambient.equipment);
+                new android.app.AlertDialog.Builder(this)
+                    .setTitle("Lighting Restored")
+                    .setMessage("Tilepad turned off Ambient Lighting and left Ambient Light on the car as it was.")
+                    .setPositiveButton("Close", null).show();
+            } else {
+                com.tilepad.tweakcore.AmbientPolicy.Mode mode = ambient.mode == com.tilepad.tweakcore.AmbientPolicy.Mode.OFF
+                    ? com.tilepad.tweakcore.AmbientPolicy.Mode.DAY_NIGHT : ambient.mode;
+                int rgb = ambient.rgb, lv = ambient.level;
+                for (int i = 1; i + 1 < args.length; i += 2) {
+                    if ("ambientMode".equals(args[i])) mode = com.tilepad.tweakcore.AmbientPolicy.Mode.of(args[i + 1]);
+                    else if ("ambientColor".equals(args[i])) rgb = com.tilepad.tweakcore.AmbientPolicy.parseHex(args[i + 1]);
+                    else if ("ambientLevel".equals(args[i])) lv = Integer.parseInt(args[i + 1]);
+                }
+                ambient = AmbientSnapshot.of(AmbientSnapshot.State.ACTIVE, mode, rgb, lv, mode.label,
+                    com.tilepad.tweakcore.AmbientPolicy.colorName(rgb) + " · Lv " + lv, "Night", ambient.equipment);
+            }
+            if (ambientTile != null) ambientTile.bind(ambient);
+            if (!"ambient-restore".equals(args[0])) showAmbientSheet();
+            return;
+        }
+        sheet.dismiss();
+        new Thread(new Runnable() {
+            @Override public void run() {
+                StringBuilder cmd = new StringBuilder("sh /data/nemesis/apps/tilepad/bin/tweaks.sh");
+                for (String a : args) cmd.append(" '").append(a.replace("'", "'\\''")).append('\'');
+                final RootShell.Result r = RootShell.run(cmd.toString());
+                main.post(new Runnable() {
+                    @Override public void run() {
+                        if (isFinishing()) return;
+                        if ("ambient-restore".equals(args[0])) {
+                            String msg = r.code == 0
+                                ? "Tilepad turned off Ambient Lighting and restored Ambient Light on the car."
+                                : (r.output == null || r.output.isEmpty() ? "Could not restore lighting." : r.output);
+                            new android.app.AlertDialog.Builder(MainActivity.this)
+                                .setTitle(r.code == 0 ? "Lighting Restored" : "Couldn't Restore Lighting")
+                                .setMessage(msg)
+                                .setPositiveButton("Close", null).show();
+                        } else if (r.code != 0) {
+                            toast(r.output == null || r.output.isEmpty() ? "Ambient command failed" : r.output);
+                        }
+                        refreshAmbient();
+                    }
+                });
+            }
+        }).start();
     }
 
     private void toast(String message) { Toast.makeText(this, message, Toast.LENGTH_SHORT).show(); }

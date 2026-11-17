@@ -79,6 +79,14 @@ public class TileOrderTest {
         assertEquals(tiles.size(), TileOrder.remove(tiles, "core:tweaks").size());
     }
 
+    @Test public void ambientTileCanBeAddedPersistedAndRemovedCleanly() {
+        List<TileSpec> tiles = TileOrder.add(TileOrder.parse(null), TileSpec.core(TileSpec.Kind.AMBIENT));
+        assertNotNull(TileOrder.find(tiles, "core:ambient"));
+        List<TileSpec> back = TileOrder.parse(TileOrder.serialize(tiles));
+        assertEquals(ids(tiles), ids(back));
+        assertNull(TileOrder.find(TileOrder.remove(back, "core:ambient"), "core:ambient"));
+    }
+
     private static int countKind(List<TileSpec> tiles, TileSpec.Kind kind) {
         int n = 0;
         for (TileSpec t : tiles) if (t.kind == kind) n++;
