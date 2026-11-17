@@ -102,14 +102,14 @@ final class ClimateController {
         handler.removeCallbacks(evaluate); handler.removeCallbacks(connect);
         climate = null; driverC = passengerC = null; awaiting = false;
         if (datc == null) return;
-        try { datc.unlinkToDeath(datcDied, 0); Platform.register(DATC, DATC_IFACE, DATC_UNREGISTER, listener, token); } catch (Exception ignored) { }
+        try { datc.unlinkToDeath(datcDied, 0); Platform.register(DATC, DATC_IFACE, "unregisterDATCListener", DATC_UNREGISTER, listener, token); } catch (Exception ignored) { }
         datc = null;
     }
 
     private void connect() {
         if (!running() || datc != null) return;
         try {
-            datc = Platform.register(DATC, DATC_IFACE, DATC_REGISTER, listener, token);
+            datc = Platform.register(DATC, DATC_IFACE, "registerDATCListener", DATC_REGISTER, listener, token);
             datc.linkToDeath(datcDied, 0);
             // The listener reports changes; take the current state from the service's own dump.
             ClimatePolicy.Climate now = ClimatePolicy.parseDump(Platform.exec("dumpsys", DATC));
@@ -148,7 +148,7 @@ final class ClimateController {
         handler.postDelayed(poll, POLL_MS);
     }
     /** The front passenger's seat belt switch; occupancy reads 0 on this car, so this is the presence signal. */
-    static boolean passengerBuckled() throws Exception { return Platform.integer(HSCAN, HSCAN_IFACE, HSCAN_PASSENGER_BELT) == 1; }
+    static boolean passengerBuckled() throws Exception { return Platform.integer(HSCAN, HSCAN_IFACE, "getAsstStBltSwSta", HSCAN_PASSENGER_BELT) == 1; }
     private void saveStage() {
         try { Files.write(autoFile, (Platform.boot() + " " + stage).getBytes("UTF-8")); } catch (Exception ignored) { }
     }
@@ -259,7 +259,7 @@ final class ClimateController {
         lastSent = request;
         try {
             System.out.println("climate " + SystemClock.uptimeMillis() + " send " + action + " on " + climate);
-            for (int[] command : ClimatePolicy.commands(climate, action)) Platform.command(DATC, DATC_IFACE, DATC_SET_FRONT, command[0], command[1]);
+            for (int[] command : ClimatePolicy.commands(climate, action)) Platform.command(DATC, DATC_IFACE, "setFrontClimateControl", DATC_SET_FRONT, command[0], command[1]);
             if (sync) always.sent(action, SystemClock.uptimeMillis());
             if (action == ClimatePolicy.SYNC && lock == ClimatePolicy.SYNC) { syncProblem = null; showSync(); }
         } catch (Exception e) {

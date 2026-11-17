@@ -3,6 +3,15 @@ package com.tilepad.tweakcore;
 import java.util.regex.*;
 
 public final class HeaterPolicy {
+    /** IUSMService's equipment getter for driver, passenger or wheel (the same method on every release). */
+    static String fittedMethod(String key) {
+        switch (key) {
+            case "driver": return "getFrontSeatHeat_DrvOption";
+            case "passenger": return "getFrontSeatHeat_AstOption";
+            case "wheel": return "getSWRC_SteeringwheelHeatingOpt";
+            default: throw new IllegalArgumentException(key);
+        }
+    }
     /**
      * IUSMService getters for the heaters the car is equipped with (FrontSeatHeat_DrvOption,
      * FrontSeatHeat_AstOption, SWRC_SteeringwheelHeatingOpt); they read 0 when it isn't fitted.

@@ -59,10 +59,10 @@ public class Platform {
  public static boolean ignitionOn(){return ignition;}
  public static void requireVehicle(){}public static boolean pluginVehicle(){return true;}public static String boot(){return "fixture-boot";}
  public static void status(String id,String s){messages.add(id+": "+s);}
- public static int integer(String name,String descriptor,int code)throws Exception{
+ public static int integer(String name,String descriptor,String method,int code)throws Exception{
   projectionReads++;if(failProjection)throw new IOException("services starting");
-  if(name.equals("gpm")&&descriptor.equals("com.hkmc.gpm.IGpmInterfaces")&&code==1){if(failAaRead)throw new IOException("AA temporarily unreadable");return aa;}
-  if(name.equals("dipo")&&descriptor.equals("android.dipo.IDiPOManager")&&code==8)return cp;
+  if(name.equals("gpm")&&descriptor.equals("com.hkmc.gpm.IGpmInterfaces")&&method.equals("getGpmStatus")&&code==1){if(failAaRead)throw new IOException("AA temporarily unreadable");return aa;}
+  if(name.equals("dipo")&&descriptor.equals("android.dipo.IDiPOManager")&&method.equals("getDiPOConnectStatus")&&code==8)return cp;
   throw new AssertionError("Unmapped read "+name+code);}
  public static IBinder service(String name,String descriptor){
   if(name.equals("gpm")&&descriptor.equals("com.hkmc.gpm.IGpmInterfaces"))return GPM;

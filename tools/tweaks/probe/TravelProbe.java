@@ -15,8 +15,8 @@ public final class TravelProbe {
         foreground.setAccessible(true);
         Object top = foreground.invoke(new ProjectionController(context, new android.os.Handler()));
         System.out.println("projection.foregroundReadable=" + (top != null));
-        System.out.println("projection.androidAutoStatus=" + Platform.integer("gpm", "com.hkmc.gpm.IGpmInterfaces", 1));
-        System.out.println("projection.carPlayStatus=" + Platform.integer("dipo", "android.dipo.IDiPOManager", 8));
+        System.out.println("projection.androidAutoStatus=" + Platform.integer("gpm", "com.hkmc.gpm.IGpmInterfaces", "getGpmStatus", 1));
+        System.out.println("projection.carPlayStatus=" + Platform.integer("dipo", "android.dipo.IDiPOManager", "getDiPOConnectStatus", 8));
         int[] schedule = ScheduledCharging.read();
         System.out.println("schedule.fields=" + schedule.length);
         System.out.println("schedule.mode=" + schedule[8]);
