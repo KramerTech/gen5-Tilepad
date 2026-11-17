@@ -303,7 +303,7 @@ proxy:
 | Interface | Verified mapping |
 | --- | --- |
 | `gpm`, `com.hkmc.gpm.IGpmInterfaces` | transaction 1; status >=4 means connected |
-| `dipo`, `android.dipo.IDiPOManager` | transaction 2; status 4 means activated |
+| `dipo`, `android.dipo.IDiPOManager` | transaction 8 (`getDiPOConnectStatus`); 4 means a CarPlay session is activated. Transaction 2 (`getCurrentDiPOStat`) only holds 0 stopped, 1 started, 2 starting |
 | `com.hkmc.micom.hev`, `com.hkmc.hev.IHEVService` | 1/2 add/remove listener, 14 request feedback, 30 set nine fields |
 | `com.hkmc.hev.IHEVListener` | callback 4 provides 12 economic-charge fields |
 | Stock preference | `economic_only_economic_mode`: 0 prefer, 1 only off-peak |

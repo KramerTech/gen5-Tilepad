@@ -71,7 +71,9 @@ final class ProjectionController {
             boolean known = false; Integer aa = null, cp = null;
             try { aa = Platform.integer("gpm", "com.hkmc.gpm.IGpmInterfaces", 1);
                 mask = aa >= 4 ? mask | 2 : mask & ~2; known = true; } catch (Exception ignored) { }
-            try { cp = Platform.integer("dipo", "android.dipo.IDiPOManager", 2);
+            // getDiPOConnectStatus: the CarPlay app sets 4 (STATUS_SESSION_ACTIVATED) once a session is
+            // up, on screen or not. getCurrentDiPOStat (2) only ever holds stopped/started/starting.
+            try { cp = Platform.integer("dipo", "android.dipo.IDiPOManager", 8);
                 mask = cp == 4 ? mask | 1 : mask & ~1; known = true; } catch (Exception ignored) { }
             String observation = "aa=" + aa + " cp=" + cp + " seen=" + policy.seen();
             if (!observation.equals(lastObservation)) { System.out.println("projection status " + observation); lastObservation = observation; }
