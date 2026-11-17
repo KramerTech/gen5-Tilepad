@@ -329,7 +329,9 @@ images:
 | Hyundai V015.012.260507 DN8 | a Sonata compatibility log | Hyundai's non-EV image: every call Tilepad makes compared with Hyundai and Kia V015; consent re-anchored (below) |
 | Kia V015.012.260507 KIA | Sorento and Niro EV compatibility logs | shared `KIA.USA` image compared with the supported Sonata image; every transaction entry and patched class matches (below) |
 | Hyundai V015.012.260507 CE | an IONIQ 6 compatibility log | Hyundai's `ECOHMCSE` image: vehicle and projection files are V015's apart from build time; patched methods identical (below) |
+| Hyundai V016.010.260903 CE | an IONIQ 6 compatibility log | vehicle and projection code identical to Hyundai V016's; the apps differ from it as CE V015's do from V015 (below) |
 | Hyundai V012.010.240822 | an IONIQ 5 compatibility log | every call Tilepad makes compared with V015's; heater codes per release (below) |
+| Hyundai V014.010.250818 | an IONIQ 5 compatibility log | every call Tilepad makes compared with V012's and V015's: V012's heater codes, V015's key-action codes (below) |
 
 `Firmware.java` lists each release's `automotive.odex`/`automotive-service.odex` (vehicle tweaks),
 `framework.odex`/`framework2.odex` (projection) and `HKMC_TAppEV3.apk` (Charge-Away) hashes; a pair
@@ -438,6 +440,18 @@ three renamed callees (`ContentLayout` and `n/v`), whose bodies match apart from
 of them in the patched `f(ZZ)Z`. The DATC reports the IONIQ 5's variant and options, so Climate Sync
 and Driver Only apply, and the key layout is the IONIQ 5's file: track keys at 34/35, ★ at 43.
 
+For Hyundai V016.010.260903 CE (issue #47, a 2024 US IONIQ 6, `wp_daudioplus_ceev_us`; `build.prop`
+names the image `ECOHMCSE.USA.0000.V016.010.260903`): compared with Hyundai V016. `automotive`,
+`automotive-service`, `framework`, `framework2`, `services`, `hcan` and `infobank` deodex
+byte-identically, so every interface and transaction code Tilepad calls is V016's. The apps differ
+from V016's as CE V015's differ from V015's: with short names masked and members sorted, the same 16
+RightScreenHome and 12 SystemUI classes differ, and in EV Settings three of the same four (the QR
+encoder and drive mode classes) plus a charging-fault pop-up whose only difference is renamed fields. `consent-ce-v016` has V016's offsets and bytes;
+`right-ce-v016` has V016's nav and first pop-over entries, with the OSD method 2,300 bytes earlier.
+Patched, the consent and OSD classes disassemble identically to V016's, and the nav class differs
+only in the renamed callees its stock copy already had. The climate variant and options are the
+IONIQ 5's, and the key layout has the track keys at 34/35 and ★ at 43.
+
 For Hyundai V012 (an IONIQ 5 log, 2024): an older build, with renamed obfuscated members throughout,
 so each call was compared on its own. Every code Tilepad uses on IDATCService, IBCMService,
 ITM_HSCANService, IVRService, ITimePolicyService, IHEVService, IGpmInterfaces and IDiPOManager has
@@ -457,11 +471,32 @@ its second branch (a field write where V015 calls a method), and the consent scr
 registers and field offsets are masked; only the dead code after the OSD entry's return differs.
 The DATC variant and options and the key layout match the IONIQ 5's.
 
+For Hyundai V014.010.250818 (issue #48, a 2022 US IONIQ 5, `wp_daudioplus_neev_us`), the release
+between V012 and V015: compared with both. Its IUSMService numbering is V012's (all 445 codes that
+differ between V012 and V015 have V012's number), and USMService's heater methods are V012's, so it
+uses V012's heater codes. IModeManager is V015's: V014 added `getSwrcCustomKeyAction`, which moved
+the key-action codes up, and `getKeyAction`, `disableKeyAction` and `enableKeyAction` are identical
+to V015's, so `Firmware.java` gives V014 V012's heater codes with V015's key-action codes. Every
+other code Tilepad calls has the same method and number on all three releases. The implementations
+behind them (VRService, TimePolicyService, ClusterService, DiPOService, the DATC, HEV and BCM calls,
+HSCAN's belt reading) are V015's, except HEVService's listener registration and status parsing,
+which send fewer initial status flags (0x72, between V012's 0x70 and V015's 0x74), and BCM, which
+lacks V015's AMP call status. The economic-charge path (`getEconomicChargeTime`,
+`setEconomicChargeTime`, the status handler that sends the schedule), `DatcStatus` and the IHEV
+proxies are V015's. EV Settings is obfuscated differently, but with short names masked and members
+sorted the charge schedule (`EconomicData`) and the off-peak preference code match V015's. In the
+frameworks only IPPManager (renumbered; Tilepad doesn't call it), connectivity and a feature constant
+differ. The recipes keep V015's names and consent anchor, but the agreement method is `cY`, and the
+nav method writes a field where V015 calls a method, as V012's does, so V014 takes V012's nav offsets
+(`firmware_patches.py` `NAMES`). Patched with Tilepad's own code, the five patched methods match
+V015's with names masked, apart from that field write, which stock already has. The DATC variant and
+options are the IONIQ 5's, and the key layout has the track keys at 34/35 and ★ at 43.
+
 Features a trim or model can lack are checked on the car itself:
 
 - Automatic Heaters reads the car's equipment signals before each heater (IUSMService
   `FrontSeatHeat_DrvOption`, `FrontSeatHeat_AstOption`, `SWRC_SteeringwheelHeatingOpt`: 0x245,
-  0x246 and 0x241 from V015 on, 0x243, 0x244 and 0x23f on V012); a heater that reads 0 is skipped and the Tweaks screen
+  0x246 and 0x241 from V015 on, 0x243, 0x244 and 0x23f on V012 and V014); a heater that reads 0 is skipped and the Tweaks screen
   says so. An unreadable signal also skips that heater.
 - Maintain Climate Sync and Driver Only need dual-zone climate, so they also require a
   `wp_daudioplus_neev*` (IONIQ 5), `wp_daudioplus_cvev*` (EV6) or `wp_daudioplus_ceev*` (IONIQ 6) device until a log shows another

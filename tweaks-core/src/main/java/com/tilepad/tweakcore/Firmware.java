@@ -13,9 +13,10 @@ final class Firmware {
         final Usm usm;
         final Mode mode;
         Release(String name, Usm usm, String automotive, String automotiveService, String framework, String framework2, String evSettings) {
-            this.name = name; this.usm = usm; this.automotive = automotive; this.automotiveService = automotiveService;
-            // V012 is the one release before V015, which added a method before both groups of codes.
-            this.mode = usm == USM_V012 ? MODE_V012 : MODE_V015;
+            this(name, usm, usm == USM_V012 ? MODE_V012 : MODE_V015, automotive, automotiveService, framework, framework2, evSettings);
+        }
+        Release(String name, Usm usm, Mode mode, String automotive, String automotiveService, String framework, String framework2, String evSettings) {
+            this.name = name; this.usm = usm; this.mode = mode; this.automotive = automotive; this.automotiveService = automotiveService;
             this.framework = framework; this.framework2 = framework2; this.evSettings = evSettings;
         }
     }
@@ -37,11 +38,12 @@ final class Firmware {
             this.keyAction = keyAction; this.disableKeyAction = disableKeyAction; this.enableKeyAction = enableKeyAction;
         }
     }
-    // The same methods on every image; V012's codes are one lower, as its IUSMService codes are.
+    // The same methods on every image; V012's codes are one lower. V014 added getSwrcCustomKeyAction
+    // before them, so it has V015's codes.
     private static final Mode MODE_V015 = new Mode(0x2b, 0x2c, 0x2d), MODE_V012 = new Mode(0x2a, 0x2b, 0x2c);
     // setFrontSeatHeatDrvStep, setFrontSeatHeatAstStep, getFrontSeatHeat_DrvOption,
     // getFrontSeatHeat_AstOption, getSWRC_SteeringwheelHeatingOpt. V015 added a method before
-    // each, so V012's codes are lower; the methods themselves are the same.
+    // each, so V012's and V014's codes are lower; the methods themselves are the same.
     private static final Usm USM_V015 = new Usm(0xd5, 0xd6, 0x245, 0x246, 0x241), USM_V012 = new Usm(0xd4, 0xd5, 0x243, 0x244, 0x23f);
     static final Release[] SUPPORTED = {
         new Release("Hyundai USA V015.012.260507", USM_V015,
@@ -100,6 +102,19 @@ final class Firmware {
             "dac02b5ad1a5fc324aae228d6922c861baa82a18eefa59ee4d94b4d7bb7d7cc0",
             "8c02d6beba727b88a05489586b8183c4ecb4348404a0899cb4cb746a19c2e6b6",
             "f11270ef9bae3caa6d74bf49c330f7ec683b43c74da16048a9e385f42ad694fc"),
+        new Release("Hyundai USA V016.010.260903 CE", USM_V015,
+            "c2d3ae2375ed96f951f4eb4f29f15424d58779c18148a6ab08e491703ea96f2e",
+            "c06c9dc292371a7614ff037755b8e62d9fe4afa05141f1f6688f9c37bc722664",
+            "ae5df5a87d9d8c646d7eeb775d2c0838eb59b451259c35ccd4ed0d0313ef0405",
+            "bd1cbeb3f29894d94f138c08fbabc3d3e74e17bb119baf7f78c95fe6c28d2973",
+            "c06261db077a2ec003592195133847660ed9b005dd34280080653b803487c204"),
+        // V014 has V012's heater codes but V015's key-action codes.
+        new Release("Hyundai USA V014.010.250818", USM_V012, MODE_V015,
+            "347bcc5d55944d3e11ba6554684a07d38e326bc4fd455efacd92ff4143def3d3",
+            "d98111a84c2f3e7495133ce86ddd09687d6e54611db43fd88777201c9d1d64fb",
+            "12de058f5c13d25f5211efa5b2cb43665c5881e78c1b215ed5d98ed69edd6543",
+            "7562134f7d9f87a25de7f8068db49d0c0d253337e9eab68f8ed818dc055ba17d",
+            "a031c36946706c0619012776b1822bc8dcd7dc336fd79001b07eb5e0fc5e1ce8"),
     };
     /** The supported release with these vehicle interfaces (automotive.odex and automotive-service.odex), or null. */
     static Release vehicleRelease(String automotive, String automotiveService) {

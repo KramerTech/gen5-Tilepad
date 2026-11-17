@@ -101,12 +101,14 @@ RELEASES = {
     # Kia V015.011's ODEX files are V015.012's; only SystemUI.apk differs, so its recipes pair that APK.
     "kia-v015-011": {"RightScreenHome": "8c06f56597970d09ab369cfd8cc8c28d", "SystemUI": "8abb72b9715bc8e4746ac9ee3b03ab39"},
     "v012": {"RightScreenHome": "0fadc5cc2249cd8a9508cce2b618a30c", "SystemUI": "85104c851b0132076bf06ca91463a761"},
+    "v014": {"RightScreenHome": "171442e0f279ea18061d8c322c12cfa3", "SystemUI": "3399eed9cd71d1c5dc1e70026e0c61f9"},
     # Hyundai's non-EV image (HYUNDAI.USA, e.g. the Sonata DN8), as Kia's KIA.USA is the Sorento's.
     "dn8-v015": {"RightScreenHome": "4b299b74ee9851fee1043ed6ae24bf97", "SystemUI": "5fa30499aaed5fe28e8b0552c27341b2"},
     # KIA.USA is shared by the Sorento and Niro EV; ECOKMC above is a separate image.
     "kia-base-v015": {"RightScreenHome": "bd97b438aeb3d9c77510b5e2da4234f7", "SystemUI": "084171cb15bb28ebd4d4f4fe7aa98e26"},
     # ECOHMCSE: Hyundai's separate EV image for the IONIQ 6 (CE).
     "ce-v015": {"RightScreenHome": "cc1bd5131bee221ea3b5ed24a1c1d31a", "SystemUI": "d842714d6066f3985bd44c0e6a8b7da0"},
+    "ce-v016": {"RightScreenHome": "e326ce15730514ee1609e336804c3038", "SystemUI": "fb50f031bb3fdd188a9227ca64b6d649"},
 }
 # Obfuscated names, the nav branches (code units into f(ZZ)Z, the branch, the goto it becomes),
 # and start()'s consent call with the register holding `this`. V015, V016 and Kia V015 share them;
@@ -130,6 +132,9 @@ NAMES = {
 
 # KIA.USA's patched methods have the DN8 names, anchors and registers.
 NAMES["kia-base-v015"] = dict(NAMES["dn8-v015"])
+# V014 has V015's RightScreenHome names and consent anchor, but its nav method still writes the
+# field V015 calls a method for, as V012's does, and the consent agreement is cY.
+NAMES["v014"] = dict(V015_NAMES, nav=NAMES["v012"]["nav"], consentAgree="cY")
 
 
 def apk_sha(firmware, path, apk_hashes):

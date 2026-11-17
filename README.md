@@ -227,11 +227,12 @@ Tilepad can work on any gen5W head unit. If something shows an error on your car
 unavailable, submit a compatibility report (see below) so that support can be added.
 
 The tweaks check the car's exact firmware files, so they work on any car that runs a supported
-firmware image. The supported images are USA Hyundai `V012.010.240822`, `V015.012.260507` and
-`V016.010.260903`, Canadian Hyundai `V015.011.260206`, USA Kia `V015.012.260507`, Canadian Kia
-`V015.011.260206`, USA Hyundai `V015.012.260507 DN8`, USA Kia `V015.012.260507 KIA` (the
-`KIA.USA` image shared by the Niro EV and Sorento), and USA Hyundai `V015.012.260507 CE` (the
-IONIQ 6's image). These cover the IONIQ 5, IONIQ 6, EV6, Sonata, Niro EV and Sorento, for example.
+firmware image. The supported images are USA Hyundai `V012.010.240822`, `V014.010.250818`,
+`V015.012.260507` and `V016.010.260903`, Canadian Hyundai `V015.011.260206`, USA Kia
+`V015.012.260507`, Canadian Kia `V015.011.260206`, USA Hyundai `V015.012.260507 DN8`, USA Kia
+`V015.012.260507 KIA` (the `KIA.USA` image shared by the Niro EV and Sorento), and USA Hyundai
+`V015.012.260507 CE` and `V016.010.260903 CE` (the IONIQ 6's images). These cover the IONIQ 5,
+IONIQ 6, EV6, Sonata, Niro EV and Sorento, for example.
 Heaters that a trim doesn't have are skipped. How each tweak works, and what it changes, is
 explained in [docs/TWEAKS.md](docs/TWEAKS.md).
 

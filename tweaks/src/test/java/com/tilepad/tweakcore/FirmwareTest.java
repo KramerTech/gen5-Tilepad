@@ -6,7 +6,8 @@ import org.junit.Test;
 public class FirmwareTest {
     private static final Firmware.Release V015 = Firmware.SUPPORTED[0], V016 = Firmware.SUPPORTED[1], KIA_V015 = Firmware.SUPPORTED[2],
         V012 = Firmware.SUPPORTED[3], V015_CA = Firmware.SUPPORTED[4], KIA_V015_CA = Firmware.SUPPORTED[5],
-        DN8 = Firmware.SUPPORTED[6], KIA_BASE = Firmware.SUPPORTED[7], CE = Firmware.SUPPORTED[8];
+        DN8 = Firmware.SUPPORTED[6], KIA_BASE = Firmware.SUPPORTED[7], CE = Firmware.SUPPORTED[8],
+        CE_V016 = Firmware.SUPPORTED[9], V014 = Firmware.SUPPORTED[10];
     @Test public void acceptsEachSupportedReleasesFiles() {
         for (Firmware.Release r : Firmware.SUPPORTED) {
             assertTrue(r.name, Firmware.vehicle(r.automotive, r.automotiveService));
@@ -43,10 +44,18 @@ public class FirmwareTest {
         assertFalse(Firmware.vehicle(V015.automotive, CE.automotiveService));
         assertFalse(Firmware.projection(CE.framework, V015.framework2));
         assertFalse(Firmware.projection(V015.framework, CE.framework2));
+        assertFalse(Firmware.vehicle(CE_V016.automotive, V016.automotiveService));
+        assertFalse(Firmware.vehicle(CE.automotive, CE_V016.automotiveService));
+        assertFalse(Firmware.projection(V016.framework, CE_V016.framework2));
+        assertFalse(Firmware.projection(CE_V016.framework, CE.framework2));
+        assertFalse(Firmware.vehicle(V014.automotive, V012.automotiveService));
+        assertFalse(Firmware.vehicle(V015.automotive, V014.automotiveService));
+        assertFalse(Firmware.projection(V014.framework, V015.framework2));
+        assertFalse(Firmware.projection(V012.framework, V014.framework2));
         assertFalse(Firmware.evSettings("0000"));
     }
     @Test public void starHoldCodesComeFromTheMatchedRelease() {
-        // IModeManager getKeyAction, disableKeyAction, enableKeyAction: one lower on V012 only.
+        // IModeManager getKeyAction, disableKeyAction, enableKeyAction: one lower on V012 only (V014 has V015's).
         for (Firmware.Release r : Firmware.SUPPORTED) {
             boolean v012 = r == V012;
             assertEquals(r.name, v012 ? 0x2a : 0x2b, r.mode.keyAction);
@@ -62,6 +71,7 @@ public class FirmwareTest {
         assertEquals(0xd5, v015.driverHeat); assertEquals(0xd6, v015.passengerHeat);
         assertEquals(0x23f, HeaterPolicy.fittedTransaction(v012, "wheel"));
         assertEquals(0x241, HeaterPolicy.fittedTransaction(v015, "wheel"));
+        assertSame(v012, Firmware.vehicleRelease(V014.automotive, V014.automotiveService).usm);
         assertNull(Firmware.vehicleRelease(V012.automotive, V015.automotiveService));
     }
 }
