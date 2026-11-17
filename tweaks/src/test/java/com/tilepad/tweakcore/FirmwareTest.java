@@ -6,7 +6,7 @@ import org.junit.Test;
 public class FirmwareTest {
     private static final Firmware.Release V015 = Firmware.SUPPORTED[0], V016 = Firmware.SUPPORTED[1], KIA_V015 = Firmware.SUPPORTED[2],
         V012 = Firmware.SUPPORTED[3], V015_CA = Firmware.SUPPORTED[4], KIA_V015_CA = Firmware.SUPPORTED[5],
-        DN8 = Firmware.SUPPORTED[6], KIA_BASE = Firmware.SUPPORTED[7];
+        DN8 = Firmware.SUPPORTED[6], KIA_BASE = Firmware.SUPPORTED[7], CE = Firmware.SUPPORTED[8];
     @Test public void acceptsEachSupportedReleasesFiles() {
         for (Firmware.Release r : Firmware.SUPPORTED) {
             assertTrue(r.name, Firmware.vehicle(r.automotive, r.automotiveService));
@@ -38,6 +38,11 @@ public class FirmwareTest {
         assertFalse(Firmware.projection(KIA_V015.framework, KIA_BASE.framework2));
         assertFalse(Firmware.vehicle(KIA_BASE.automotive, DN8.automotiveService));
         assertFalse(Firmware.projection(DN8.framework, KIA_BASE.framework2));
+        // The IONIQ 6's ECOHMCSE image is the IONIQ 5's code, but its own build of every file.
+        assertFalse(Firmware.vehicle(CE.automotive, V015.automotiveService));
+        assertFalse(Firmware.vehicle(V015.automotive, CE.automotiveService));
+        assertFalse(Firmware.projection(CE.framework, V015.framework2));
+        assertFalse(Firmware.projection(V015.framework, CE.framework2));
         assertFalse(Firmware.evSettings("0000"));
     }
     @Test public void starHoldCodesComeFromTheMatchedRelease() {

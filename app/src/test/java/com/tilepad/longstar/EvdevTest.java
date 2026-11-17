@@ -29,7 +29,7 @@ public class EvdevTest {
         String[][] seen = {{"daudio_wp_daudioplus_neev23_us", "neev23"}, {"daudio_wp_daudioplus_neev_ca", "neev"},
             {"daudio_wp_daudioplus_cvev_us", "cvev"}, {"daudio_wp_daudioplus_cvev_ca", "cvev"},
             {"daudio_wp_daudioplus_mq422_us", "mq422"}, {"daudio_wp_daudioplus_dn822_us", "dn822"},
-            {"daudio_wp_daudioplus_de22ev_us", "de22ev"}};
+            {"daudio_wp_daudioplus_de22ev_us", "de22ev"}, {"daudio_wp_daudioplus_ceev_us", "ceev"}};
         for (String[] s : seen) assertEquals("/system/usr/keylayout/daudio_wp_daudioplus_" + s[1] + "_base.kl", Evdev.layoutFor(s[0]));
     }
 

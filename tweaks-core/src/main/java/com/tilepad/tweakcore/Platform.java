@@ -28,10 +28,11 @@ public final class Platform {
             throw new IOException("This firmware's vehicle interface isn't supported yet. Capture and submit a log to help add compatibility.");
         return vehicle = found;
     }
-    /** Climate Sync and Driver Only need dual-zone climate: the IONIQ 5's, which the EV6 shares (same DATC variant and options). */
+    /** Climate Sync and Driver Only need dual-zone climate: the IONIQ 5's, which the EV6 and IONIQ 6 share (same DATC variant and options). */
     public static void requireDualZone() throws Exception {
         requireVehicle();
-        if (!Build.DEVICE.startsWith("wp_daudioplus_neev") && !Build.DEVICE.startsWith("wp_daudioplus_cvev"))
+        if (!Build.DEVICE.startsWith("wp_daudioplus_neev") && !Build.DEVICE.startsWith("wp_daudioplus_cvev")
+                && !Build.DEVICE.startsWith("wp_daudioplus_ceev"))
             throw new IOException("This car's climate isn't supported yet. Capture and submit a log to help add compatibility.");
     }
     public static String property(String name) throws Exception {

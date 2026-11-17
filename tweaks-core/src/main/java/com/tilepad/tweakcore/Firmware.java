@@ -93,6 +93,13 @@ final class Firmware {
             "739c48b55bb101ddba8520671b46e783e675bf4091345bd82b67aa0f3675d2ce",
             "92930f5b08ada7fb0faf7722b8e5ddb8f53731615560a19c588ba57b1a694529",
             "cbd13937c20e284bbdf93dcc4be50224280d4a6edd1db8b6bf25097950eb3af7"),
+        // ECOHMCSE: Hyundai's separate EV image for the IONIQ 6 (CEEV).
+        new Release("Hyundai USA V015.012.260507 CE", USM_V015,
+            "408b426e14b3f8dfdf1926e608e4f02689e89fc386b7f93a97f261ac5b6e4287",
+            "afbc60509dd8a8fbac842523bf618424c088685d832a125a84d1d11dc1770bd4",
+            "dac02b5ad1a5fc324aae228d6922c861baa82a18eefa59ee4d94b4d7bb7d7cc0",
+            "8c02d6beba727b88a05489586b8183c4ecb4348404a0899cb4cb746a19c2e6b6",
+            "f11270ef9bae3caa6d74bf49c330f7ec683b43c74da16048a9e385f42ad694fc"),
     };
     /** The supported release with these vehicle interfaces (automotive.odex and automotive-service.odex), or null. */
     static Release vehicleRelease(String automotive, String automotiveService) {

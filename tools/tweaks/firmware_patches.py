@@ -105,6 +105,8 @@ RELEASES = {
     "dn8-v015": {"RightScreenHome": "4b299b74ee9851fee1043ed6ae24bf97", "SystemUI": "5fa30499aaed5fe28e8b0552c27341b2"},
     # KIA.USA is shared by the Sorento and Niro EV; ECOKMC above is a separate image.
     "kia-base-v015": {"RightScreenHome": "bd97b438aeb3d9c77510b5e2da4234f7", "SystemUI": "084171cb15bb28ebd4d4f4fe7aa98e26"},
+    # ECOHMCSE: Hyundai's separate EV image for the IONIQ 6 (CE).
+    "ce-v015": {"RightScreenHome": "cc1bd5131bee221ea3b5ed24a1c1d31a", "SystemUI": "d842714d6066f3985bd44c0e6a8b7da0"},
 }
 # Obfuscated names, the nav branches (code units into f(ZZ)Z, the branch, the goto it becomes),
 # and start()'s consent call with the register holding `this`. V015, V016 and Kia V015 share them;
