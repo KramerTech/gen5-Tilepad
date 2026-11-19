@@ -231,7 +231,7 @@ public final class TweaksRuntime {
         String handled = driveFile.isFile() ? new String(Files.read(driveFile), "UTF-8").trim() : "";
         if (!on) {
             heaterDrive++;
-            if (heaterWaiting) { heaterWaiting = false; Platform.status("heaters", "Nothing was heated because the car was turned off before a valid outdoor temperature arrived."); }
+            if (heaterWaiting) { heaterWaiting = false; Platform.status("heaters", "Nothing was heated or cooled because the car was turned off before a valid outdoor temperature arrived."); }
             Files.write(driveFile, (boot + " off").getBytes("UTF-8"));
             return;
         }
@@ -259,7 +259,7 @@ public final class TweaksRuntime {
                             if (drive != heaterDrive) return;
                             Config c = TweaksCommand.load();
                             heaterWaiting = false;
-                            if (!c.enabled("heaters")) { Platform.status("heaters", "Canceled before applying heat."); return; }
+                            if (!c.enabled("heaters")) { Platform.status("heaters", "Canceled before applying heat or cooling."); return; }
                             Platform.requireVehicle();
                             String dump;
                             try { dump = Platform.exec("dumpsys", "com.hkmc.micom.datc"); }
@@ -274,30 +274,46 @@ public final class TweaksRuntime {
                                 else Platform.status("heaters", "Skipped this drive: no valid outdoor temperature arrived within two minutes of the car being turned on. The climate system last reported " + HeaterPolicy.reported(dump) + ".");
                                 return;
                             }
-                            if (!HeaterPolicy.cold(temperature, c.number("threshold"))) {
-                                Platform.status("heaters", "Skipped this drive: the outdoor temperature is at or above your threshold."); return;
+                            boolean heat = HeaterPolicy.cold(temperature, c.number("threshold"));
+                            int coolLevel = !heat && c.checked("cooling")
+                                ? HeaterPolicy.coolingLevel(temperature, c.number("coolLow"), c.number("coolMed"), c.number("coolHigh"))
+                                : 0;
+                            if (!heat && coolLevel == 0) {
+                                Platform.status("heaters", c.checked("cooling")
+                                    ? "Skipped this drive: the outdoor temperature didn't reach your heating or cooling thresholds."
+                                    : "Skipped this drive: the outdoor temperature is at or above your threshold.");
+                                return;
                             }
                             StringBuilder outcome = new StringBuilder();
-                            if (c.checked("driver") && fitted(outcome, "Driver seat", "driver"))
-                                heat(outcome, "Driver seat", "com.hkmc.micom.usm", "com.hkmc.usm.IUSMService", Platform.vehicle().usm.driverHeat, HeaterPolicy.seatRequest(c.number("driverLevel")));
-                            if (c.checked("wheel") && fitted(outcome, "Steering wheel", "wheel"))
+                            boolean cooling = coolLevel > 0;
+                            String driverLabel = cooling ? "Driver seat cooling" : "Driver seat";
+                            int driverRequest = cooling ? HeaterPolicy.coolRequest(coolLevel) : HeaterPolicy.seatRequest(c.number("driverLevel"));
+                            if (c.checked("driver") && fitted(outcome, driverLabel, "driver", cooling))
+                                heat(outcome, driverLabel, "com.hkmc.micom.usm", "com.hkmc.usm.IUSMService", Platform.vehicle().usm.driverHeat, driverRequest);
+                            if (heat && c.checked("wheel") && fitted(outcome, "Steering wheel", "wheel", false))
                                 heat(outcome, "Steering wheel", "com.hkmc.vr", "com.hkmc.vr.IVRService", 16, 1);
                             heaterOutcome = outcome.toString();
-                            // The passenger seat heats only for a buckled front passenger: now, or
+                            // The passenger seat heats or cools only for a buckled front passenger: now, or
                             // whenever they buckle up later in this drive.
-                            if (c.checked("passenger") && fitted(outcome, "Passenger seat", "passenger")) {
-                                Files.write(new File(Platform.STATE, PASSENGER_FILE), (Platform.boot() + " " + heaterOutcome).getBytes("UTF-8"));
+                            if (c.checked("passenger") && fitted(outcome, cooling ? "Passenger seat cooling" : "Passenger seat", "passenger", cooling)) {
+                                pendingCoolLevel = coolLevel;
+                                Files.write(new File(Platform.STATE, PASSENGER_FILE),
+                                    HeaterPolicy.passengerWaitRecord(Platform.boot(), coolLevel, heaterOutcome).getBytes("UTF-8"));
                                 handler.removeCallbacks(passengerWatch); handler.post(passengerWatch);
-                            } else Platform.status("heaters", outcome.length() == 0 ? "Skipped: no heaters selected." : outcome.toString());
+                            } else {
+                                String empty = c.checked("cooling") ? "Skipped: no seats or wheel selected." : "Skipped: no heaters selected.";
+                                Platform.status("heaters", outcome.length() == 0 ? empty : outcome.toString());
+                            }
                         }
                     });
                 } catch (Exception e) { Platform.status("heaters", "Skipped this drive: " + e.getMessage()); }
             }
         }, 3000);
     }
-    /** Present while the passenger seat waits for a buckled passenger: "<boot id> <driver/wheel outcome>". */
+    /** Present while the passenger seat waits for a buckled passenger: "<boot id>\t<coolLevel>\t<outcome>". */
     private static final String PASSENGER_FILE = "heaters-passenger";
     private String heaterOutcome = "";
+    private int pendingCoolLevel;
     /** The car has been on during the wait, so ignition off now means the drive ended (ACC at boot reads off too). */
     private boolean passengerIgnitionSeen;
     private String passengerStatus;
@@ -305,9 +321,9 @@ public final class TweaksRuntime {
     /** A wait left by this boot, after a restart of this service. */
     private void resumePassenger() {
         try {
-            String[] saved = new String(Files.read(new File(Platform.STATE, PASSENGER_FILE)), "UTF-8").split(" ", 2);
-            if (!saved[0].equals(Platform.boot())) { new File(Platform.STATE, PASSENGER_FILE).delete(); return; }
-            heaterOutcome = saved.length > 1 ? saved[1] : "";
+            HeaterPolicy.PassengerWait saved = HeaterPolicy.parsePassengerWait(new String(Files.read(new File(Platform.STATE, PASSENGER_FILE)), "UTF-8"));
+            if (!saved.boot.equals(Platform.boot())) { new File(Platform.STATE, PASSENGER_FILE).delete(); return; }
+            heaterOutcome = saved.outcome; pendingCoolLevel = saved.coolLevel;
             handler.removeCallbacks(passengerWatch); handler.post(passengerWatch);
         } catch (Exception ignored) { }
     }
@@ -318,17 +334,22 @@ public final class TweaksRuntime {
                     File pending = new File(Platform.STATE, PASSENGER_FILE);
                     if (!pending.isFile()) return;
                     Config c = TweaksCommand.load();
+                    boolean cooling = pendingCoolLevel > 0;
                     String stop = null;
-                    if (!c.enabled("heaters") || !c.checked("passenger")) stop = "Passenger seat: not heated (turned off in Tweaks).";
+                    if (!c.enabled("heaters") || !c.checked("passenger") || (cooling && !c.checked("cooling")))
+                        stop = "Passenger seat: not " + (cooling ? "cooled" : "heated") + " (turned off in Tweaks).";
                     else if (Platform.ignitionOn()) {
                         passengerIgnitionSeen = true;
                         if (ClimateController.passengerBuckled()) {
                             StringBuilder outcome = new StringBuilder(heaterOutcome);
-                            heat(outcome, "Passenger seat (front passenger buckled up)", "com.hkmc.micom.usm", "com.hkmc.usm.IUSMService", Platform.vehicle().usm.passengerHeat, HeaterPolicy.seatRequest(c.number("passengerLevel")));
+                            int request = cooling ? HeaterPolicy.coolRequest(pendingCoolLevel) : HeaterPolicy.seatRequest(c.number("passengerLevel"));
+                            String label = cooling ? "Passenger seat cooling (front passenger buckled up)" : "Passenger seat (front passenger buckled up)";
+                            heat(outcome, label, "com.hkmc.micom.usm", "com.hkmc.usm.IUSMService", Platform.vehicle().usm.passengerHeat, request);
                             Platform.status("heaters", outcome.toString().trim());
                             pending.delete(); return;
                         }
-                    } else if (passengerIgnitionSeen) stop = "Passenger seat: not heated (no one buckled up before the car was turned off).";
+                    } else if (passengerIgnitionSeen)
+                        stop = "Passenger seat: not " + (cooling ? "cooled" : "heated") + " (no one buckled up before the car was turned off).";
                     if (stop != null) { Platform.status("heaters", (heaterOutcome + stop).trim()); pending.delete(); return; }
                     String waiting = (heaterOutcome + "Passenger seat: waiting for the front passenger to buckle up.").trim();
                     if (!waiting.equals(passengerStatus)) { passengerStatus = waiting; Platform.status("heaters", waiting); }
@@ -340,16 +361,17 @@ public final class TweaksRuntime {
             handler.postDelayed(passengerWatch, 5000);
         }
     }
-    /** Whether the car reports this heater at all; trims differ (no heated wheel on some). */
-    private static boolean fitted(StringBuilder out, String label, String key) {
-        Boolean fitted = fitted(key);
-        if (fitted == null) out.append(label).append(": skipped (the car didn't say whether it has one). ");
-        else if (!fitted) out.append(label).append(": skipped (this car doesn't have one). ");
-        return Boolean.TRUE.equals(fitted);
+    /** Whether the car reports this heater or seat ventilator at all; trims differ. */
+    private static boolean fitted(StringBuilder out, String label, String key, boolean cooling) {
+        Integer option = equipmentOption(key);
+        if (option == null) out.append(label).append(": skipped (the car didn't say whether it has one). ");
+        else if (!HeaterPolicy.isFitted(key, option)) out.append(label).append(": skipped (this car doesn't have one). ");
+        else if (cooling && !HeaterPolicy.isCoolingFitted(key, option)) out.append(label).append(": skipped (this seat isn't ventilated). ");
+        return option != null && (cooling ? HeaterPolicy.isCoolingFitted(key, option) : HeaterPolicy.isFitted(key, option));
     }
-    /** The car's equipment signal for driver, passenger or wheel: true/false, or null if unreadable. */
-    static Boolean fitted(String key) {
-        try { return Platform.integer("com.hkmc.micom.usm", "com.hkmc.usm.IUSMService", HeaterPolicy.fittedTransaction(Platform.vehicle().usm, key)) != 0; }
+    /** The car's equipment option for driver, passenger or wheel, or null if unreadable. */
+    static Integer equipmentOption(String key) {
+        try { return Platform.integer("com.hkmc.micom.usm", "com.hkmc.usm.IUSMService", HeaterPolicy.fittedTransaction(Platform.vehicle().usm, key)); }
         catch (Exception e) { return null; }
     }
     private static void heat(StringBuilder out, String label, String service, String descriptor, int code, int value) {
