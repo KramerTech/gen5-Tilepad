@@ -46,6 +46,9 @@ is the one set to HOME); the same goes for its action.
 - **Package Manager**, in Tweaks and Settings. It updates Tilepad over Wi-Fi, and it installs and
   updates other NEMESIS packages straight from their GitHub releases.
 - **Support**, in Tweaks and Settings. It saves a log to a USB drive so you can report a problem.
+- **Pages from other packages**, in Tweaks and Settings. A NEMESIS package can describe its own
+  settings page in a file, and Tilepad draws it with its own controls
+  ([how](docs/TWEAKS.md#pages-from-other-packages)).
 - **ADB toggle**. It turns ADB over Wi-Fi on and off. While ADB is on, any computer on the network
   can connect without approving a key. Turning ADB on also turns Wi-Fi on, which means wireless
   CarPlay and Android Auto are off.
