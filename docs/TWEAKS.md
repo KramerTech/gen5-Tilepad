@@ -515,7 +515,7 @@ drive (`/mnt/media_rw/usbN`, written as media_rw, uid 1023), with a spinner whil
 - The code behind those gates: every `/system/framework/*.odex` (the full boot class path, needed
   to deodex any of it), the gated apps' ODEX, the loaded key layouts, `build.prop`, and
   `tilepad-stock/` backups. APKs are hashed only; their code is in the ODEX.
-- `dumps/`: the USM, BCM and DATC service dumps, numeric lines only (text values can hold
+- `dumps/`: the USM, BCM, DATC and HEV service dumps, numeric lines only (text values can hold
   digital-key phone names).
 
 No GPS position, Home or personal text is included. The owner attaches the zip to a GitHub issue

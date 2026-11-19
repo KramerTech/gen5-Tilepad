@@ -241,7 +241,7 @@ plug in a USB drive and tap **Capture Compatibility Log to USB**. Then attach th
 `tilepad-compat-….zip` from the drive to a
 [compatibility issue](https://github.com/KramerTech/gen5-Tilepad/issues/new?template=compatibility.md).
 The log holds the head unit's software version, file hashes, the firmware code the tweaks rely on,
-and numeric vehicle-equipment readings. It doesn't hold your location, your Charge-Away Home or
+and numeric vehicle-equipment and battery readings. It doesn't hold your location, your Charge-Away Home or
 any personal names.
 
 **Reporting a problem.** If a tweak doesn't take effect, or something happens that shouldn't, save

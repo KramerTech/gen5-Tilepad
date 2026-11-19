@@ -87,6 +87,11 @@ software = identity.get("ro.build.product")
 pre = [n for n, v in constants.items() if v == software]
 print(f"  Precondition software constant: {pre or 'NO'}; hashes known there: "
       f"{'yes' if auto in known and any('Precondition' in k for k in known[auto]) else 'NO'}")
+# HEVService keeps -1 until the car reports battery conditioning; Preconditioning starts only at 2.
+hev = log.parent / "dumps/com.hkmc.micom.hev.txt"
+cond = re.search(r"(?m)^EV_BATTERYCONDITIONING: (-?\d+)", hev.read_text()) if hev.is_file() else None
+print(f"  battery conditioning reported by the car: "
+      f"{'EV_BATTERYCONDITIONING=' + cond.group(1) if cond else 'no HEV dump in this log (an older Tilepad)'}")
 
 print("\n[tweaks]")
 for key, value in sections.get("tweaks", []):

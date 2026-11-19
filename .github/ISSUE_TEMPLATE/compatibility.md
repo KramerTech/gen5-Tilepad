@@ -12,4 +12,4 @@ labels: compatibility
 **Log:** in Tweaks, select an unavailable tweak, insert a USB drive, and tap
 *Capture Compatibility Log to USB*. Attach the `tilepad-compat-….zip` file from the drive here
 (about 17 MB). It holds the head unit's software version, file hashes, the firmware code the
-tweaks rely on, and numeric vehicle-equipment readings; no location, Home or personal names.
+tweaks rely on, and numeric vehicle-equipment and battery readings; no location, Home or personal names.

@@ -17,8 +17,12 @@ public final class CompatReport {
         "ro.product.vcrm.model", "ro.product.vehicleinfo", "ro.product.opt.vehicletype", "ro.product.opt.vehiclesegment",
         "ro.daudio.telematics.features", "persist.sys.climate.variant", "persist.sys.climate.option1", "persist.sys.climate.option2",
         "persist.sys.climate.option3", "persist.sys.climate.option4", "persist.sys.climate.option5"};
-    /** Vehicle services whose state the log records (equipment options, climate), numbers only. */
-    static final String[] SERVICES = {"com.hkmc.micom.usm", "com.hkmc.micom.bcm", "com.hkmc.micom.datc"};
+    /**
+     * Vehicle services whose state the log records (equipment options, climate, EV drivetrain),
+     * numbers only. HEV shows whether the car reports battery conditioning (EV_BATTERYCONDITIONING
+     * stays -1 until it does), for Preconditioning on cars it doesn't support yet.
+     */
+    static final String[] SERVICES = {"com.hkmc.micom.usm", "com.hkmc.micom.bcm", "com.hkmc.micom.datc", "com.hkmc.micom.hev"};
     /** Vehicle, projection and EV Settings gates (Platform, ProjectionController, ScheduledCharging). */
     static final String[] GATED = {"/system/framework/automotive.odex", "/system/framework/automotive-service.odex",
         "/system/framework/framework.odex", "/system/framework/framework2.odex", "/system/app/HKMC_TAppEV3.apk"};
