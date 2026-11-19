@@ -15,6 +15,10 @@ public final class Platform {
     /** A readable copy of each tweak's status, for the Tweaks screen to refresh live (STATE is root-only). */
     public static final File LIVE = new File("/data/nemesis/backup/tilepad/status");
     private static Firmware.Release vehicle;
+    /** A call that wasn't sent: the firmware's code for its method isn't the one Tilepad checked. */
+    public static final class NotSent extends IOException {
+        NotSent(String message) { super(message); }
+    }
     private Platform() { }
     public static void requireVehicle() throws Exception { vehicle(); }
     /** The supported release this unit's vehicle interfaces belong to. */
@@ -52,21 +56,33 @@ public final class Platform {
         } catch (Exception e) { return true; }
     }
     /** Ignition from the BCM (ACC reads off): Driver Only, Automatic Heaters' passenger seat and projection. */
-    public static boolean ignitionOn() throws Exception { return integer("com.hkmc.micom.bcm", "com.hkmc.bcm.IBCMService", 0x11) != 0; }
-    public static String boot() throws IOException { return new String(Files.read(new File("/proc/sys/kernel/random/boot_id")), "UTF-8").trim(); }
-    public static int integer(String service, String descriptor, int transaction, int... args) throws Exception {
-        return transact(service, descriptor, transaction, true, args);
+    public static boolean ignitionOn() throws Exception { return integer("com.hkmc.micom.bcm", "com.hkmc.bcm.IBCMService", "getIGNStatus", 0x11) != 0; }
+    /**
+     * The code to send for descriptor's method on this supported release: the confirmed code, if the
+     * firmware's own interface gives that method the same code (Transactions.decide).
+     */
+    static int transaction(String descriptor, String method, int confirmed) throws Exception {
+        requireVehicle();
+        int code = Transactions.decide(confirmed, Transactions.named(descriptor, method));
+        if (code == 0) throw new NotSent("This firmware's version of that request isn't the one Tilepad checked, so Tilepad didn't send it. Tap “Save Log to USB” in Support and submit the log to help add compatibility.");
+        return code;
     }
-    public static void command(String service, String descriptor, int transaction, int... values) throws Exception {
-        transact(service, descriptor, transaction, false, values);
+    public static String boot() throws IOException { return new String(Files.read(new File("/proc/sys/kernel/random/boot_id")), "UTF-8").trim(); }
+    /** Each call names its method, so its confirmed code is checked against the firmware's (transaction). */
+    public static int integer(String service, String descriptor, String method, int transaction, int... args) throws Exception {
+        return transact(service, descriptor, transaction(descriptor, method, transaction), true, args);
+    }
+    public static void command(String service, String descriptor, String method, int transaction, int... values) throws Exception {
+        transact(service, descriptor, transaction(descriptor, method, transaction), false, values);
     }
     /** A read taking ints and returning a string, which may be null (IModeManager.getKeyAction). */
-    public static String string(String service, String descriptor, int transaction, int... args) throws Exception {
+    public static String string(String service, String descriptor, String method, int transaction, int... args) throws Exception {
+        int code = transaction(descriptor, method, transaction);
         IBinder binder = service(service, descriptor);
         Parcel data = Parcel.obtain(), reply = Parcel.obtain();
         try {
             data.writeInterfaceToken(descriptor); for (int n : args) data.writeInt(n);
-            if (!binder.transact(transaction, data, reply, 0)) throw new IOException("OEM request refused");
+            if (!binder.transact(code, data, reply, 0)) throw new IOException("OEM request refused");
             reply.readException();
             String value = reply.readString();
             if (reply.dataAvail() != 0) throw new IOException("Unexpected OEM reply");
@@ -74,12 +90,13 @@ public final class Platform {
         } finally { data.recycle(); reply.recycle(); }
     }
     /** A command taking an int and a string array and returning nothing (IModeManager.disableKeyAction). */
-    public static void command(String service, String descriptor, int transaction, int value, String[] strings) throws Exception {
+    public static void command(String service, String descriptor, String method, int transaction, int value, String[] strings) throws Exception {
+        int code = transaction(descriptor, method, transaction);
         IBinder binder = service(service, descriptor);
         Parcel data = Parcel.obtain(), reply = Parcel.obtain();
         try {
             data.writeInterfaceToken(descriptor); data.writeInt(value); data.writeStringArray(strings);
-            if (!binder.transact(transaction, data, reply, 0)) throw new IOException("OEM request refused");
+            if (!binder.transact(code, data, reply, 0)) throw new IOException("OEM request refused");
             reply.readException();
             if (reply.dataAvail() != 0) throw new IOException("Unexpected OEM reply");
         } finally { data.recycle(); reply.recycle(); }
@@ -90,18 +107,19 @@ public final class Platform {
      */
     private static final String MODE = "com.hkmc.micom.mode", MODE_IFACE = "com.hkmc.mode.IModeManager";
     public static String keyAction(int keyType) throws Exception {
-        return string(MODE, MODE_IFACE, vehicle().mode.keyAction, keyType);
+        return string(MODE, MODE_IFACE, "getKeyAction", vehicle().mode.keyAction, keyType);
     }
     public static void disableKeyAction(int keyType, String[] actions) throws Exception {
-        command(MODE, MODE_IFACE, vehicle().mode.disableKeyAction, keyType, actions);
+        command(MODE, MODE_IFACE, "disableKeyAction", vehicle().mode.disableKeyAction, keyType, actions);
     }
     public static void enableKeyAction(int keyType) throws Exception {
-        command(MODE, MODE_IFACE, vehicle().mode.enableKeyAction, keyType);
+        command(MODE, MODE_IFACE, "enableKeyAction", vehicle().mode.enableKeyAction, keyType);
     }
     /** enableKeyAction's code, for the uninstall hook's `service call` (star.blocked). */
-    public static int enableKeyActionCode() throws Exception { return vehicle().mode.enableKeyAction; }
+    public static int enableKeyActionCode() throws Exception { return transaction(MODE_IFACE, "enableKeyAction", vehicle().mode.enableKeyAction); }
     /** register*Listener(listener, token) taking two strong binders and returning nothing. Returns the service. */
-    public static IBinder register(String service, String descriptor, int transaction, IBinder listener, IBinder token) throws Exception {
+    public static IBinder register(String service, String descriptor, String method, int transaction, IBinder listener, IBinder token) throws Exception {
+        transaction = transaction(descriptor, method, transaction);
         IBinder binder = service(service, descriptor);
         Parcel data = Parcel.obtain(), reply = Parcel.obtain();
         try {
