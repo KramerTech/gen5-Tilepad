@@ -176,30 +176,49 @@ public final class Widgets {
 
     /** A swatch's side, the touch minimum, and the space around each. */
     private static final int SWATCH_DP = 48, SWATCH_MARGIN_DP = 3;
-    /** Colors on a row. */
-    private static final int PER_ROW = 16;
+    /**
+     * A preset's width, its name on it (two lines at most): what the colors leave at 48 dp, shared by
+     * the columns, between these two.
+     */
+    private static final int PRESET_MIN_DP = 60, PRESET_MAX_DP = 100;
+    /** Rows of presets at most (the colors' four), and colors on a row. */
+    private static final int PRESET_ROWS = 4, PER_ROW = 16;
 
     /**
-     * A window of color swatches, 16 to a row, the chosen one outlined; tapping one closes it and
-     * passes its index to listener. names may be null (each is then read out as #RRGGBB).
-     * Swatches are 48 dp square, unless the screen is too narrow for the window, when they share
-     * what there is. The window scrolls when it's taller than the screen.
+     * colorGrid, and beside the colors, presets (each named on its swatch, from presetNames) under
+     * presetHeading ("Presets" when null), in columns of at most four; a preset's index is
+     * colors.size() plus its place in presets. Swatches are 48 dp square, unless the screen is too
+     * narrow for the window, when the colors share what there is. The window scrolls when it's
+     * taller than the screen.
      */
-    public void colorGrid(String heading, java.util.List<String> colors, java.util.List<String> names, String chosen, final ChoiceListener listener) {
+    public void colorGrid(String heading, java.util.List<String> colors, java.util.List<String> names, String presetHeading,
+                          final java.util.List<String> presets, java.util.List<String> presetNames, String chosen, final ChoiceListener listener) {
         final android.app.Dialog[] shown = new android.app.Dialog[1];
-        int margin = dp(SWATCH_MARGIN_DP);
-        // the window's frame and padding take about 64 dp of the screen's width
-        int room = host.activity().getResources().getDisplayMetrics().widthPixels - dp(64) - dp(48);
+        boolean grouped = !presets.isEmpty();
+        int columns = grouped ? (presets.size() + PRESET_ROWS - 1) / PRESET_ROWS : 0;
+        int margin = dp(SWATCH_MARGIN_DP), presetW = dp(PRESET_MAX_DP);
+        // the window's frame and padding take about 64 dp of the screen's width, the body's 48 dp
+        int screen = host.activity().getResources().getDisplayMetrics().widthPixels - dp(64) - dp(48);
+        if (grouped) {
+            int left = screen - dp(24) - columns * 2 * margin - PER_ROW * (dp(SWATCH_DP) + 2 * margin);
+            presetW = Math.max(dp(PRESET_MIN_DP), Math.min(presetW, left / columns));
+        }
+        int beside = grouped ? dp(24) + columns * (presetW + 2 * margin) : 0;
+        int room = screen - beside;
         int side = Math.max(dp(16), Math.min(dp(SWATCH_DP), room / PER_ROW - 2 * margin));
 
         LinearLayout body = new LinearLayout(host.activity());
-        body.setOrientation(LinearLayout.VERTICAL);
+        body.setOrientation(LinearLayout.HORIZONTAL);
         body.setPadding(dp(24), dp(6), dp(24), dp(10));
+        LinearLayout wheel = new LinearLayout(host.activity());
+        wheel.setOrientation(LinearLayout.VERTICAL);
+        body.addView(wheel, new LinearLayout.LayoutParams(-2, -2));
+        if (grouped) wheel.addView(groupTitle("Colors"), new LinearLayout.LayoutParams(-2, -2));
         LinearLayout row = null;
         for (int i = 0; i < colors.size(); i++) {
             if (i % PER_ROW == 0) {
                 row = new LinearLayout(host.activity());
-                body.addView(row, new LinearLayout.LayoutParams(-2, -2));
+                wheel.addView(row, new LinearLayout.LayoutParams(-2, -2));
             }
             final int index = i;
             String hex = colors.get(i);
@@ -216,21 +235,71 @@ public final class Widgets {
             at.setMargins(margin, margin, margin, margin);
             row.addView(cell, at);
         }
+        if (grouped) {
+            LinearLayout column = new LinearLayout(host.activity());
+            column.setOrientation(LinearLayout.VERTICAL);
+            LinearLayout.LayoutParams gap = new LinearLayout.LayoutParams(-2, -2);
+            gap.setMargins(dp(24), 0, 0, 0);
+            body.addView(column, gap);
+            column.addView(groupTitle(presetHeading == null ? "Presets" : presetHeading), new LinearLayout.LayoutParams(-2, -2));
+            row = null;
+            for (int i = 0; i < presets.size(); i++) {
+                if (i % columns == 0) {
+                    row = new LinearLayout(host.activity());
+                    // a name on two lines mustn't move its swatch down to line its text up with the others
+                    row.setBaselineAligned(false);
+                    column.addView(row, new LinearLayout.LayoutParams(-2, -2));
+                }
+                final int index = colors.size() + i;
+                String hex = presets.get(i), name = presetNames.get(i);
+                boolean on = hex.equals(chosen);
+                int rgb = Integer.parseInt(hex, 16);
+                TextView cell = text(name, 14, com.tilepad.tweakcore.Contrast.inkOn(rgb));
+                cell.setBackground(swatchDrawable(rgb, on));
+                cell.setGravity(Gravity.CENTER);
+                cell.setMaxLines(2);
+                cell.setEllipsize(android.text.TextUtils.TruncateAt.END);
+                cell.setPadding(dp(4), 0, dp(4), 0);
+                cell.setFocusable(true);
+                cell.setContentDescription(name + (on ? ", chosen" : ""));
+                cell.setOnClickListener(new View.OnClickListener() {
+                    @Override public void onClick(View v) {
+                        if (shown[0] != null) shown[0].dismiss();
+                        if (usable()) listener.chose(index);
+                    }
+                });
+                LinearLayout.LayoutParams at = new LinearLayout.LayoutParams(presetW, dp(SWATCH_DP));
+                at.setMargins(margin, margin, margin, margin);
+                row.addView(cell, at);
+            }
+        }
         android.widget.ScrollView scroll = new android.widget.ScrollView(host.activity());
         // centred in the window, which can be wider than the swatches
         scroll.addView(body, new android.widget.FrameLayout.LayoutParams(-2, -2, Gravity.CENTER_HORIZONTAL));
         shown[0] = host.choose(heading, scroll);
     }
 
+    /** A group's name over its swatches in the color window. */
+    private TextView groupTitle(String name) {
+        TextView title = text(name, 18, host.ink());
+        title.setTypeface(null, Typeface.BOLD);
+        title.setPadding(dp(SWATCH_MARGIN_DP), dp(4), dp(SWATCH_MARGIN_DP), dp(2));
+        return title;
+    }
+
     /** A rounded square of the color rgb (0xRRGGBB), outlined thickly when chosen. */
     private View swatch(int rgb, boolean chosen) {
         View v = new View(host.activity());
+        v.setBackground(swatchDrawable(rgb, chosen));
+        return v;
+    }
+
+    private GradientDrawable swatchDrawable(int rgb, boolean chosen) {
         GradientDrawable d = new GradientDrawable();
         d.setCornerRadius(dp(6));
         d.setColor(0xff000000 | rgb);
         if (chosen) d.setStroke(dp(3), host.ink());
         else d.setStroke(dp(1), (host.muted() & 0x00ffffff) | 0x80000000);
-        v.setBackground(d);
-        return v;
+        return d;
     }
 }

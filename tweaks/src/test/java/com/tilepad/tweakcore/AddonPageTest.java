@@ -156,6 +156,68 @@ public class AddonPageTest {
         assertTrue(p.reads().containsAll(java.util.Arrays.asList("eg.exa.set", "eg.exa.unit", "eg.res.exa")));
     }
 
+    static final String PRESETS = "presets.warm=FFF4E0,f4e9df\npresets.warm.names=Soft White,Moon White\n"
+        + "presets.warm.heading=Whites\n";
+
+    @Test public void presetsAreChosenAndNamedLikeThePalettesColors() throws Exception {
+        AddonPage p = AddonPage.parse("example.colors", COLORS + PRESETS);
+        assertTrue(p.problems.toString(), p.problems.isEmpty());
+        AddonPage.Control day = p.controls.get(0);
+        Properties read = new Properties();
+        assertTrue("a preset can be chosen", p.allows(day, "F4E9DF"));
+        assertEquals("Moon White", p.palette(day, read).nameOf("F4E9DF"));
+        assertEquals("the palette's own names are as they were", "Coral", p.palette(day, read).nameOf("FF7D73"));
+        assertEquals("the palette's own colors are as they were", 3, p.palette(day, read).colors.size());
+    }
+
+    @Test public void presetsComeAfterTheirPaletteUnderTheirHeading() throws Exception {
+        AddonPage p = AddonPage.parse("example.colors", COLORS + PRESETS);
+        AddonPage.Palette warm = p.palettes.get("warm"), cool = p.palettes.get("cool");
+        assertEquals(java.util.Arrays.asList("FFF4E0", "F4E9DF"), warm.presets);
+        assertEquals(java.util.Arrays.asList("Soft White", "Moon White"), warm.presetNames);
+        assertEquals("Whites", warm.presetHeading);
+        assertTrue("only the palette named", cool.presets.isEmpty());
+        AddonPage plain = AddonPage.parse("example.colors", COLORS + "presets.warm=FFF4E0\npresets.warm.names=Soft White\n");
+        assertNull("no heading: Tilepad's own", plain.palettes.get("warm").presetHeading);
+    }
+
+    @Test public void aPaletteWithoutPresetsIsAsBefore() throws Exception {
+        AddonPage p = AddonPage.parse("example.colors", COLORS);
+        AddonPage.Palette warm = p.palettes.get("warm");
+        assertTrue(warm.presets.isEmpty());
+        assertTrue(warm.presetNames.isEmpty());
+        assertNull(warm.presetHeading);
+        assertEquals("#F4E9DF", warm.nameOf("F4E9DF"));
+        assertFalse(p.allows(p.controls.get(0), "F4E9DF"));
+    }
+
+    @Test public void presetsThatDontFitAreSkippedAndNoted() throws Exception {
+        StringBuilder many = new StringBuilder(), manyNames = new StringBuilder();
+        for (int i = 0; i < 17; i++) {
+            many.append(i == 0 ? "" : ",").append(String.format(java.util.Locale.US, "1234%02X", i));
+            manyNames.append(i == 0 ? "" : ",").append("C").append(i);
+        }
+        String[][] cases = {
+            {"presets.other=FFF4E0\npresets.other.names=Soft White\n", "presets other: no palette of that name"},
+            {"presets.warm=FFF4E0\n", "presets warm: its colors have no names"},
+            {"presets.warm=FFF4E0,F4E9DF\npresets.warm.names=Soft White\n", "presets warm: its names don't match its colors"},
+            {"presets.warm=FFF4E0\npresets.warm.names=Soft White,Moon White\n", "presets warm: its names don't match its colors"},
+            {"presets.warm=FFF4E\npresets.warm.names=Soft White\n", "presets warm: its colors aren't ones Tilepad takes"},
+            {"presets.warm=FFF4E0,fff4e0\npresets.warm.names=Soft White,Again\n", "presets warm: its colors aren't ones Tilepad takes"},
+            {"presets.warm=\npresets.warm.names=\n", "presets warm: its colors aren't ones Tilepad takes"},
+            {"presets.warm=FFF4E0,FF7D73\npresets.warm.names=Soft White,Coral\n", "presets warm: #FF7D73 is one of the palette's colors already"},
+            {"presets.warm=FFF4E0,F4E9DF\npresets.warm.names=Soft White, \n", "presets warm: a color without a name"},
+            {"presets.warm=" + many + "\npresets.warm.names=" + manyNames + "\n", "presets warm: more than 16 colors"},
+        };
+        for (String[] c : cases) {
+            AddonPage p = AddonPage.parse("example.colors", COLORS + c[0]);
+            assertEquals(c[0], java.util.Collections.singletonList(c[1]), p.problems);
+            assertTrue(c[0], p.palettes.get("warm").presets.isEmpty());
+            assertEquals("the page and its palette are kept", 3, p.palettes.get("warm").colors.size());
+            assertFalse(c[0], p.allows(p.controls.get(0), "FFF4E0"));
+        }
+    }
+
     @Test public void stepperReadingsAndTemperatures() throws Exception {
         AddonPage p = AddonPage.parse("example.colors", COLORS);
         AddonPage.Control lv = p.controls.get(1), cold = p.controls.get(2);

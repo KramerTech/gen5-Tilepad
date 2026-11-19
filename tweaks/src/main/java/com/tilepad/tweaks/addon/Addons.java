@@ -165,11 +165,14 @@ public final class Addons {
                 String name = palette == null ? "#" + chosen : palette.nameOf(chosen);
                 w.colorRow(c.label, Integer.parseInt(chosen, 16), name, palette == null ? null : new Runnable() {
                     @Override public void run() {
-                        w.colorGrid("Choose " + c.label, palette.colors, palette.names, chosen, new Widgets.ChoiceListener() {
-                            @Override public void chose(int index) {
-                                if (index >= 0 && index < palette.colors.size()) set(p, c, palette.colors.get(index));
-                            }
-                        });
+                        w.colorGrid("Choose " + c.label, palette.colors, palette.names, palette.presetHeading, palette.presets,
+                            palette.presetNames, chosen, new Widgets.ChoiceListener() {
+                                @Override public void chose(int index) {
+                                    int preset = index - palette.colors.size();
+                                    if (index >= 0 && index < palette.colors.size()) set(p, c, palette.colors.get(index));
+                                    else if (preset >= 0 && preset < palette.presets.size()) set(p, c, palette.presets.get(preset));
+                                }
+                            });
                     }
                 });
                 return;

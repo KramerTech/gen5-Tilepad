@@ -23,6 +23,9 @@ import java.util.TreeMap;
  *   schema=1, title=…, help=… (\n for a new line, **bold**), results=… (the property its ctl.sh
  *   answers requests in, for actions)
  *   palette.P=RRGGBB,… (up to 64), palette.P.names=Name,… (optional, same order)
+ *   presets.P=RRGGBB,… (up to 16, none of them palette P's), presets.P.names=Name,… (same order),
+ *     presets.P.heading=… (optional): more colors for palette P, drawn under their own heading
+ *     beside its colors, each with its name (an older Tilepad doesn't read these keys)
  *   status.N.text=… with {prop} or {prop|value=word,…,*=word}; status.N.when=…; status.N.problem=1
  *   control.N.type=, with:
  *     toggle       prop, label, default, on (1), off (0)
@@ -45,7 +48,7 @@ public final class AddonPage {
     /** The most a page file may hold, in bytes; the root shell's reply holds a little more. */
     public static final int MAX_FILE = 24000;
     static final int MAX_CONTROLS = 96, MAX_STATUS = 16, MAX_OPTIONS = 16, MAX_TEXT = 4000, MAX_LABEL = 120;
-    static final int MAX_PALETTE = 64;
+    static final int MAX_PALETTE = 64, MAX_PRESETS = 16;
     /** Android 4.4's longest system property name (PROP_NAME_MAX - 1). */
     static final int MAX_PROP = 31;
 
@@ -65,16 +68,29 @@ public final class AddonPage {
         Option(String value, String label, String note) { this.value = value; this.label = label; this.note = note; }
     }
 
-    /** A named list of colors, each six hex digits, with names when the page gives them. */
+    /**
+     * A named list of colors, each six hex digits, with names when the page gives them, and its
+     * presets: a second group, each named, shown under its own heading (presetHeading, or null for
+     * Tilepad's own); empty when the page gives none.
+     */
     public static final class Palette {
-        public final List<String> colors, names;
-        Palette(List<String> colors, List<String> names) { this.colors = colors; this.names = names; }
-        /** Whether color is one of its colors. */
-        public boolean has(String color) { return colors.contains(color); }
-        /** The name shown for color: its name in this palette, or "#RRGGBB". */
+        public final List<String> colors, names, presets, presetNames;
+        public final String presetHeading;
+        Palette(List<String> colors, List<String> names) {
+            this(colors, names, Collections.<String>emptyList(), Collections.<String>emptyList(), null);
+        }
+        Palette(List<String> colors, List<String> names, List<String> presets, List<String> presetNames, String presetHeading) {
+            this.colors = colors; this.names = names;
+            this.presets = presets; this.presetNames = presetNames; this.presetHeading = presetHeading;
+        }
+        /** Whether color is one of its colors or presets. */
+        public boolean has(String color) { return colors.contains(color) || presets.contains(color); }
+        /** The name shown for color: its name in this palette or its presets, or "#RRGGBB". */
         public String nameOf(String color) {
             int i = colors.indexOf(color);
-            return i >= 0 && names != null ? names.get(i) : "#" + color;
+            if (i >= 0) return names != null ? names.get(i) : "#" + color;
+            i = presets.indexOf(color);
+            return i >= 0 ? presetNames.get(i) : "#" + color;
         }
     }
 
@@ -168,6 +184,11 @@ public final class AddonPage {
                 if (names.size() != colors.size()) { problems.add("palette " + pname + ": its names don't match its colors"); names = null; }
             }
             palettes.put(pname, new Palette(Collections.unmodifiableList(colors), names == null ? null : Collections.unmodifiableList(names)));
+        }
+        for (String key : p.stringPropertyNames()) {
+            if (!key.startsWith("presets.") || key.endsWith(".names") || key.endsWith(".heading")) continue;
+            String why = presets(p, key.substring("presets.".length()), palettes);
+            if (why != null) problems.add("presets " + key.substring("presets.".length()) + ": " + why);
         }
 
         List<Status> status = new ArrayList<>();
@@ -306,6 +327,33 @@ public final class AddonPage {
             }
         }
         controls.add(c);
+        return null;
+    }
+
+    /** Adds presets.pname's colors to palette pname; why not, or null. */
+    private static String presets(Properties p, String pname, Map<String, Palette> palettes) {
+        Palette pal = palettes.get(pname);
+        if (pal == null) return "no palette of that name";
+        String at = "presets." + pname;
+        List<String> colors = new ArrayList<>();
+        for (String c : p.getProperty(at).split(",")) {
+            String hex = c.trim().toUpperCase(Locale.US);
+            if (!hex.matches("[0-9A-F]{6}") || colors.contains(hex)) return "its colors aren't ones Tilepad takes";
+            if (pal.colors.contains(hex)) return "#" + hex + " is one of the palette's colors already";
+            colors.add(hex);
+        }
+        if (colors.size() > MAX_PRESETS) return "more than " + MAX_PRESETS + " colors";
+        String n = p.getProperty(at + ".names");
+        if (n == null) return "its colors have no names";
+        List<String> names = new ArrayList<>();
+        for (String s : n.split(",", -1)) {
+            String name = text(s, 40);
+            if (name == null) return "a color without a name";
+            names.add(name);
+        }
+        if (names.size() != colors.size()) return "its names don't match its colors";
+        String heading = text(p.getProperty(at + ".heading"), MAX_LABEL);
+        palettes.put(pname, new Palette(pal.colors, pal.names, Collections.unmodifiableList(colors), Collections.unmodifiableList(names), heading));
         return null;
     }
 

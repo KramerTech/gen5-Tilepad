@@ -792,6 +792,7 @@ is skipped, and the page says how many were skipped. Keys it doesn't know are ig
 | `results` | Needed for actions: the property the package answers them in (at most 31 characters, not a `persist.` one), e.g. `exa.res`. |
 | `palette.P` | Up to 64 colors, `RRGGBB` and comma-separated, for color controls (`P`: `a-z`, `0-9`, `_`, at most 16 characters). |
 | `palette.P.names` | Optional: a name for each color, in the same order. |
+| `presets.P` | Optional: up to 16 more colors for palette `P`, none of them already in it. The color window shows them beside the palette's colors, each named on its swatch, in columns of up to four rows. `presets.P.names` (required) names each one, and `presets.P.heading` (optional, "Presets" otherwise) heads them. A control's `default` should be one of the palette's own colors: a Tilepad without presets skips a control whose default is a preset. |
 | `status.N.text` | A line at the top of the page (a template, below). `status.N.when` is its condition, and `status.N.problem=1` draws it as a problem. |
 | `control.N.type` | One of the controls below. Each control may have a `when` condition. |
 
@@ -801,7 +802,7 @@ is skipped, and the page says how many were skipped. Keys it doesn't know are ig
 | `stepper` | `prop`, `label`, `min`, `max`, `step` (`1`), `default`, and how the number reads: `unit` (after it), `zero` (a word at `min`) or `of` (as "N / of"). |
 | `temperature` | `prop`, `label`, `min`, `max`, `default`, in °C, stored with one decimal. It's shown and stepped in whole degrees of the unit that `unitprop` names: °C while that property reads `C`, otherwise °F. |
 | `choices` | `prop`, `default`, `option.M=value\|label\|note` (two to 16; the note shows under the chosen one), `label` (a note above), `layout` (`vertical` or `horizontal`; without it, side by side only when every label fits). |
-| `color` | `prop`, `label`, `default` (`RRGGBB`, one of a palette's colors), `palette`: a palette's name, or a template that gives one. The row shows the color and its name; a tap opens the palette's swatches, 48 dp each, 16 to a row. |
+| `color` | `prop`, `label`, `default` (`RRGGBB`, one of a palette's colors), `palette`: a palette's name, or a template that gives one. The row shows the color and its name; a tap opens the palette's swatches, 48 dp each, 16 to a row, and its presets. |
 | `action` | `label`, `request` (the verb sent to `ctl.sh req`), optional `confirm.title`, `confirm.text` and `confirm.button` to ask first, `result.WORD=text` for each answer, `timeout` (seconds, 15, at most 120). |
 | `heading` | `label`: a group's name. |
 | `note` | `text` (a template), and `problem=1` to draw it as a problem. |
