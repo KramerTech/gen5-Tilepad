@@ -332,6 +332,7 @@ images:
 | Hyundai V016.010.260903 CE | an IONIQ 6 compatibility log | vehicle and projection code identical to Hyundai V016's; the apps differ from it as CE V015's do from V015 (below) |
 | Hyundai V012.010.240822 | an IONIQ 5 compatibility log | every call Tilepad makes compared with V015's; heater codes per release (below) |
 | Hyundai V014.010.250818 | an IONIQ 5 compatibility log | every call Tilepad makes compared with V012's and V015's: V012's heater codes, V015's key-action codes (below) |
+| Hyundai V016.010.260903 HYUNDAI | a Palisade compatibility log | Hyundai's non-EV image at V016: code identical to Hyundai V016's apart from `MobisBuildFeature`'s flags; V016's recipes (below) |
 
 `Firmware.java` lists each release's `automotive.odex`/`automotive-service.odex` (vehicle tweaks),
 `framework.odex`/`framework2.odex` (projection) and `HKMC_TAppEV3.apk` (Charge-Away) hashes; a pair
@@ -451,6 +452,17 @@ encoder and drive mode classes) plus a charging-fault pop-up whose only differen
 Patched, the consent and OSD classes disassemble identically to V016's, and the nav class differs
 only in the renamed callees its stock copy already had. The climate variant and options are the
 IONIQ 5's, and the key layout has the track keys at 34/35 and ★ at 43.
+
+For Hyundai V016.010.260903 HYUNDAI (issue #54, a 2024 US Palisade, `wp_daudioplus_lx2pe_us`;
+`build.prop` names the image `HYUNDAI.USA.0000.V016.010.260903`, the DN8 Sonata's image at V016):
+compared with Hyundai V016. Every deodexed file has the same code, with names masked or not, apart
+from framework2's `MobisBuildFeature`, whose `USE_NIGHT_ONLY`, `USE_ECOGUI_COMMON` and
+`USE_NEW_GUI_4TH_HYUNDAI` flags are set as on the DN8's V015 image. All 1,561 transaction entries
+match V016's. Unlike the DN8's V015 image, its SystemUI and RightScreenHome are V016's code, so
+`consent-base-v016` and `right-base-v016` have V016's offsets and bytes, and patched, every method
+disassembles identically to V016's. The DATC reports another climate (Variant 0x2c; 0x89 0x04 0x2b
+0x08 0x00, with rear controls), so Climate Sync and Driver Only stay unavailable. The key layout has
+the track keys at 34/35 and ★ at 43.
 
 For Hyundai V012 (an IONIQ 5 log, 2024): an older build, with renamed obfuscated members throughout,
 so each call was compared on its own. Every code Tilepad uses on IDATCService, IBCMService,

@@ -115,6 +115,13 @@ final class Firmware {
             "12de058f5c13d25f5211efa5b2cb43665c5881e78c1b215ed5d98ed69edd6543",
             "7562134f7d9f87a25de7f8068db49d0c0d253337e9eab68f8ed818dc055ba17d",
             "a031c36946706c0619012776b1822bc8dcd7dc336fd79001b07eb5e0fc5e1ce8"),
+        // HYUNDAI.USA, Hyundai's image for its other models (the DN8 entry's at V015), here the Palisade's.
+        new Release("Hyundai USA V016.010.260903 HYUNDAI", USM_V015,
+            "1cc7060cbead8ca5ebbe72dad3570b9d27aa37e23803afe89b96d1f10a4611b6",
+            "8b458b8fbc90ce79fd36fbde40e6d5e9638d754d18f935124e85c1bc628619f1",
+            "31b669a42eca2f62a031c120f8cf0167e46ff105112026c66af5fc6694eef027",
+            "901a56dfb81c0720bb05343822e95e6646e9f1361f41e4b6a08f47d4c3d649d1",
+            "db7953205ac21af797eda3247e2f528b4c6e220a53eeedbd5883b97990744534"),
     };
     /** The supported release with these vehicle interfaces (automotive.odex and automotive-service.odex), or null. */
     static Release vehicleRelease(String automotive, String automotiveService) {

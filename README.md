@@ -57,7 +57,8 @@ is the one set to HOME); the same goes for its action.
 Some tiles only appear if the car has the hardware for them. On a gas car there is no Precondition
 tile, and on a head unit without a Wi-Fi module there is no Wi-Fi tile. Preconditioning works on
 the US and Korean IONIQ 5 and EV6 and on the US IONIQ 6, on the firmware versions it has been
-checked against. On other firmware the tile won't send commands.
+checked against and on later builds of them with the same code. On other firmware the tile won't
+send commands.
 
 ## Tiles
 
@@ -231,8 +232,9 @@ firmware image. The supported images are USA Hyundai `V012.010.240822`, `V014.01
 `V015.012.260507` and `V016.010.260903`, Canadian Hyundai `V015.011.260206`, USA Kia
 `V015.012.260507`, Canadian Kia `V015.011.260206`, USA Hyundai `V015.012.260507 DN8`, USA Kia
 `V015.012.260507 KIA` (the `KIA.USA` image shared by the Niro EV and Sorento), and USA Hyundai
-`V015.012.260507 CE` and `V016.010.260903 CE` (the IONIQ 6's images). These cover the IONIQ 5,
-IONIQ 6, EV6, Sonata, Niro EV and Sorento, for example.
+`V015.012.260507 CE` and `V016.010.260903 CE` (the IONIQ 6's images), and USA Hyundai
+`V016.010.260903 HYUNDAI` (the Palisade's). These cover the IONIQ 5, IONIQ 6, EV6, Sonata, Palisade,
+Niro EV and Sorento, for example.
 Heaters that a trim doesn't have are skipped. How each tweak works, and what it changes, is
 explained in [docs/TWEAKS.md](docs/TWEAKS.md).
 

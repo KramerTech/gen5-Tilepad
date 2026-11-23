@@ -109,6 +109,8 @@ RELEASES = {
     # ECOHMCSE: Hyundai's separate EV image for the IONIQ 6 (CE).
     "ce-v015": {"RightScreenHome": "cc1bd5131bee221ea3b5ed24a1c1d31a", "SystemUI": "d842714d6066f3985bd44c0e6a8b7da0"},
     "ce-v016": {"RightScreenHome": "e326ce15730514ee1609e336804c3038", "SystemUI": "fb50f031bb3fdd188a9227ca64b6d649"},
+    # HYUNDAI.USA V016 (the Palisade LX2): DN8's image at V016, the same code as V016's.
+    "base-v016": {"RightScreenHome": "ea0e68dd35b21ee611ac6fba1c4c44d7", "SystemUI": "7b143ed53768e8ecdfc2403ec1e60282"},
 }
 # Obfuscated names, the nav branches (code units into f(ZZ)Z, the branch, the goto it becomes),
 # and start()'s consent call with the register holding `this`. V015, V016 and Kia V015 share them;

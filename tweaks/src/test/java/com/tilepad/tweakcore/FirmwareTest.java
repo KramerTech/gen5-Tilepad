@@ -7,7 +7,7 @@ public class FirmwareTest {
     private static final Firmware.Release V015 = Firmware.SUPPORTED[0], V016 = Firmware.SUPPORTED[1], KIA_V015 = Firmware.SUPPORTED[2],
         V012 = Firmware.SUPPORTED[3], V015_CA = Firmware.SUPPORTED[4], KIA_V015_CA = Firmware.SUPPORTED[5],
         DN8 = Firmware.SUPPORTED[6], KIA_BASE = Firmware.SUPPORTED[7], CE = Firmware.SUPPORTED[8],
-        CE_V016 = Firmware.SUPPORTED[9], V014 = Firmware.SUPPORTED[10];
+        CE_V016 = Firmware.SUPPORTED[9], V014 = Firmware.SUPPORTED[10], BASE_V016 = Firmware.SUPPORTED[11];
     @Test public void acceptsEachSupportedReleasesFiles() {
         for (Firmware.Release r : Firmware.SUPPORTED) {
             assertTrue(r.name, Firmware.vehicle(r.automotive, r.automotiveService));
@@ -52,6 +52,10 @@ public class FirmwareTest {
         assertFalse(Firmware.vehicle(V015.automotive, V014.automotiveService));
         assertFalse(Firmware.projection(V014.framework, V015.framework2));
         assertFalse(Firmware.projection(V012.framework, V014.framework2));
+        assertFalse(Firmware.vehicle(BASE_V016.automotive, V016.automotiveService));
+        assertFalse(Firmware.vehicle(DN8.automotive, BASE_V016.automotiveService));
+        assertFalse(Firmware.projection(V016.framework, BASE_V016.framework2));
+        assertFalse(Firmware.projection(BASE_V016.framework, DN8.framework2));
         assertFalse(Firmware.evSettings("0000"));
     }
     @Test public void starHoldCodesComeFromTheMatchedRelease() {
