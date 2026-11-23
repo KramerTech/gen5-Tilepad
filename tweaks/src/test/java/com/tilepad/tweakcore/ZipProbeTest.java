@@ -7,13 +7,16 @@ import java.util.zip.CRC32;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 
 public class ZipProbeTest {
+    @Rule public TemporaryFolder temp = new TemporaryFolder();
     private File dir;
     private int reads;
 
-    @Before public void setUp() throws Exception { dir = java.nio.file.Files.createTempDirectory("zip-probe").toFile(); }
+    @Before public void setUp() throws Exception { dir = temp.newFolder("zip-probe"); }
 
     @Test public void aPackageIsReadFromItsDescriptorWithoutReadingTheRest() throws Exception {
         File zip = new File(dir, "dashcam.zip");
