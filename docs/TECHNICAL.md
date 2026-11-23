@@ -169,6 +169,7 @@ ships in a release, and no firmware files are committed.
 | `RootShell` | `nemesis root -c` (what NEMESIS Manager uses) |
 | `nemesis-package/bin/wifi-client.sh` | root side of *turn on Wi-Fi* (run through `RootShell`) |
 | `tweaks/` | standalone Android settings APK, checkbox rows, help and option pages |
+| `tweaks/…/addon/`, `AddonPage`, `AddonCtl`, `PackageFolder` | pages other packages describe in their `tilepad.properties`: the parser, the checked root commands, and the views (docs/TWEAKS.md) |
 | `tweaks-core/` | shared in-process listeners, OEM adapters, config and reversible patch transactions |
 | `nemesis-package/tweaks/patches/` | tiny, exact-file-gated recipes; no OEM APK/ODEX shipped |
 | `tools/compat/` | compatibility-log checks (development only) |

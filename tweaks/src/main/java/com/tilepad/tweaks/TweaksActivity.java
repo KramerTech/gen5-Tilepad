@@ -21,14 +21,20 @@ import com.tilepad.tweakcore.Config;
 import com.tilepad.tweakcore.Platform;
 import com.tilepad.tweakcore.InstallScreen;
 import com.tilepad.tweakcore.SelfUpdate;
+import com.tilepad.tweaks.addon.Addons;
+import com.tilepad.tweaks.addon.PageHost;
 import java.util.*;
 import java.util.concurrent.*;
 
 /** Three independently scrolling panes, using the installed EV Settings assets when available. */
-public final class TweaksActivity extends Activity {
+public final class TweaksActivity extends Activity implements PageHost {
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private final Handler main = new Handler(Looper.getMainLooper());
     private Properties values = new Properties();
+    /** Pages that installed packages describe for themselves. */
+    private final Addons addons = new Addons(this);
+    /** The header's state word ("Saving…"), updated in place by renderInPlace. */
+    private TextView stateView;
     /** unavailable.<id> from one background compatibility audit after the settings load. */
     private final Properties audit = new Properties();
     private boolean audited;
@@ -67,18 +73,25 @@ public final class TweaksActivity extends Activity {
     private String removing;
     private final SettingsEdits edits = new SettingsEdits();
     private final Runnable saveFlush = new Runnable() { @Override public void run() { flushEdits(); } };
-    private int selected, bg, ink, muted, line, accent = 0xff00b5de;
-    private TweakInfo[] entries;
+    /** The left-pane entry shown, by id: package pages come and go with their packages. */
+    private String selected;
+    private int bg, ink, muted, line, accent = 0xff00b5de;
     /** A left-pane entry was just chosen: the next render scrolls it fully into view. */
     private boolean revealSelection;
     /** Problem text: the day red, and a lighter red at night, 4.5:1 or better on either page and in dialogs. */
     private int problemInk = 0xffb54b30;
+    /** The car can be plugged in (Platform.pluginVehicle); fixed for the car, so read once. Charge-Away shows only then. */
+    private boolean plugin;
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
-        // Fixed for the car, so the saved index keeps pointing at the same entry.
-        entries = TweakInfo.rail(Platform.pluginVehicle());
-        selected = getPreferences(0).getInt("selected", 0);
-        if (selected < 0 || selected >= entries.length) selected = 0;
+        plugin = Platform.pluginVehicle();
+        selected = getPreferences(0).getString("selectedId", null);
+        if (selected == null) {
+            // Saved by its place in the left pane before package pages could come and go.
+            TweakInfo[] fixed = TweakInfo.rail(plugin);
+            int at = getPreferences(0).getInt("selected", 0);
+            selected = fixed[at >= 0 && at < fixed.length ? at : 0].id;
+        }
         preview = (getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0
             && (Build.HARDWARE.contains("ranchu") || Build.HARDWARE.contains("goldfish"))
             && getIntent().getBooleanExtra("design_preview", false);
@@ -88,15 +101,24 @@ public final class TweaksActivity extends Activity {
         try { stock = getPackageManager().getResourcesForApplication("com.hkmc.daudio.app.ev3"); } catch (Exception ignored) { }
         edits.reset(values); render(); refresh();
     }
-    @Override protected void onResume() { super.onResume(); if (ready && !busy && !edits.hasWork()) refresh(); main.post(liveRefresh); }
+    @Override protected void onResume() { super.onResume(); if (ready && !busy && !edits.hasWork()) refresh(); if (!preview) addons.load(); main.post(liveRefresh); }
     @Override public void onConfigurationChanged(Configuration config) { super.onConfigurationChanged(config); render(); }
     @Override protected void onPause() {
         main.removeCallbacks(saveFlush); main.removeCallbacks(liveRefresh);
         if (edits.hasWork()) flushEdits();
         super.onPause();
     }
-    @Override protected void onDestroy() { hideInstallPanel(); main.removeCallbacksAndMessages(null); worker.shutdown(); super.onDestroy(); }
-    private int dp(float n) { return Math.round(n * getResources().getDisplayMetrics().density); }
+    @Override protected void onDestroy() { hideInstallPanel(); main.removeCallbacksAndMessages(null); worker.shutdown(); addons.close(); super.onDestroy(); }
+    @Override public int dp(float n) { return Math.round(n * getResources().getDisplayMetrics().density); }
+    // What the package pages draw with (PageHost).
+    @Override public Activity activity() { return this; }
+    @Override public LinearLayout controls() { return controls; }
+    @Override public int ink() { return ink; }
+    @Override public int muted() { return muted; }
+    @Override public boolean ready() { return ready; }
+    @Override public boolean busy() { return busy; }
+    @Override public Handler main() { return main; }
+    @Override public Drawable stockDrawable(String name, Drawable fallback) { return drawable(name, fallback); }
     private int stockId(String type, String name) { return stock == null ? 0 : stock.getIdentifier(name, type, "com.hkmc.daudio.app.ev3"); }
     private int color(String name, int fallback) {
         try { int id = stockId("color", name); return id == 0 ? fallback : stock.getColor(id); } catch (Exception ignored) { return fallback; }
@@ -104,7 +126,7 @@ public final class TweaksActivity extends Activity {
     private Drawable drawable(String name, Drawable fallback) {
         try { int id = stockId("drawable", name); return id == 0 ? fallback : stock.getDrawable(id); } catch (Exception ignored) { return fallback; }
     }
-    private TextView text(String label, float size, int color) {
+    @Override public TextView text(String label, float size, int color) {
         TextView v = new TextView(this); v.setText(styled(label)); v.setTextColor(color); v.setTextSize(size);
         v.setGravity(Gravity.CENTER_VERTICAL); return v;
     }
@@ -121,7 +143,7 @@ public final class TweaksActivity extends Activity {
         s.setScrollbarFadingEnabled(false); return s;
     }
     private LinearLayout column() { LinearLayout v = new LinearLayout(this); v.setOrientation(LinearLayout.VERTICAL); return v; }
-    private void render() {
+    @Override public void render() {
         values = edits.display();
         // Fetched per render, so a day/night switch picks up the matching art.
         try { buttons = getPackageManager().getResourcesForApplication(BUTTONS); } catch (Exception e) { buttons = null; }
@@ -140,8 +162,8 @@ public final class TweaksActivity extends Activity {
         FrameLayout header = new FrameLayout(this);
         TextView title = text("Tweaks and Settings", 28, ink); title.setTypeface(null, Typeface.BOLD); title.setGravity(Gravity.CENTER);
         header.addView(title, new FrameLayout.LayoutParams(-1, -1));
-        String notice = preview ? "Preview" : edits.hasWork() ? "Saving…" : busy ? (capturingHome || savingReport ? "Saving…" : step == Step.CHECKING ? "Checking…" : removing != null ? "Removing…" : updating() ? "Updating…" : "Reading settings…") : "true".equals(values.getProperty("restart")) ? "Restart required" : "";
-        TextView state = text(notice, 16, ink); state.setPadding(dp(12), 0, dp(22), 0); state.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
+        TextView state = text(notice(), 16, ink); state.setPadding(dp(12), 0, dp(22), 0); state.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
+        stateView = state;
         header.addView(state, new FrameLayout.LayoutParams(-1, -1));
         root.addView(header, new LinearLayout.LayoutParams(-1, dp(60))); divider(root);
         LinearLayout panes = new LinearLayout(this); root.addView(panes, new LinearLayout.LayoutParams(-1, 0, 1));
@@ -150,33 +172,37 @@ public final class TweaksActivity extends Activity {
         float scale = Math.min(1f, width / 1278f);
         railScroll = scroller("Tweak names"); LinearLayout rail = column(); railScroll.addView(rail);
         panes.addView(railScroll, new LinearLayout.LayoutParams(dp(250 * scale), -1)); verticalDivider(panes);
-        for (int i = 0; i < entries.length; i++) {
-            final int index = i; TweakInfo item = entries[i];
-            TextView tab = text(item.railTitle(), 26, i == selected ? accent : ink);
+        List<TweakInfo> entries = rail();
+        final int at = TweakInfo.find(entries, selected);
+        selected = entries.get(at).id;
+        for (int i = 0; i < entries.size(); i++) {
+            final TweakInfo item = entries.get(i);
+            TextView tab = text(item.railTitle(), 26, i == at ? accent : ink);
             // Support and Package Manager aren't tweaks: a mark sets each apart.
             if (item == TweakInfo.SUPPORT || item == TweakInfo.UPDATES) {
-                int c = i == selected ? accent : ink;
+                int c = i == at ? accent : ink;
                 tab.setCompoundDrawablesWithIntrinsicBounds(item == TweakInfo.SUPPORT ? helpMark(c, dp(28)) : updateMark(c, dp(28)), null, null, null);
                 tab.setCompoundDrawablePadding(dp(12));
             }
             tab.setPadding(dp(14), dp(10), dp(14), dp(10)); tab.setMinHeight(dp(72));
-            if (i == selected) selectedTab[0] = tab;
-            tab.setSelected(i == selected); tab.setFocusable(true); tab.setClickable(true);
+            if (i == at) selectedTab[0] = tab;
+            tab.setSelected(i == at); tab.setFocusable(true); tab.setClickable(true);
             // The capture or update belongs to this pane: the others wait until it finishes.
-            if ((savingReport || updating()) && i != selected) { tab.setEnabled(false); tab.setAlpha(.4f); }
-            tab.setBackground(drawable("bt_list_selector", selector(i == selected)));
-            tab.setContentDescription(item.railTitle() + (i == selected ? ", selected" : ""));
+            if ((savingReport || updating()) && i != at) { tab.setEnabled(false); tab.setAlpha(.4f); }
+            tab.setBackground(drawable("bt_list_selector", selector(i == at)));
+            tab.setContentDescription(item.railTitle() + (i == at ? ", selected" : ""));
             tab.setOnClickListener(new View.OnClickListener() { @Override public void onClick(View v) {
-                if (selected == index || savingReport || updating()) return;
-                selected = index; reportNotice = null; if (ready) error = null; getPreferences(0).edit().putInt("selected", selected).apply();
+                if (selected.equals(item.id) || savingReport || updating()) return;
+                selected = item.id; reportNotice = null; if (ready) error = null;
+                getPreferences(0).edit().putString("selectedId", item.id).remove("selected").apply();
                 controlScroll.scrollTo(0, 0); helpScroll.scrollTo(0, 0); revealSelection = true; render();
             } });
             rail.addView(tab, new LinearLayout.LayoutParams(-1, -2)); divider(rail);
         }
         controlScroll = scroller("Selected tweak controls"); controls = column(); controls.setPadding(0, 0, 0, dp(24)); controlScroll.addView(controls);
         panes.addView(controlScroll, new LinearLayout.LayoutParams(dp(600 * scale), -1)); verticalDivider(panes);
-        final TweakInfo item = entries[selected];
-        if (item == TweakInfo.SUPPORT) support(); else if (item == TweakInfo.UPDATES) packageManager(); else tweak(item);
+        final TweakInfo item = entries.get(at);
+        if (item == TweakInfo.SUPPORT) support(); else if (item == TweakInfo.UPDATES) packageManager(); else if (addons.owns(item.id)) addons.draw(item.id); else tweak(item);
         helpScroll = scroller("Feature explanation"); LinearLayout help = column(); helpScroll.addView(help);
         panes.addView(helpScroll, new LinearLayout.LayoutParams(0, -1, 1));
         TextView description = text(item.help, 24, ink); description.setGravity(Gravity.TOP); description.setLineSpacing(dp(3), 1f);
@@ -189,6 +215,12 @@ public final class TweaksActivity extends Activity {
             if (reveal) y = Math.max(Math.min(y, selectedTab[0].getTop()), selectedTab[0].getBottom() - railView.getHeight());
             railView.scrollTo(0, y); controlView.scrollTo(0, controlY); helpView.scrollTo(0, helpY);
         } });
+    }
+    /** The left pane's entries: the tweaks, the pages of installed packages (none in the preview), Support and Package Manager. */
+    private List<TweakInfo> rail() {
+        List<TweakInfo> pages = new ArrayList<>();
+        if (!preview) for (Addons.Entry e : addons.entries()) pages.add(TweakInfo.addon(e.id, e.title, e.help));
+        return TweakInfo.rail(pages, plugin);
     }
     /** The middle pane for a tweak: its checkbox, state, compatibility issue and settings. */
     private void tweak(TweakInfo item) {
@@ -348,7 +380,7 @@ public final class TweaksActivity extends Activity {
     /** How the last install went, in a window, once per install, within three days of it. */
     private final Runnable lastInstall = new Runnable() { @Override public void run() {
         String started = values.getProperty("update.started", "0");
-        if (isFinishing() || entries[selected] != TweakInfo.UPDATES || step != Step.NONE || !values.getProperty("update.state", "").equals("done")
+        if (isFinishing() || !TweakInfo.UPDATES.id.equals(selected) || step != Step.NONE || !values.getProperty("update.state", "").equals("done")
             || started.equals(getPreferences(0).getString("installShown", ""))) return;
         getPreferences(0).edit().putString("installShown", started).apply();
         long at = 0;
@@ -1009,6 +1041,7 @@ public final class TweaksActivity extends Activity {
             if (!now.equals(live.getProperty(id))) { live.setProperty(id, now); changed = true; }
         }
         if (changed && ready) render();
+        if (ready && addons.owns(selected)) addons.tick();
         main.postDelayed(this, 2000);
     } };
     private String liveStatus(String id) { return live.getProperty(id, values.getProperty("status." + id, "")); }
@@ -1036,9 +1069,27 @@ public final class TweaksActivity extends Activity {
         row.addView(text, new LinearLayout.LayoutParams(0, -2, 1));
         controls.addView(row);
     }
-    private void note(String label, boolean problem) {
-        TextView v = text(label, problem ? 20 : 22, problem ? problemInk : muted); int spacing = entries[selected].id.equals("dst") && !problem ? 7 : 16;
-        v.setPadding(dp(30), dp(spacing), dp(24), dp(spacing)); controls.addView(v);
+    /** The header's state word: "Saving…", "Checking…", "Updating…", "Reading settings…", "Restart required" or nothing. */
+    private String notice() {
+        return preview ? "Preview" : edits.hasWork() ? "Saving…" : busy ? (capturingHome || savingReport ? "Saving…" : step == Step.CHECKING ? "Checking…" : removing != null ? "Removing…" : updating() ? "Updating…" : "Reading settings…") : "true".equals(values.getProperty("restart")) ? "Restart required" : "";
+    }
+    /**
+     * Redraws only a package page's column (and the header's state word) inside the views on screen.
+     * render() replaces the whole window and puts the scroll position back a frame later, which
+     * shows as a jump; this keeps the scroll position, so a change only changes what changed.
+     */
+    @Override public void renderInPlace() {
+        if (controls == null || stateView == null) { render(); return; }
+        // no package page on screen: nothing of one to redraw
+        if (!addons.owns(selected)) return;
+        values = edits.display();
+        stateView.setText(notice());
+        controls.removeAllViews();
+        addons.draw(selected);
+    }
+    @Override public TextView note(String label, boolean problem) {
+        TextView v = text(label, problem ? 20 : 22, problem ? problemInk : muted); int spacing = "dst".equals(selected) && !problem ? 7 : 16;
+        v.setPadding(dp(30), dp(spacing), dp(24), dp(spacing)); controls.addView(v); return v;
     }
     private String thresholdLabel() {
         Config config = new Config(values); double c = config.number("threshold") / 10.0, f = c * 9 / 5 + 32;
@@ -1230,6 +1281,13 @@ public final class TweaksActivity extends Activity {
             Button b = dialog.getButton(which); b.setText(label == null ? "" : label); b.setVisibility(label == null ? View.GONE : View.VISIBLE);
         }
     }
+    @Override public void confirm(String heading, String message, String confirm, final Runnable then) {
+        dialog(heading, words(message)).setPositiveButton(confirm, new DialogInterface.OnClickListener() {
+            @Override public void onClick(DialogInterface d, int which) { then.run(); }
+        }).setNegativeButton("Cancel", null).show();
+    }
+    @Override public void tell(String heading, String message) { dialog(heading, words(message)).setPositiveButton("Close", null).show(); }
+    @Override public android.app.Dialog choose(String heading, View body) { return dialog(heading, body).setNegativeButton("Cancel", null).show(); }
     /** A dialog's message. */
     private View words(String message) {
         ScrollView scroll = new ScrollView(this);
@@ -1237,7 +1295,7 @@ public final class TweaksActivity extends Activity {
         scroll.addView(v);
         return scroll;
     }
-    private Button button(String label, String description, View.OnClickListener click) {
+    @Override public Button button(String label, String description, View.OnClickListener click) {
         Button b = new Button(this); b.setText(label); b.setTextColor(ink); b.setTextSize(26); b.setAllCaps(false); b.setBackground(buttonBackground()); b.setContentDescription(description); enable(b, ready && !busy); b.setOnClickListener(click); return b;
     }
     /** A button showing a drawn mark (bin, back) instead of words. */
@@ -1261,7 +1319,7 @@ public final class TweaksActivity extends Activity {
         controls.addView(row);
     }
     /** A full-width action button in the middle pane, inset like the stock ones rather than filling its row. */
-    private void action(Button b) {
+    @Override public void action(Button b) {
         LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(-1, dp(60));
         p.setMargins(dp(30), dp(10), dp(30), dp(12));
         controls.addView(b, p);
@@ -1298,7 +1356,7 @@ public final class TweaksActivity extends Activity {
     }
     /** Disabled buttons fade out: the stock background doesn't change when disabled. */
     private static void enable(Button b, boolean enabled) { b.setEnabled(enabled); b.setAlpha(enabled ? 1f : .4f); }
-    private StateListDrawable selector(boolean selected) {
+    @Override public StateListDrawable selector(boolean selected) {
         StateListDrawable d = new StateListDrawable(); d.addState(new int[]{android.R.attr.state_pressed}, new ColorDrawable(0x3300b5de));
         d.addState(new int[]{android.R.attr.state_focused}, new ColorDrawable(0x2200b5de)); d.addState(new int[]{}, new ColorDrawable(selected ? 0x1100b5de : 0x00000000)); return d;
     }
@@ -1411,6 +1469,6 @@ public final class TweaksActivity extends Activity {
             @Override public int getOpacity() { return PixelFormat.TRANSLUCENT; }
         };
     }
-    private void divider(LinearLayout parent) { View v = new View(this); v.setBackgroundColor(line); parent.addView(v, new LinearLayout.LayoutParams(-1, dp(1))); }
+    @Override public void divider(LinearLayout parent) { View v = new View(this); v.setBackgroundColor(line); parent.addView(v, new LinearLayout.LayoutParams(-1, dp(1))); }
     private void verticalDivider(LinearLayout parent) { View v = new View(this); v.setBackgroundColor(line); parent.addView(v, new LinearLayout.LayoutParams(dp(1), -1)); }
 }

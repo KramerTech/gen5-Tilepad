@@ -755,6 +755,83 @@ stock-to-patched relationship and paired APK before creating ownership records;
 general foreign patches remain refused. See
 [the migration notes](../tools/tweaks/migration/README.md).
 
+## Pages from other packages
+
+Another NEMESIS package can add its own page to Tweaks and Settings without any Tilepad code: it
+ships a page file, `tilepad.properties`, and a command script, `bin/ctl.sh`, in its folder,
+`/data/nemesis/apps/<id>/`. Its page is listed in the left pane after the tweaks, under the title
+the file gives, with the file's help on the right. The page file is data only. Tilepad draws it with
+its own controls, reads what it shows from system properties, and changes a setting or sends a
+request only through the package's `bin/ctl.sh`. [`examples/package-page/tilepad.properties`](examples/package-page/tilepad.properties)
+uses every kind of control.
+
+Any app can write to `/data/nemesis/apps`, so Tilepad trusts a package's folder only from inside it,
+in the root shell. There the folder, `bin`, `bin/ctl.sh` and the page file must each be root's, a
+folder or a plain file (not a link), and writable by no one else. Otherwise nothing in the folder
+runs: the page isn't listed, and if the check fails after the page was read, a change on it says so
+in a window. Being inside the folder first ties the check to the folder the command then uses.
+Tilepad's own folder is never read as a package page, and the design preview lists no package
+pages.
+
+**When it's read.** Each time Tweaks and Settings opens, Tilepad lists the folders that have both
+files and reads each page file, as root, after the check. Until that finishes the left pane shows the
+pages from the last visit. While a page is on screen, the properties it shows are read again every
+2 s, without root, and the page is redrawn only if one changed. A change shows at once and is sent
+in tap order on a worker of its own. If `ctl.sh` refuses it, a window says so and the page shows the
+setting as it is.
+
+**The file.** It's a Java properties file of at most 24,000 bytes, read as schema 1. Numbered
+entries (`status.N`, `control.N`, `option.N`) are taken in number order. An entry Tilepad can't use
+is skipped, and the page says how many were skipped. Keys it doesn't know are ignored.
+
+| Key | What it is |
+| --- | --- |
+| `schema` | `1`. A page with another schema isn't shown. |
+| `title` | The page's name in the left pane (required, at most 120 characters). |
+| `help` | The text on the right. `\n` starts a new line, and `**words**` are bold. |
+| `results` | Needed for actions: the property the package answers them in (at most 31 characters, not a `persist.` one), e.g. `exa.res`. |
+| `palette.P` | Up to 64 colors, `RRGGBB` and comma-separated, for color controls (`P`: `a-z`, `0-9`, `_`, at most 16 characters). |
+| `palette.P.names` | Optional: a name for each color, in the same order. |
+| `presets.P` | Optional: up to 16 more colors for palette `P`, none of them already in it. The color window shows them beside the palette's colors, each named on its swatch, in columns of up to four rows. `presets.P.names` (required) names each one, and `presets.P.heading` (optional, "Presets" otherwise) heads them. A control's `default` should be one of the palette's own colors: a Tilepad without presets skips a control whose default is a preset. |
+| `status.N.text` | A line at the top of the page (a template, below). `status.N.when` is its condition, and `status.N.problem=1` draws it as a problem. |
+| `control.N.type` | One of the controls below. Each control may have a `when` condition. |
+
+| Control | Keys |
+| --- | --- |
+| `toggle` | `prop`, `label`, `default`, `on` (`1`), `off` (`0`): a checkbox row. |
+| `stepper` | `prop`, `label`, `min`, `max`, `step` (`1`), `default`, and how the number reads: `unit` (after it), `zero` (a word at `min`) or `of` (as "N / of"). |
+| `temperature` | `prop`, `label`, `min`, `max`, `default`, in °C, stored with one decimal. It's shown and stepped in whole degrees of the unit that `unitprop` names: °C while that property reads `C`, otherwise °F. |
+| `choices` | `prop`, `default`, `option.M=value\|label\|note` (two to 16; the note shows under the chosen one), `label` (a note above), `layout` (`vertical` or `horizontal`; without it, side by side only when every label fits). |
+| `color` | `prop`, `label`, `default` (`RRGGBB`, one of a palette's colors), `palette`: a palette's name, or a template that gives one. The row shows the color and its name; a tap opens the palette's swatches, 48 dp each, 16 to a row, and its presets. |
+| `action` | `label`, `request` (the verb sent to `ctl.sh req`), optional `confirm.title`, `confirm.text` and `confirm.button` to ask first, `result.WORD=text` for each answer, `timeout` (seconds, 15, at most 120). |
+| `heading` | `label`: a group's name. |
+| `note` | `text` (a template), and `problem=1` to draw it as a problem. |
+
+A setting's `prop` must be a `persist.` property of at most 31 characters, and each property belongs
+to one control. Until it's set, a control shows its `default`. A setting is sent to `ctl.sh` by its
+`key`, which defaults to what follows the property's second word (`persist.exa.lv` is `lv`,
+`persist.exa.seat.hb` is `seat.hb`); `key=` sets another, and a property without a second word
+needs it.
+
+A **condition** (`when`) is clauses joined by ` and `: `prop = v`, `prop != v`, `prop in a,b,c`,
+`prop set` or `prop unset`. An unset setting counts as its default. A **template** is text with
+`{prop}` places, or `{prop|value=word,…,*=word}` to show a word for a value (`*` covers the rest; a
+value without a word shows as itself).
+
+**`bin/ctl.sh`.** Tilepad runs it as root, from the package's folder, with arguments it has checked:
+keys are `a-z`, `0-9`, `_` and `.`, and values are at most 64 of `A-Z`, `a-z`, `0-9` and `. _ : + -`,
+always one the page allows for that control.
+
+- `sh ./bin/ctl.sh set <key> <value>` saves a setting. Exit 0 when it's saved. Otherwise print an
+  `error=` line: `bad_value`, `unknown_name` or `setprop_failed` each get their own message, and
+  anything else says the command didn't finish.
+- `sh ./bin/ctl.sh req <verb>` starts a request and prints `seq=<n>`, a number larger than any
+  before. When it's done, the package sets its `results` property to `<verb>:<seq>:<word>`. Tilepad waits up
+  to the action's timeout, then shows the action's `result.<word>` text, or the word itself. One
+  request runs at a time.
+
+A command still running after 30 s is stopped.
+
 ## Build and validation
 
 Normal release pipeline (both APKs, unit tests, lint, signing and bundles):

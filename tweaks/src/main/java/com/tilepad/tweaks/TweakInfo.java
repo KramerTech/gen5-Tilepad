@@ -145,5 +145,21 @@ final class TweakInfo {
         list.add(UPDATES);
         return list.toArray(new TweakInfo[0]);
     }
+    /** A left-pane entry for a page an installed package describes for itself. */
+    static TweakInfo addon(String id, String title, String help) { return new TweakInfo(id, title, "", false, false, help); }
+    /** The left pane as shown: rail(plugin), with the installed packages' pages after the tweaks, before Support. */
+    static java.util.List<TweakInfo> rail(java.util.List<TweakInfo> pages, boolean plugin) {
+        java.util.List<TweakInfo> list = new java.util.ArrayList<>();
+        for (TweakInfo t : rail(plugin)) {
+            if (t == SUPPORT) list.addAll(pages);
+            list.add(t);
+        }
+        return list;
+    }
+    /** Where entry id is in rail; the first entry when it isn't there (a package page whose package went). */
+    static int find(java.util.List<TweakInfo> rail, String id) {
+        for (int i = 0; i < rail.size(); i++) if (rail.get(i).id.equals(id)) return i;
+        return 0;
+    }
     private TweakInfo() { this("", "", "", false, false, ""); }
 }
