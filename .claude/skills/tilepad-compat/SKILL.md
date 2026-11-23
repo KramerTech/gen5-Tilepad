@@ -35,7 +35,9 @@ are OEM code: never commit them.
   `automotive-service.odex` are byte-identical (NEEV CA). If `tools/compat/odex_same.py <profiled system>
   <new system> automotive.odex automotive-service.odex` says `build-time only`, the code, optimized data
   and dependencies are identical but the hashes aren't: give it its own pair and the profiled device's
-  timeout and threshold (EV6 CVEV CA). Anything else is a new port, upstream first. For a car no
+  timeout and threshold (EV6 CVEV CA), and if the pair's code hashes (`odex_same.py --code`) are new,
+  add them to `INSPECTED_CODE`. Triage's `Precondition inspected code: yes` with a supported device
+  means it already works without a new profile (build time only). Anything else is a new port, upstream first. For a car no
   profile covers, triage's `battery conditioning reported by the car` line comes first: −1 means the
   car never reported it (no hardware, so no port); Preconditioning starts only at 2.
 - Don't comment on, label or close the GitHub issue unless the user asks.

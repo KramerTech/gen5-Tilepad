@@ -68,6 +68,13 @@ final class PreconditioningProfile {
     static final String IONIQ6_CEEV_US_SOFTWARE = "CEEV.USA.0000.V015.012.260507";
     static final String IONIQ6_CEEV_US_FRAMEWORK_SHA256 = "408b426e14b3f8dfdf1926e608e4f02689e89fc386b7f93a97f261ac5b6e4287";
     static final String IONIQ6_CEEV_US_SERVICE_SHA256 = "afbc60509dd8a8fbac842523bf618424c088685d832a125a84d1d11dc1770bd4";
+    // CEEV US 260903 (US 2025 Ioniq 6 SEL), Tilepad's own, not upstream: a compatibility log
+    // (issue 55) showed automotive.odex and automotive-service.odex identical to NEEV23 US 260903's
+    // in every byte but the source jar's recorded build time (and the ODEX checksum over it), so its
+    // own hash pair. Same device, so the Ioniq 6's two minutes and 20°C.
+    static final String IONIQ6_CEEV_US_260903_SOFTWARE = "CEEV.USA.0000.V016.010.260903";
+    static final String IONIQ6_CEEV_US_260903_FRAMEWORK_SHA256 = "c2d3ae2375ed96f951f4eb4f29f15424d58779c18148a6ab08e491703ea96f2e";
+    static final String IONIQ6_CEEV_US_260903_SERVICE_SHA256 = "c06c9dc292371a7614ff037755b8e62d9fe4afa05141f1f6688f9c37bc722664";
     // NEEV KR 260902 (KR 2022 Ioniq 5 Prestige): own firmware files, captured on 2026-10-30;
     // the five HEV/BCM transactions and the cluster contract match the other profiles.
     static final String IONIQ5_NEEV_KR_DEVICE = "wp_daudioplus_neev_kr";
@@ -138,6 +145,9 @@ final class PreconditioningProfile {
                 && IONIQ5_NEEV23_US_260206_SERVICE_SHA256.equals(serviceHash);
         }
         if (IONIQ6_CEEV_US_DEVICE.equals(device)) {
+            if (IONIQ6_CEEV_US_260903_SOFTWARE.equals(software)
+                && IONIQ6_CEEV_US_260903_FRAMEWORK_SHA256.equals(frameworkHash)
+                && IONIQ6_CEEV_US_260903_SERVICE_SHA256.equals(serviceHash)) return true;
             return IONIQ6_CEEV_US_SOFTWARE.equals(software) && IONIQ6_CEEV_US_FRAMEWORK_SHA256.equals(frameworkHash)
                 && IONIQ6_CEEV_US_SERVICE_SHA256.equals(serviceHash);
         }
@@ -161,6 +171,27 @@ final class PreconditioningProfile {
             && EV6_241120_SERVICE_SHA256.equals(serviceHash)) return true;
         return EV6_SOFTWARE.equals(software) && EV6_FRAMEWORK_SHA256.equals(frameworkHash)
             && EV6_SERVICE_SHA256.equals(serviceHash);
+    }
+    // Tilepad's own, not upstream: the code hashes (OdexCode) of automotive.odex and
+    // automotive-service.odex for the profiled pairs whose files Tilepad has. Each pair stands for
+    // every profile listed beside it, whose files differ only in build time. A supported device whose
+    // two files have one of these pairs runs code already inspected, whatever its build time or
+    // software string, so a rebuild of the same release needs no new hash pair. Its timeout and
+    // warm threshold still come from its device.
+    private static final String[][] INSPECTED_CODE = {
+        // NEEV23 US 260507 and 260206, NEEV CA 260206, CEEV US 260507
+        {"dfa087f331c74439d5cbc77d16a7c5e1415df47bbf289011568f58b2c6604488", "e4f39b5d369e91a9fda806c8b9e8163deb5f5560f3573a262883c406545123ef"},
+        // NEEV US and NEEV23 US 240822
+        {"f16f93a0660f31d82fdca1fefac7a8a83bdd037736bfbd6b466d0fb325e6a615", "aa41efffb450e5bf246f17755ad295e8f5935b5db5b97fc27a37aca4e379303e"},
+        // NEEV23 US and NEEV US 260903, CEEV US 260903
+        {"df3d65166acc742dc8b342d3c3018c267326d481b6ecc4c6736d62414729490a", "ccaeef289a9e8902e547df25d996d8d151ad17bf8cdeea9c0da96ec99421fa6f"},
+        // EV6 US 260507, CVEV CA 260206
+        {"310d2c9b7e1b186ceee08cae38b4720202e9c6e09f2e4a23d4642b6894938dec", "8b6324dc3456327e608811b1387a196fe53ed600af9223c620a0eb001e0f7726"},
+    };
+    static boolean matchesInspectedCode(int sdk, String device, String frameworkCode, String serviceCode) {
+        if (!supportsDevice(sdk, device)) return false;
+        for (String[] pair : INSPECTED_CODE) if (pair[0].equals(frameworkCode) && pair[1].equals(serviceCode)) return true;
+        return false;
     }
     static final long REFRESH_MS = 5000;
     interface Commands {

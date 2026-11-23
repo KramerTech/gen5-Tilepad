@@ -31,8 +31,11 @@ final class OemVehicleClient implements VehiclePort, PreconditioningProfile.Comm
                 Method property = Class.forName("android.os.SystemProperties").getMethod("get", String.class);
                 software = (String) property.invoke(null, "ro.build.product");
             }
-            if (!PreconditioningProfile.matchesFirmware(Build.VERSION.SDK_INT, Build.DEVICE, software,
-                hash("/system/framework/automotive.odex"), hash("/system/framework/automotive-service.odex")))
+            String automotive = "/system/framework/automotive.odex", service = "/system/framework/automotive-service.odex";
+            if (!PreconditioningProfile.matchesFirmware(Build.VERSION.SDK_INT, Build.DEVICE, software, hash(automotive), hash(service))
+                // A rebuild of inspected files, differing only in build time, runs the same code.
+                && !PreconditioningProfile.matchesInspectedCode(Build.VERSION.SDK_INT, Build.DEVICE,
+                    OdexCode.hash(automotive), OdexCode.hash(service)))
                 throw new IllegalStateException("Vehicle interface version differs from the inspected firmware");
             firmwareChecked = true;
         }

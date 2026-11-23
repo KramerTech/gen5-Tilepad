@@ -3,6 +3,7 @@
 
 usage: python3 -I tools/compat/odex_same.py <reference system/> <new system/> [name.odex ...]
        python3 -I tools/compat/odex_same.py <a.odex> <b.odex>
+       python3 -I tools/compat/odex_same.py --code <file.odex> ...
 
 For each ODEX both have (framework/, app/, priv-app/; or only the names given), prints one of:
   identical          the same bytes
@@ -11,8 +12,11 @@ For each ODEX both have (framework/, app/, priv-app/; or only the names given), 
                      ODEX header checksum over it differ, and each file's checksum is valid
   DIFFERS            and which regions do: header, dex, deps, opt
 A build-time-only pair runs the same code against the same dependencies, so a hash pinned for
-one file (a Precondition profile) can be extended to the other with that evidence. Reads only.
+one file (a Precondition profile) can be extended to the other with that evidence. --code prints
+each file's code hash: SHA-256 with those two fields zeroed, the same for every build-time-only
+copy (OdexCode.java computes it on the car). Reads only.
 """
+import hashlib
 import struct
 import sys
 import zlib
@@ -30,6 +34,15 @@ def layout(data):
 def checksum_ok(data, regions, checksum):
     # Dalvik's ODEX checksum is Adler-32 over the dependency table through the end of the optimized data.
     return zlib.adler32(data[regions["deps"][0]:regions["opt"][1]]) & 0xffffffff == checksum
+
+
+def code_hash(data):
+    """SHA-256 with the header checksum and source mtime zeroed; None unless the checksum is valid."""
+    regions, checksum = layout(data)
+    if regions["opt"][1] > len(data) or not checksum_ok(data, regions, checksum):
+        return None
+    deps = regions["deps"][0]
+    return hashlib.sha256(data[:36] + bytes(4) + data[40:deps] + bytes(4) + data[deps + 4:]).hexdigest()
 
 
 def compare(a, b):
@@ -53,6 +66,10 @@ def compare(a, b):
 
 
 def main(args):
+    if args[0] == "--code":
+        for name in args[1:]:
+            print(f"{code_hash(Path(name).read_bytes())}  {name}")
+        return
     first, second = Path(args[0]), Path(args[1])
     if first.is_file():
         print(f"{first.name}: {compare(first.read_bytes(), second.read_bytes())}")

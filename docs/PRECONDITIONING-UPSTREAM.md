@@ -63,10 +63,10 @@ scheduler-specific outside-temperature telemetry was added.
 | EV6 CVEV US | 241120, 251120, 260507 |
 | EV6 CVEV CA | 260206‡ |
 | EV6 CVEV KR | 260902 |
-| IONIQ 6 CEEV US | 260507 |
+| IONIQ 6 CEEV US | 260507, 260903§ |
 
 These are exact software/hash combinations, not support for every model year or
-firmware with the same suffix. †NEEV CA 260206 is also Tilepad's own addition: a compatibility log
+firmware with the same suffix, with one rule of Tilepad's own (below, "Rebuilds of inspected code"). †NEEV CA 260206 is also Tilepad's own addition: a compatibility log
 (issue 21, a Canadian 2024 IONIQ 5, device `wp_daudioplus_neev_ca`, software
 `NEEV.CAN.0000.V015.011.260206`) showed its `automotive.odex` and `automotive-service.odex`
 byte-identical to NEEV23 US 260206's, and no difference in the HEV, BCM or cluster interfaces Tilepad
@@ -80,7 +80,12 @@ the files aren't byte-identical it has its own hash pair, and as the same code i
 five-minute timeout and 20°C threshold. It hasn't been tried on the car. *NEEV23 US 240822 is Tilepad's own addition, not an upstream
 profile: a compatibility log (issue 12) showed its `automotive.odex` and `automotive-service.odex`
 byte-identical to upstream's NEEV US 240822, so it reuses that hash pair, as upstream's NEEV US
-260507 reuses NEEV23 US's. It hasn't been tried on that car. Evidence and field-testing limits are in the
+260507 reuses NEEV23 US's. It hasn't been tried on that car. §CEEV US 260903 is Tilepad's own addition too: a compatibility log
+(issue 55, a US 2025 IONIQ 6 SEL, device `wp_daudioplus_ceev_us`, software
+`CEEV.USA.0000.V016.010.260903`; issue 47 is the same image) showed its `automotive.odex` and
+`automotive-service.odex` identical to NEEV23 US 260903's apart from the build time, as with EV6 CVEV
+CA. It has its own hash pair and, on the IONIQ 6's own device, the IONIQ 6's two minutes and 20°C. It
+hasn't been tried on the car. Evidence and field-testing limits are in the
 [pinned compatibility notes](https://github.com/paytondevs/gen5w-preconditioning/blob/0e366bdaee2768131e00eba1a5333e961ffd879b/COMPATIBILITY.md)
 and [temperature/timeout notes](https://github.com/paytondevs/gen5w-preconditioning/blob/0e366bdaee2768131e00eba1a5333e961ffd879b/TEMPERATURE-AND-TIMEOUT.md).
 The captured `/system/build.prop` contains generic ECOHMC defaults; the live
@@ -88,6 +93,22 @@ runtime properties are authoritative. A read-only check on the existing car
 confirmed `wp_daudioplus_neev23_us` and
 `NEEV23.USA.0000.V015.012.260507`, matching the original framework hash pair.
 Compatibility of other Tilepad tweaks is independent; their gates were not broadened.
+
+## Rebuilds of inspected code
+
+Hyundai and Kia rebuild the same release more than once (the IONIQ 6's own image, a Canadian
+image), and each rebuild changes the vehicle files' hashes without changing their code. So, besides
+the exact pairs, Tilepad accepts a supported device (the table's devices, API 19) whose
+`automotive.odex` and `automotive-service.odex` have the same code hashes as an inspected pair. A
+code hash (`OdexCode.java`, and `tools/compat/odex_same.py --code` on a computer) is the file's
+SHA-256 with two fields zeroed: the ODEX header checksum and the source jar's recorded modification
+time, the only fields a rebuild of identical sources changes. The embedded DEX, the optimized data
+and every dependency's SHA-1 still count, and a file whose checksum doesn't hold has no code hash.
+`PreconditioningProfile.INSPECTED_CODE` lists the four distinct code pairs among the profiles whose
+files Tilepad has: NEEV23 US 260507 (which NEEV23 US 260206, NEEV CA 260206 and CEEV US 260507
+share), NEEV US 240822, NEEV23 US 260903 (shared by CEEV US 260903) and EV6 US 260507 (shared by
+CVEV CA 260206). The software string isn't checked for these, and the device still sets the timeout
+and threshold. A different model, or different code, still needs a profile.
 
 ## Service and UI boundaries
 

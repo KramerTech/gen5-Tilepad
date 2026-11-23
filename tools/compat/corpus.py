@@ -19,6 +19,7 @@ import hashlib
 import io
 import os
 import re
+import shutil
 import subprocess
 import sys
 import zipfile
@@ -115,11 +116,16 @@ def sync():
 
 def gates():
     for path in logs():
+        # The report, plus what triage reads beside it: the HEV dump and the two vehicle ODEX files.
+        folder = CACHE / "triage"
+        shutil.rmtree(folder, ignore_errors=True)
         with zipfile.ZipFile(path) as z:
-            text = z.read("tilepad-compat.txt")
-        scratch = CACHE / "triage.txt"
-        CACHE.mkdir(parents=True, exist_ok=True)
-        scratch.write_bytes(text)
+            for member in ("tilepad-compat.txt", "dumps/com.hkmc.micom.hev.txt",
+                           "system/framework/automotive.odex", "system/framework/automotive-service.odex"):
+                if member in z.namelist():
+                    (folder / member).parent.mkdir(parents=True, exist_ok=True)
+                    (folder / member).write_bytes(z.read(member))
+        scratch = folder / "tilepad-compat.txt"
         out = subprocess.run([sys.executable, "-I", str(ROOT / "tools/compat/triage.py"), str(scratch), str(ROOT)],
                              check=True, capture_output=True, text=True).stdout
         section = out[out.index("[gates]") + 8:out.index("[tweaks]")].rstrip()

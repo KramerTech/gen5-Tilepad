@@ -6,6 +6,7 @@ usage: python3 -I tools/compat/triage.py <tilepad-compat.txt> .   (run from the 
 Prints the unit's identity, each logged hash with what (if anything) in the repo knows it,
 whether each gate would pass, and the tweaks' own unavailable reasons. Reads only.
 """
+import importlib.util
 import re
 import sys
 from pathlib import Path
@@ -87,6 +88,19 @@ software = identity.get("ro.build.product")
 pre = [n for n, v in constants.items() if v == software]
 print(f"  Precondition software constant: {pre or 'NO'}; hashes known there: "
       f"{'yes' if auto in known and any('Precondition' in k for k in known[auto]) else 'NO'}")
+# Precondition also takes a supported device whose vehicle files have an inspected pair's code hashes
+# (OdexCode.java, odex_same.py --code): a rebuild that differs only in build time.
+spec = importlib.util.spec_from_file_location("odex_same", repo / "tools/compat/odex_same.py")
+odex_same = importlib.util.module_from_spec(spec); spec.loader.exec_module(odex_same)
+inspected = re.findall(r'\{"([0-9a-f]{64})", "([0-9a-f]{64})"\}', profile.split("INSPECTED_CODE", 1)[-1].split("};", 1)[0])
+devices = [v for n, v in constants.items() if n.endswith("_DEVICE")]
+vehicle = log.parent / "system/framework"
+if (vehicle / "automotive.odex").is_file() and (vehicle / "automotive-service.odex").is_file():
+    code = tuple(odex_same.code_hash((vehicle / n).read_bytes()) for n in ("automotive.odex", "automotive-service.odex"))
+    print(f"  Precondition inspected code: {'yes' if code in inspected else 'NO'}; "
+          f"device supported: {'yes' if device in devices else 'NO'}")
+else:
+    print("  Precondition inspected code: no vehicle ODEX next to this log")
 # HEVService keeps -1 until the car reports battery conditioning; Preconditioning starts only at 2.
 hev = log.parent / "dumps/com.hkmc.micom.hev.txt"
 cond = re.search(r"(?m)^EV_BATTERYCONDITIONING: (-?\d+)", hev.read_text()) if hev.is_file() else None
