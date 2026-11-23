@@ -145,8 +145,8 @@ public final class TweaksRuntime {
      */
     private void closeSplitScreen() {
         try {
-            if (Platform.integer(SPLIT, SPLIT_INTERFACE, SPLIT_IS_READY) == 0) throw new IOException("the split screen isn't ready");
-            Platform.integer(SPLIT, SPLIT_INTERFACE, SPLIT_REQUEST_ON, 0, 1, 0);
+            if (Platform.integer(SPLIT, SPLIT_INTERFACE, "isReady", SPLIT_IS_READY) == 0) throw new IOException("the split screen isn't ready");
+            Platform.integer(SPLIT, SPLIT_INTERFACE, "requestSplitScreenOn", SPLIT_REQUEST_ON, 0, 1, 0);
         } catch (Exception e) {
             if (++splitTries < 15) { handler.postDelayed(splitOff, 2000); return; }
             Platform.status("split", "Could not turn off the split screen: " + e.getMessage());
@@ -279,9 +279,9 @@ public final class TweaksRuntime {
                             }
                             StringBuilder outcome = new StringBuilder();
                             if (c.checked("driver") && fitted(outcome, "Driver seat", "driver"))
-                                heat(outcome, "Driver seat", "com.hkmc.micom.usm", "com.hkmc.usm.IUSMService", Platform.vehicle().usm.driverHeat, HeaterPolicy.seatRequest(c.number("driverLevel")));
+                                heat(outcome, "Driver seat", "com.hkmc.micom.usm", "com.hkmc.usm.IUSMService", "setFrontSeatHeatDrvStep", Platform.vehicle().usm.driverHeat, HeaterPolicy.seatRequest(c.number("driverLevel")));
                             if (c.checked("wheel") && fitted(outcome, "Steering wheel", "wheel"))
-                                heat(outcome, "Steering wheel", "com.hkmc.vr", "com.hkmc.vr.IVRService", 16, 1);
+                                heat(outcome, "Steering wheel", "com.hkmc.vr", "com.hkmc.vr.IVRService", "set_StrgWhlHeated_Cmd_AVN", 16, 1);
                             heaterOutcome = outcome.toString();
                             // The passenger seat heats only for a buckled front passenger: now, or
                             // whenever they buckle up later in this drive.
@@ -324,7 +324,7 @@ public final class TweaksRuntime {
                         passengerIgnitionSeen = true;
                         if (ClimateController.passengerBuckled()) {
                             StringBuilder outcome = new StringBuilder(heaterOutcome);
-                            heat(outcome, "Passenger seat (front passenger buckled up)", "com.hkmc.micom.usm", "com.hkmc.usm.IUSMService", Platform.vehicle().usm.passengerHeat, HeaterPolicy.seatRequest(c.number("passengerLevel")));
+                            heat(outcome, "Passenger seat (front passenger buckled up)", "com.hkmc.micom.usm", "com.hkmc.usm.IUSMService", "setFrontSeatHeatAstStep", Platform.vehicle().usm.passengerHeat, HeaterPolicy.seatRequest(c.number("passengerLevel")));
                             Platform.status("heaters", outcome.toString().trim());
                             pending.delete(); return;
                         }
@@ -349,12 +349,18 @@ public final class TweaksRuntime {
     }
     /** The car's equipment signal for driver, passenger or wheel: true/false, or null if unreadable. */
     static Boolean fitted(String key) {
-        try { return Platform.integer("com.hkmc.micom.usm", "com.hkmc.usm.IUSMService", HeaterPolicy.fittedTransaction(Platform.vehicle().usm, key)) != 0; }
+        try { return Platform.integer("com.hkmc.micom.usm", "com.hkmc.usm.IUSMService", HeaterPolicy.fittedMethod(key), HeaterPolicy.fittedTransaction(Platform.vehicle().usm, key)) != 0; }
         catch (Exception e) { return null; }
     }
-    private static void heat(StringBuilder out, String label, String service, String descriptor, int code, int value) {
-        try { Platform.command(service, descriptor, code, value); out.append(label).append(": request accepted. "); }
-        catch (Exception e) { out.append(label).append(": failed (may have partially applied): ").append(e.getMessage()).append(". "); }
+    private static void heat(StringBuilder out, String label, String service, String descriptor, String method, int code, int value) {
+        try { Platform.command(service, descriptor, method, code, value); out.append(label).append(": request accepted. "); }
+        catch (Platform.NotSent e) { out.append(label).append(": not sent. ").append(sentence(e.getMessage())); }
+        catch (Exception e) { out.append(label).append(": failed (may have partially applied): ").append(sentence(e.getMessage())); }
+    }
+    /** message as a sentence followed by a space, without doubling its full stop. */
+    private static String sentence(String message) {
+        String m = message == null ? "" : message.trim();
+        return m.isEmpty() ? "" : m + (m.endsWith(".") ? " " : ". ");
     }
     private interface Action { void run() throws Exception; }
     private static void locked(Action action) throws Exception {

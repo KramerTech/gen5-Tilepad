@@ -337,7 +337,12 @@ images:
 `Firmware.java` lists each release's `automotive.odex`/`automotive-service.odex` (vehicle tweaks),
 `framework.odex`/`framework2.odex` (projection) and `HKMC_TAppEV3.apk` (Charge-Away) hashes; a pair
 must come from one image. Interface descriptors and reply shapes are still checked before
-accepting a result. No OEM framework is bundled.
+accepting a result. Before each call, its code is also checked against the code the firmware's own
+interface class gives that method (`Interface$Stub.TRANSACTION_method`, `Transactions.java`): a
+code the firmware gives to another method, or a method the interface no longer has, isn't sent, and
+the call says so and asks for a log (V012's renumbered heater codes are the kind of change this
+catches). Where the interface class isn't on Tilepad's class path, the confirmed code stands;
+`ITM_HSCANService` is read from its own library, `com.hkmc.ext.hcan.jar`. No OEM framework is bundled.
 
 Adding a release from its log: the `tilepad-compat` skill (`.claude/skills/`) runs these steps with
 the scripts in `tools/compat/` (triage, deodex, compare, transaction tables, patch check, and
