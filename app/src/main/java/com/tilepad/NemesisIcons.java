@@ -9,9 +9,7 @@ import android.graphics.drawable.Drawable;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -27,17 +25,6 @@ final class NemesisIcons {
 
     /** Decoded favicons by path and modification time, so an update's new icon shows. */
     private static final Map<String, Bitmap> decoded = new HashMap<>();
-
-    /** What one NEMESIS.data says about icons: its favicon and the Android packages it installs. */
-    static final class Descriptor {
-        final String favicon;
-        final List<String> packages;
-
-        Descriptor(String favicon, List<String> packages) {
-            this.favicon = favicon;
-            this.packages = packages;
-        }
-    }
 
     /** The package's favicon as a drawable, or null when no installed NEMESIS package names one. */
     static Drawable forPackage(Context context, String packageName) {
@@ -57,58 +44,13 @@ final class NemesisIcons {
         for (File dir : dirs) {
             String text = read(new File(dir, "NEMESIS.data"));
             if (text == null) continue;
-            Descriptor d = parse(text);
+            NemesisDescriptor d = NemesisDescriptor.parse(text);
             if (d.favicon == null) continue;
             File file = new File(dir, d.favicon);
             if (!file.isFile() || file.length() > MAX_BYTES) continue;
             for (String pkg : d.packages) byPackage.put(pkg, file);
         }
         return byPackage;
-    }
-
-    static Descriptor parse(String text) {
-        String section = "";
-        String favicon = null, kind = null, pkg = null, component = null;
-        List<String> packages = new ArrayList<>();
-        for (String raw : text.split("\r?\n")) {
-            String line = raw.trim();
-            if (line.isEmpty() || line.startsWith("#") || line.startsWith(";")) continue;
-            if (line.startsWith("[") && line.endsWith("]")) {
-                addApp(section, kind, pkg, component, packages);
-                section = line.substring(1, line.length() - 1).trim();
-                kind = pkg = component = null;
-                continue;
-            }
-            int eq = line.indexOf('=');
-            if (eq < 0) continue;
-            String key = line.substring(0, eq).trim();
-            String value = unquote(line.substring(eq + 1).trim());
-            if (section.equals("nemesis") && key.equals("favicon")) favicon = value;
-            else if (key.equals("kind")) kind = value;
-            else if (key.equals("package")) pkg = value;
-            else if (key.equals("component")) component = value;
-        }
-        addApp(section, kind, pkg, component, packages);
-        // NEMESIS refuses the same paths: the favicon must stay inside the package.
-        if (favicon != null && (favicon.isEmpty() || favicon.startsWith("/")
-            || favicon.contains("..") || favicon.contains("\\"))) favicon = null;
-        return new Descriptor(favicon, packages);
-    }
-
-    private static void addApp(String section, String kind, String pkg, String component, List<String> packages) {
-        if (!section.startsWith("app.") || (kind != null && !kind.equals("apk"))) return;
-        String name = pkg;
-        if ((name == null || name.isEmpty()) && component != null && component.indexOf('/') > 0) {
-            name = component.substring(0, component.indexOf('/'));
-        }
-        if (name != null && !name.isEmpty() && !packages.contains(name)) packages.add(name);
-    }
-
-    private static String unquote(String value) {
-        if (value.length() >= 2 && value.startsWith("\"") && value.endsWith("\"")) {
-            return value.substring(1, value.length() - 1);
-        }
-        return value;
     }
 
     private static synchronized Bitmap decode(File file) {
