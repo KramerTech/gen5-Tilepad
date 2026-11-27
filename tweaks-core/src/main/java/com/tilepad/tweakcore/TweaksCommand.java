@@ -179,7 +179,7 @@ public final class TweaksCommand {
     }
     private static Properties status(Config c, boolean verify) throws Exception {
         Properties out = (Properties) c.values.clone();
-        for (String key : new String[]{"region", "threshold", "driver", "wheel", "passenger", "driverLevel", "passengerLevel", "units", "homeLat", "homeLon"}) out.setProperty(key, c.get(key));
+        for (String key : new String[]{"region", "threshold", "coolLow", "coolMed", "coolHigh", "driver", "wheel", "passenger", "cooling", "driverLevel", "passengerLevel", "units", "homeLat", "homeLon"}) out.setProperty(key, c.get(key));
         String vehicleError = null;
         if (verify) try { Platform.requireVehicle(); } catch (Exception e) { vehicleError = e.getMessage(); }
         for (String id : Config.IDS) {
@@ -202,10 +202,13 @@ public final class TweaksCommand {
             File status = new File(Platform.STATE, "status-" + id);
             if (status.isFile()) out.setProperty("status." + id, new String(Files.read(status), "UTF-8"));
         }
-        // fitted.<heater>: whether the car reports that heater; absent when it can't be read.
+        // fitted.<heater>: whether the car reports that heater; fitted.<seat>Cooling: option == 6. Absent when unreadable.
         if (verify && vehicleError == null) for (String key : new String[]{"driver", "passenger", "wheel"}) {
-            Boolean fitted = TweaksRuntime.fitted(key);
-            if (fitted != null) out.setProperty("fitted." + key, fitted.toString());
+            Integer option = TweaksRuntime.equipmentOption(key);
+            if (option != null) {
+                out.setProperty("fitted." + key, Boolean.toString(HeaterPolicy.isFitted(key, option)));
+                if (!key.equals("wheel")) out.setProperty("fitted." + key + "Cooling", Boolean.toString(HeaterPolicy.isCoolingFitted(key, option)));
+            }
         }
         // report: this firmware's compatibility report already on the USB drive, if anything is unavailable.
         boolean incompatible = false;

@@ -36,6 +36,7 @@ def main():
         names.append(relative[:-5].replace("/", "."))
     subprocess.run(["java", "-cp", str(classes) + os.pathsep + classpath, "org.junit.runner.JUnitCore", *names], check=True, cwd=ROOT)
     subprocess.run([sys.executable, str(ROOT / "tools/tweaks/test_install.py")], check=True, cwd=ROOT)
+    subprocess.run([sys.executable, str(ROOT / "tools/tweaks/test_heater_runtime.py")], check=True, cwd=ROOT)
     subprocess.run([sys.executable, str(ROOT / "tools/tweaks/test_travel_runtime.py")], check=True, cwd=ROOT)
     for fixture in ("test_temperature_binder.py", "test_service_rebind.py"):
         subprocess.run([sys.executable, str(ROOT / "tools/preconditioning" / fixture)], check=True, cwd=ROOT)

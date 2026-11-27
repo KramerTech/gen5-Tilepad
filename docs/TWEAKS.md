@@ -60,7 +60,7 @@ The older heater-only `options` command remains supported for compatibility.
 | --- | --- | --- | --- |
 | Automatic Daylight Saving Time | Synchronizes the OEM DST flag and Date/Time checkbox | US/Canada, Europe, or none | No |
 | Skip Startup Safety Brief | Uses the OEM agreement path instead of building the consent screen at boot; every later request (driver picker, profile password, post-update notice) still opens it | None | Yes |
-| Automatic Heaters | One request to selected heaters each time the car is turned on in the cold; the passenger seat waits for the front passenger's belt (polled once a second until the car is turned off); never continuously overrides manual settings | Threshold, °F/°C, driver/wheel/passenger checkboxes, independent seat levels 1–3 | Next car start |
+| Automatic Heaters | One request to selected heaters each time the car is turned on in the cold, or ventilated seats when warm cooling is enabled; the passenger seat waits for the front passenger's belt (polled once a second until the car is turned off); never continuously overrides manual settings | Heat threshold, optional warm-weather cooling + Low/Medium/High thresholds, °F/°C, driver/wheel/passenger checkboxes, independent seat heating levels 1–3 | Next car start |
 | Swap Steering-Wheel Track Buttons | Reverses keys 34/35; up advances, down goes back | None | Yes |
 | Hide Right-Hand Nav Handle | Forces the stock handle controller's hidden path, and keeps Split Screen off (the handle is its only off switch); shown under the pop-over entry and always on while the pop-over is disabled | None | Yes |
 | Disable Right-Hand Pop-Over | Blocks the shared right-side OSD request path and renderer | None | Yes |
@@ -169,16 +169,16 @@ or a clock dated before 2020 cause a visible error rather than a guessed write.
 Disabling restores the original OEM flag and checkbox where they still match
 Tilepad's last applied state.
 
-The heater threshold is stored in tenths of a degree Celsius. °F/°C is a display
+The heater threshold and optional cooling thresholds (`coolLow`, `coolMed`, `coolHigh`) are stored in tenths of a degree Celsius. °F/°C is a display
 choice; decoded sensor readings retain fractional precision. Both raw and decoded
 DATC fields must be valid. Raw zero, `ff`, `ffff`, absent fields and unreasonable
-temperatures are rejected. Temperature equal to the threshold does not trigger.
-Disabling automation does not switch off heaters that are already running.
+temperatures are rejected. Cold comparison checks `<=` the heating threshold; warm cooling checks `>=` the High, Medium and Low thresholds in order.
+Disabling automation does not switch off heaters or ventilation that are already running.
 
-The verified commands are `IUSMService` 213/214 for driver/passenger seats and
+The verified commands are `IUSMService` 213/214 (`0xd5`/`0xd6` on V015+; `0xd4`/`0xd5` on V012) for driver/passenger seats and
 `IVRService` 16 for the actual steering-wheel actuator. Seat request values are
-6/7/8 for Low/Medium/High, not literal 1/2/3. An accepted Binder request is reported
-as a request; the app does not claim it proves physical heating.
+3/4/5 for cooling Low/Medium/High and 6/7/8 for heating Low/Medium/High, not literal 1/2/3 (2 is off). Per-seat cooling requires the corresponding `FrontSeatHeat_DrvOption` / `FrontSeatHeat_AstOption` getter to report `6` (heated and ventilated). An accepted Binder request is reported
+as a request; the app does not claim it proves physical heating or cooling.
 
 ## Climate tweak details
 
@@ -506,10 +506,10 @@ options are the IONIQ 5's, and the key layout has the track keys at 34/35 and �
 
 Features a trim or model can lack are checked on the car itself:
 
-- Automatic Heaters reads the car's equipment signals before each heater (IUSMService
+- Automatic Heaters reads the car's equipment signals before each heater or ventilator (IUSMService
   `FrontSeatHeat_DrvOption`, `FrontSeatHeat_AstOption`, `SWRC_SteeringwheelHeatingOpt`: 0x245,
   0x246 and 0x241 from V015 on, 0x243, 0x244 and 0x23f on V012 and V014); a heater that reads 0 is skipped and the Tweaks screen
-  says so. An unreadable signal also skips that heater.
+  says so. Seat cooling additionally requires option `6` (heated and ventilated) per seat. An unreadable signal also skips that heater or ventilator.
 - Maintain Climate Sync and Driver Only need dual-zone climate, so they also require a
   `wp_daudioplus_neev*` (IONIQ 5), `wp_daudioplus_cvev*` (EV6) or `wp_daudioplus_ceev*` (IONIQ 6) device until a log shows another
   model's climate.
