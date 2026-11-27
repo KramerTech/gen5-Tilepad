@@ -8,6 +8,7 @@ import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.graphics.drawable.Drawable;
 
+import java.io.File;
 import java.text.Collator;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -60,15 +61,16 @@ final class AppCatalog {
         PackageManager pm = context.getPackageManager();
         String self = context.getPackageName();
         Map<String, Entry> byKey = new LinkedHashMap<>();
+        Map<String, File> favicons = NemesisIcons.faviconsByPackage();
 
         Set<String> launcherKeys = new HashSet<>();
         Intent launcher = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER);
         for (ResolveInfo ri : pm.queryIntentActivities(launcher, 0)) {
-            Entry e = entry(pm, ri, self, byKey);
+            Entry e = entry(context, pm, ri, self, favicons, byKey);
             if (e != null) launcherKeys.add(e.key);
         }
         for (ResolveInfo ri : pm.queryIntentActivities(new Intent(Intent.ACTION_MAIN), 0)) {
-            entry(pm, ri, self, byKey);
+            entry(context, pm, ri, self, favicons, byKey);
         }
 
         List<Entry> all = new ArrayList<>(byKey.values());
@@ -83,7 +85,8 @@ final class AppCatalog {
         return catalog;
     }
 
-    private static Entry entry(PackageManager pm, ResolveInfo ri, String self, Map<String, Entry> byKey) {
+    private static Entry entry(Context context, PackageManager pm, ResolveInfo ri, String self,
+                               Map<String, File> favicons, Map<String, Entry> byKey) {
         ActivityInfo ai = ri.activityInfo;
         if (ai == null || self.equals(ai.packageName)) return null;
         // Non-exported activities would throw SecurityException when we start them.
@@ -93,7 +96,9 @@ final class AppCatalog {
         Entry existing = byKey.get(key);
         if (existing != null) return existing;
         CharSequence label = ri.loadLabel(pm);
-        Drawable icon = ri.loadIcon(pm);
+        // No icon in the APK: the NEMESIS package's favicon, before Android's generic robot.
+        Drawable icon = ri.getIconResource() == 0 ? NemesisIcons.drawable(context, favicons.get(ai.packageName)) : null;
+        if (icon == null) icon = ri.loadIcon(pm);
         boolean permitted = ai.permission == null
             || pm.checkPermission(ai.permission, self) == PackageManager.PERMISSION_GRANTED;
         String text = label == null ? "" : label.toString().trim();

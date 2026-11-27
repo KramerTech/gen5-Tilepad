@@ -51,7 +51,8 @@ is the one set to HOME); the same goes for its action.
   CarPlay and Android Auto are off.
 - **Nemesis Manager** shortcut.
 - **Reboot Head Unit**, which asks you to confirm first.
-- **Shortcuts** to any screen, including Hyundai and system screens that have no icon.
+- **Shortcuts** to any screen, including Hyundai and system screens that have no icon. An app
+  whose APK has no icon of its own shows its NEMESIS package's icon, as NEMESIS Manager does.
 - **Rearrange, rename and remove** tiles with a long press.
 
 Some tiles only appear if the car has the hardware for them. On a gas car there is no Precondition

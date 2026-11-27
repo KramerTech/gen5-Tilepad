@@ -414,8 +414,14 @@ public final class MainActivity extends Activity implements TileGrid.Listener, T
     }
 
     private Drawable shortcutIcon(TileSpec spec) {
-        try { return getPackageManager().getActivityIcon(componentOf(spec)); }
-        catch (Exception e) { return null; }
+        try {
+            ComponentName component = componentOf(spec);
+            if (getPackageManager().getActivityInfo(component, 0).getIconResource() == 0) {
+                Drawable favicon = NemesisIcons.forPackage(this, component.getPackageName());
+                if (favicon != null) return favicon;
+            }
+            return getPackageManager().getActivityIcon(component);
+        } catch (Exception e) { return null; }
     }
 
     private void saveTiles() {
